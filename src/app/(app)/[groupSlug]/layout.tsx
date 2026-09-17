@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getGroupBySlug } from "@/lib/groups";
 import { signOut } from "@/app/login/actions";
+import { AppShell } from "./AppShell";
 
 export default async function GroupLayout({
   children,
@@ -30,19 +31,8 @@ export default async function GroupLayout({
   }
 
   return (
-    <div className="flex flex-1 flex-col">
-      <header className="flex items-center justify-between border-b border-zinc-200 px-4 py-3">
-        <span className="font-mono text-sm text-zinc-500">{group.name}</span>
-        <form action={signOut}>
-          <button
-            type="submit"
-            className="text-sm text-zinc-500 underline underline-offset-4"
-          >
-            Sign out
-          </button>
-        </form>
-      </header>
+    <AppShell groupSlug={groupSlug} groupName={group.name} signOutAction={signOut}>
       {children}
-    </div>
+    </AppShell>
   );
 }

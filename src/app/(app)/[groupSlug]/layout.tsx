@@ -4,6 +4,13 @@ import { getGroupBySlug } from "@/lib/groups";
 import { signOut } from "@/app/login/actions";
 import { AppShell } from "./AppShell";
 
+// This is a live shared booking system — every page under a group
+// must always reflect the current database state. Without this,
+// Next.js's data cache can serve a stale render of a page (dashboard,
+// calendar, reports) even right after revalidatePath() runs from a
+// different route segment's server action.
+export const dynamic = "force-dynamic";
+
 export default async function GroupLayout({
   children,
   params,

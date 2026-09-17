@@ -44,11 +44,12 @@ export default async function CalendarPage({
   searchParams,
 }: {
   params: Promise<{ groupSlug: string }>;
-  searchParams: Promise<{ view?: string; month?: string }>;
+  searchParams: Promise<{ view?: string; month?: string; start?: string }>;
 }) {
   const { groupSlug } = await params;
-  const { view, month } = await searchParams;
+  const { view, month, start } = await searchParams;
   const isMonthView = view === "month";
+  const validStart = start && /^\d{4}-\d{2}-\d{2}$/.test(start) ? start : null;
 
   const supabase = await createClient();
   const group = await getGroupBySlug(supabase, groupSlug);
@@ -63,6 +64,13 @@ export default async function CalendarPage({
 
   const today = new Date();
   const { year, monthIndex } = parseMonthParam(month);
+  // Anchors the List view's rolling window — "today" by default, or a
+  // specific date when arriving from a Month-view day click, so List
+  // can reach dates further out than the default 14-day-from-today
+  // window (e.g. booking something next month).
+  const listAnchor = validStart
+    ? londonWallTimeToUtc(validStart, "00:00")
+    : today;
 
   let rangeStart: Date;
   let rangeEnd: Date;
@@ -78,8 +86,8 @@ export default async function CalendarPage({
       "00:00",
     );
   } else {
-    rangeStart = today;
-    rangeEnd = new Date(today.getTime() + DAYS_AHEAD * 86_400_000);
+    rangeStart = listAnchor;
+    rangeEnd = new Date(listAnchor.getTime() + DAYS_AHEAD * 86_400_000);
   }
 
   const [{ data: members }, { data: bookings }] = await Promise.all([
@@ -169,7 +177,7 @@ export default async function CalendarPage({
           groupId={group.id}
           days={Array.from(
             { length: DAYS_AHEAD },
-            (_, i) => new Date(today.getTime() + i * 86_400_000),
+            (_, i) => new Date(listAnchor.getTime() + i * 86_400_000),
           )}
           bookingsByDay={bookingsByDay}
           memberIndex={memberIndex}

@@ -93,9 +93,10 @@ export function MonthGrid({
           const dayBookings = bookingsByDay.get(dateKey) ?? [];
 
           return (
-            <div
+            <Link
               key={dateKey}
-              className="flex min-h-16 flex-col gap-1 rounded-md border border-zinc-200 bg-white p-1"
+              href={`/${groupSlug}/calendar?start=${dateKey}`}
+              className="flex min-h-16 flex-col gap-1 rounded-md border border-zinc-200 bg-white p-1 hover:border-zinc-400"
             >
               <span className="font-mono text-xs text-zinc-500">{day}</span>
               <div className="flex flex-wrap gap-0.5">
@@ -106,7 +107,7 @@ export function MonthGrid({
                   />
                 ))}
               </div>
-            </div>
+            </Link>
           );
         })}
       </div>

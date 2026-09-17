@@ -6,6 +6,7 @@ import {
   londonDateKey,
   londonWallTimeToUtc,
   addLondonCalendarDays,
+  bookingDayKeys,
 } from "@/lib/datetime";
 import { ListView } from "./ListView";
 import { MonthGrid } from "./MonthGrid";
@@ -118,12 +119,16 @@ export default async function CalendarPage({
     memberList.find((m) => m.user_id === userId)?.display_name ?? "Member";
   const myRole = memberList.find((m) => m.user_id === user?.id)?.role;
 
+  // A multi-day booking is bucketed under every day it spans, not
+  // just its start day, so it shows up (and blocks the aircraft
+  // visually) on all of them.
   const bookingsByDay = new Map<string, BookingRow[]>();
   for (const booking of bookings ?? []) {
-    const key = londonDateKey(new Date(booking.starts_at));
-    const list = bookingsByDay.get(key) ?? [];
-    list.push(booking);
-    bookingsByDay.set(key, list);
+    for (const key of bookingDayKeys(booking.starts_at, booking.ends_at)) {
+      const list = bookingsByDay.get(key) ?? [];
+      list.push(booking);
+      bookingsByDay.set(key, list);
+    }
   }
 
   return (

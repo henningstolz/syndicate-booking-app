@@ -47,6 +47,25 @@ export function ListView({
               const colorIndex = memberIndex.get(booking.member_id) ?? 0;
               const canCancel =
                 booking.member_id === user?.id || myRole === "admin";
+              // A multi-day booking is bucketed under every day it
+              // spans — only its actual start day gets the full strip
+              // (time, note, Cancel); later days just show it's still
+              // blocked, so Cancel isn't duplicated across days.
+              const startsToday = londonDateKey(new Date(booking.starts_at)) === key;
+
+              if (!startsToday) {
+                return (
+                  <div
+                    key={booking.id}
+                    className={`flex items-center gap-2 rounded-lg border-l-4 bg-zinc-50 px-3 py-1.5 ${memberColor(colorIndex).border}`}
+                  >
+                    <span className="text-xs text-zinc-500">
+                      {memberName(booking.member_id)} — continues
+                      {booking.note ? ` · ${booking.note}` : ""}
+                    </span>
+                  </div>
+                );
+              }
 
               return (
                 <div

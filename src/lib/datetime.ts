@@ -72,3 +72,24 @@ export function addLondonCalendarDays(date: Date, days: number): Date {
   const [year, month, day] = londonDateKey(date).split("-").map(Number);
   return new Date(Date.UTC(year, month - 1, day + days));
 }
+
+// Every calendar date a booking spans (inclusive), so a multi-day
+// booking can be shown on each day it blocks the aircraft for, not
+// just the day it starts.
+export function bookingDayKeys(startsAt: string, endsAt: string): string[] {
+  const [sy, sm, sd] = londonDateKey(new Date(startsAt)).split("-").map(Number);
+  const [ey, em, ed] = londonDateKey(new Date(endsAt)).split("-").map(Number);
+  const end = Date.UTC(ey, em - 1, ed);
+
+  const keys: string[] = [];
+  let cursor = Date.UTC(sy, sm - 1, sd);
+  while (cursor <= end) {
+    keys.push(londonDateKey(new Date(cursor)));
+    cursor = Date.UTC(
+      new Date(cursor).getUTCFullYear(),
+      new Date(cursor).getUTCMonth(),
+      new Date(cursor).getUTCDate() + 1,
+    );
+  }
+  return keys;
+}

@@ -2,7 +2,11 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getGroupBySlug } from "@/lib/groups";
 import { memberColor } from "@/lib/member-colors";
-import { londonDateKey, londonWallTimeToUtc } from "@/lib/datetime";
+import {
+  londonDateKey,
+  londonWallTimeToUtc,
+  addLondonCalendarDays,
+} from "@/lib/datetime";
 import { ListView } from "./ListView";
 import { MonthGrid } from "./MonthGrid";
 
@@ -87,7 +91,7 @@ export default async function CalendarPage({
     );
   } else {
     rangeStart = listAnchor;
-    rangeEnd = new Date(listAnchor.getTime() + DAYS_AHEAD * 86_400_000);
+    rangeEnd = addLondonCalendarDays(listAnchor, DAYS_AHEAD);
   }
 
   const [{ data: members }, { data: bookings }] = await Promise.all([
@@ -175,9 +179,8 @@ export default async function CalendarPage({
         <ListView
           groupSlug={groupSlug}
           groupId={group.id}
-          days={Array.from(
-            { length: DAYS_AHEAD },
-            (_, i) => new Date(listAnchor.getTime() + i * 86_400_000),
+          days={Array.from({ length: DAYS_AHEAD }, (_, i) =>
+            addLondonCalendarDays(listAnchor, i),
           )}
           bookingsByDay={bookingsByDay}
           memberIndex={memberIndex}

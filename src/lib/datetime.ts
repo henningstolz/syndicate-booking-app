@@ -62,3 +62,13 @@ export function londonWallTimeToUtc(dateStr: string, timeStr: string): Date {
   const offsetMinutes = londonOffsetMinutes(guess);
   return new Date(guess.getTime() - offsetMinutes * 60_000);
 }
+
+// Adds calendar days to a date, by the London calendar, safely across
+// the GMT/BST switch. A plain `date.getTime() + n * 86_400_000` breaks
+// on the day clocks change (25 real hours going into GMT, 23 going
+// into BST) — e.g. stepping 24h at a time through the day clocks fall
+// back renders the same calendar date twice and skips the next one.
+export function addLondonCalendarDays(date: Date, days: number): Date {
+  const [year, month, day] = londonDateKey(date).split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day + days));
+}

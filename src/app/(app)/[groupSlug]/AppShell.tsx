@@ -86,16 +86,16 @@ export function AppShell({
 
         {navOpen && (
           <div className="fixed inset-0 z-50 flex md:hidden">
-            <div
-              className="flex-1 bg-black/30"
-              onClick={() => setNavOpen(false)}
-            />
             <nav className="flex w-56 flex-col gap-1 bg-white p-4 shadow-lg">
               <NavLinks
                 groupSlug={groupSlug}
                 onNavigate={() => setNavOpen(false)}
               />
             </nav>
+            <div
+              className="flex-1 bg-black/30"
+              onClick={() => setNavOpen(false)}
+            />
           </div>
         )}
 

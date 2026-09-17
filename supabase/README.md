@@ -6,6 +6,9 @@ paste a file's contents, run it — in order, once each.
 
 1. `0001_init_schema.sql` — tables, indexes, and row-level security
 2. `0002_seed_group.sql` — the real G-BBFD group row
+3. `0003_add_member_display_name.sql` — adds `group_members.display_name`
+   (run once; if you added yourself before this existed, also run:
+   `update public.group_members set display_name = 'Henning' where display_name is null;`)
 
 ## Adding a member to a group
 
@@ -16,12 +19,12 @@ in advance, since the user has to sign up first (creating their row in
 Once someone has signed up:
 
 1. Dashboard → **Authentication → Users**, find them, copy their `User UID`
-2. Dashboard → **SQL Editor**, run (swap in the real UID, and `'admin'` only
-   for Henning):
+2. Dashboard → **SQL Editor**, run (swap in the real UID and name, and
+   `'admin'` only for Henning):
 
    ```sql
-   insert into public.group_members (group_id, user_id, role)
-   select id, '<their-user-uid>', 'member'
+   insert into public.group_members (group_id, user_id, role, display_name)
+   select id, '<their-user-uid>', 'member', '<their-name>'
    from public.groups
    where slug = 'g-bbfd';
    ```

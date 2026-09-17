@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getGroupBySlug } from "@/lib/groups";
 import { signOut } from "@/app/login/actions";
 
 export default async function GroupLayout({
@@ -22,11 +23,7 @@ export default async function GroupLayout({
   // RLS on `groups` only returns a row if the signed-in user belongs to
   // it, so a null result here covers both "no such group" and "signed
   // in but not a member of this one" — either way, send them onward.
-  const { data: group } = await supabase
-    .from("groups")
-    .select("name")
-    .eq("slug", groupSlug)
-    .maybeSingle();
+  const group = await getGroupBySlug(supabase, groupSlug);
 
   if (!group) {
     redirect("/pending");

@@ -25,3 +25,40 @@ export function formatTime(iso: string) {
     hour12: false,
   }).format(new Date(iso));
 }
+
+function londonOffsetMinutes(utcGuess: Date): number {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: LONDON_TZ,
+      hour12: false,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    })
+      .formatToParts(utcGuess)
+      .map((p) => [p.type, p.value]),
+  );
+  const asUtc = Date.UTC(
+    Number(parts.year),
+    Number(parts.month) - 1,
+    Number(parts.day),
+    Number(parts.hour) % 24,
+    Number(parts.minute),
+    Number(parts.second),
+  );
+  return (asUtc - utcGuess.getTime()) / 60_000;
+}
+
+// Bookings are entered as plain "wall clock in the UK" (a date picker
+// plus a time, with no timezone attached) regardless of what timezone
+// the server process itself runs in (Vercel defaults to UTC) — this
+// converts that wall-clock time to the correct UTC instant, handling
+// the GMT/BST switch rather than assuming a fixed offset.
+export function londonWallTimeToUtc(dateStr: string, timeStr: string): Date {
+  const guess = new Date(`${dateStr}T${timeStr}:00Z`);
+  const offsetMinutes = londonOffsetMinutes(guess);
+  return new Date(guess.getTime() - offsetMinutes * 60_000);
+}

@@ -1,9 +1,10 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getGroupBySlug } from "@/lib/groups";
 import { memberColor } from "@/lib/member-colors";
-import { londonDateKey, formatDayHeading, formatTime } from "@/lib/datetime";
-import { BookingForm } from "./BookingForm";
-import { cancelBooking } from "./actions";
+import { londonDateKey, londonWallTimeToUtc } from "@/lib/datetime";
+import { ListView } from "./ListView";
+import { MonthGrid } from "./MonthGrid";
 
 const DAYS_AHEAD = 14;
 
@@ -21,14 +22,35 @@ type BookingRow = {
   note: string | null;
 };
 
+function pad(n: number) {
+  return String(n).padStart(2, "0");
+}
+
+function currentLondonYearMonth() {
+  const [year, month] = londonDateKey(new Date()).split("-").map(Number);
+  return { year, monthIndex: month - 1 };
+}
+
+function parseMonthParam(month: string | undefined) {
+  if (month && /^\d{4}-\d{2}$/.test(month)) {
+    const [year, m] = month.split("-").map(Number);
+    return { year, monthIndex: m - 1 };
+  }
+  return currentLondonYearMonth();
+}
+
 export default async function CalendarPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ groupSlug: string }>;
+  searchParams: Promise<{ view?: string; month?: string }>;
 }) {
   const { groupSlug } = await params;
-  const supabase = await createClient();
+  const { view, month } = await searchParams;
+  const isMonthView = view === "month";
 
+  const supabase = await createClient();
   const group = await getGroupBySlug(supabase, groupSlug);
   if (!group) {
     // The layout already redirects before we get here.
@@ -40,7 +62,25 @@ export default async function CalendarPage({
   } = await supabase.auth.getUser();
 
   const today = new Date();
-  const windowEnd = new Date(today.getTime() + DAYS_AHEAD * 86_400_000);
+  const { year, monthIndex } = parseMonthParam(month);
+
+  let rangeStart: Date;
+  let rangeEnd: Date;
+  if (isMonthView) {
+    rangeStart = londonWallTimeToUtc(
+      `${year}-${pad(monthIndex + 1)}-01`,
+      "00:00",
+    );
+    const nextMonthIndex = monthIndex + 1;
+    const nextYear = year + Math.floor(nextMonthIndex / 12);
+    rangeEnd = londonWallTimeToUtc(
+      `${nextYear}-${pad((nextMonthIndex % 12) + 1)}-01`,
+      "00:00",
+    );
+  } else {
+    rangeStart = today;
+    rangeEnd = new Date(today.getTime() + DAYS_AHEAD * 86_400_000);
+  }
 
   const [{ data: members }, { data: bookings }] = await Promise.all([
     supabase
@@ -54,8 +94,8 @@ export default async function CalendarPage({
       .select("id, member_id, starts_at, ends_at, note")
       .eq("group_id", group.id)
       .eq("status", "confirmed")
-      .gte("ends_at", today.toISOString())
-      .lt("starts_at", windowEnd.toISOString())
+      .gte("ends_at", rangeStart.toISOString())
+      .lt("starts_at", rangeEnd.toISOString())
       .order("starts_at")
       .returns<BookingRow[]>(),
   ]);
@@ -74,91 +114,70 @@ export default async function CalendarPage({
     bookingsByDay.set(key, list);
   }
 
-  const days = Array.from(
-    { length: DAYS_AHEAD },
-    (_, i) => new Date(today.getTime() + i * 86_400_000),
-  );
-
   return (
     <main className="flex flex-1 flex-col gap-6 px-4 py-6">
-      <section className="flex flex-wrap gap-x-4 gap-y-2">
-        {memberList.map((member, i) => (
-          <div
-            key={member.user_id}
-            className="flex items-center gap-1.5 text-sm text-zinc-600"
-          >
-            <span
-              className={`h-2.5 w-2.5 rounded-full ${memberColor(i).dot}`}
-            />
-            {member.display_name ?? "Member"}
-          </div>
-        ))}
-      </section>
-
-      <div className="flex flex-col gap-4">
-        {days.map((day) => {
-          const key = londonDateKey(day);
-          const dayBookings = bookingsByDay.get(key) ?? [];
-
-          return (
-            <section key={key} className="flex flex-col gap-2">
-              <h2 className="font-mono text-xs tracking-wide text-zinc-500 uppercase">
-                {formatDayHeading(day)}
-              </h2>
-
-              {dayBookings.map((booking) => {
-                const colorIndex = memberIndex.get(booking.member_id) ?? 0;
-                const canCancel =
-                  booking.member_id === user?.id || myRole === "admin";
-
-                return (
-                  <div
-                    key={booking.id}
-                    className={`flex items-center justify-between gap-3 rounded-lg border-l-4 bg-white px-3 py-2 shadow-sm ${memberColor(colorIndex).border}`}
-                  >
-                    <div className="flex flex-col">
-                      <span className="font-mono text-sm text-zinc-900">
-                        {formatTime(booking.starts_at)}–
-                        {formatTime(booking.ends_at)}
-                      </span>
-                      <span className="text-sm text-zinc-600">
-                        {memberName(booking.member_id)}
-                        {booking.note ? ` · ${booking.note}` : ""}
-                      </span>
-                    </div>
-                    {canCancel && (
-                      <form action={cancelBooking}>
-                        <input
-                          type="hidden"
-                          name="bookingId"
-                          value={booking.id}
-                        />
-                        <input
-                          type="hidden"
-                          name="groupSlug"
-                          value={groupSlug}
-                        />
-                        <button
-                          type="submit"
-                          className="text-xs text-zinc-400 underline underline-offset-4 hover:text-red-600"
-                        >
-                          Cancel
-                        </button>
-                      </form>
-                    )}
-                  </div>
-                );
-              })}
-
-              <BookingForm
-                groupId={group.id}
-                groupSlug={groupSlug}
-                defaultDate={key}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <section className="flex flex-wrap gap-x-4 gap-y-2">
+          {memberList.map((member, i) => (
+            <div
+              key={member.user_id}
+              className="flex items-center gap-1.5 text-sm text-zinc-600"
+            >
+              <span
+                className={`h-2.5 w-2.5 rounded-full ${memberColor(i).dot}`}
               />
-            </section>
-          );
-        })}
+              {member.display_name ?? "Member"}
+            </div>
+          ))}
+        </section>
+
+        <div className="flex gap-2">
+          <Link
+            href={`/${groupSlug}/calendar`}
+            className={`rounded-full px-4 py-1.5 text-sm font-medium ${
+              !isMonthView
+                ? "bg-zinc-900 text-white"
+                : "border border-zinc-300 text-zinc-600"
+            }`}
+          >
+            List
+          </Link>
+          <Link
+            href={`/${groupSlug}/calendar?view=month`}
+            className={`rounded-full px-4 py-1.5 text-sm font-medium ${
+              isMonthView
+                ? "bg-zinc-900 text-white"
+                : "border border-zinc-300 text-zinc-600"
+            }`}
+          >
+            Month
+          </Link>
+        </div>
       </div>
+
+      {isMonthView ? (
+        <MonthGrid
+          groupSlug={groupSlug}
+          year={year}
+          monthIndex={monthIndex}
+          bookingsByDay={bookingsByDay}
+          memberIndex={memberIndex}
+        />
+      ) : (
+        <ListView
+          groupSlug={groupSlug}
+          groupId={group.id}
+          days={Array.from(
+            { length: DAYS_AHEAD },
+            (_, i) => new Date(today.getTime() + i * 86_400_000),
+          )}
+          bookingsByDay={bookingsByDay}
+          memberIndex={memberIndex}
+          memberName={memberName}
+          user={user}
+          myRole={myRole}
+        />
+      )}
     </main>
   );
 }

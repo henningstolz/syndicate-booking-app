@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 const NAV_ITEMS = [
   { path: "", label: "Dashboard" },
   { path: "/calendar", label: "Calendar" },
+  { path: "/reports", label: "Reports" },
 ];
 
 function NavLinks({

@@ -25,3 +25,18 @@ Once someone has signed up:
    from public.groups
    where slug = 'g-bbfd';
    ```
+
+## One-time auth email template change
+
+Supabase's default "Confirm signup" email links straight to Supabase's own
+server, which doesn't leave our app holding a session. Dashboard →
+**Authentication → Email Templates → Confirm signup**, replace the link's
+href with:
+
+```
+{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=signup&next=/login
+```
+
+That points at [`src/app/auth/confirm/route.ts`](../src/app/auth/confirm/route.ts),
+which verifies the token and sets the session cookies itself. Without this
+change, clicking the confirmation email link won't sign the user in.

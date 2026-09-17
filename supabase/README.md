@@ -26,17 +26,17 @@ Once someone has signed up:
    where slug = 'g-bbfd';
    ```
 
-## One-time auth email template change
+## Confirmation emails
 
-Supabase's default "Confirm signup" email links straight to Supabase's own
-server, which doesn't leave our app holding a session. Dashboard →
-**Authentication → Email Templates → Confirm signup**, replace the link's
-href with:
+Editing Supabase's email templates requires custom SMTP to be configured,
+which we're not doing — so we use the **default, unmodified** "Confirm
+signup" email as-is. It links through Supabase's own verify endpoint, which
+then redirects to the `emailRedirectTo` URL we pass at sign-up
+(`/auth/callback`) with a `?code=` parameter.
+[`src/app/auth/callback/route.ts`](../src/app/auth/callback/route.ts)
+exchanges that code for a session and sets the cookies.
 
-```
-{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=signup&next=/login
-```
-
-That points at [`src/app/auth/confirm/route.ts`](../src/app/auth/confirm/route.ts),
-which verifies the token and sets the session cookies itself. Without this
-change, clicking the confirmation email link won't sign the user in.
+One thing worth checking if confirmation links don't work: Dashboard →
+**Authentication → URL Configuration → Redirect URLs** needs to include
+`http://localhost:3000/**` (and later, the production URL) — Supabase
+rejects `emailRedirectTo` values that aren't on this allow-list.

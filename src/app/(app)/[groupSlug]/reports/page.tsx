@@ -2,7 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getGroupBySlug } from "@/lib/groups";
 import { memberColor } from "@/lib/member-colors";
-import { formatDayHeading, formatTime } from "@/lib/datetime";
+import { londonDateKey, formatDayHeading, formatTime } from "@/lib/datetime";
 
 type MemberRow = { user_id: string; display_name: string | null };
 
@@ -94,13 +94,19 @@ export default async function ReportsPage({
         <div className="flex flex-col gap-2">
           {bookings.map((booking) => {
             const colorIndex = memberIndex.get(booking.member_id) ?? 0;
+            const startDay = new Date(booking.starts_at);
+            const endDay = new Date(booking.ends_at);
+            const spansMultipleDays =
+              londonDateKey(startDay) !== londonDateKey(endDay);
+
             return (
               <div
                 key={booking.id}
                 className={`flex flex-col gap-0.5 rounded-lg border-l-4 bg-white px-3 py-2 shadow-sm ${memberColor(colorIndex).border}`}
               >
                 <span className="font-mono text-xs text-zinc-500">
-                  {formatDayHeading(new Date(booking.starts_at))}
+                  {formatDayHeading(startDay)}
+                  {spansMultipleDays && ` – ${formatDayHeading(endDay)}`}
                 </span>
                 <span className="font-mono text-sm text-zinc-900">
                   {formatTime(booking.starts_at)}–

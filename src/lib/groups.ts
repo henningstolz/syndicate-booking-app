@@ -6,7 +6,9 @@ export async function getGroupBySlug(
 ) {
   const { data } = await supabase
     .from("groups")
-    .select("id, name, aircraft_registration, aircraft_type, home_base")
+    .select(
+      "id, name, aircraft_registration, aircraft_type, home_base, annual_renewal_due, insurance_renewal_due, next_check_due, hours_to_next_check",
+    )
     .eq("slug", slug)
     .maybeSingle();
 

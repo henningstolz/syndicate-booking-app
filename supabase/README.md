@@ -10,6 +10,8 @@ paste a file's contents, run it — in order, once each.
    (run once; if you added yourself before this existed, also run:
    `update public.group_members set display_name = 'Henning' where display_name is null;`)
 4. `0004_add_squawks.sql` — the shared message board (`squawks` table)
+5. `0005_add_aircraft_status.sql` — renewal/check status fields on `groups`,
+   editable by admins (the Notifications page)
 
 ## Adding a member to a group
 

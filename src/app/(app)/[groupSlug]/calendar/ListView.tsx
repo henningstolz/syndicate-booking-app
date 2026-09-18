@@ -1,5 +1,11 @@
 import type { User } from "@supabase/supabase-js";
-import { londonDateKey, formatDayHeading, formatTime } from "@/lib/datetime";
+import {
+  londonDateKey,
+  londonWallTimeToUtc,
+  formatDayHeading,
+  formatTime,
+} from "@/lib/datetime";
+import { FULL_DAY_START, FULL_DAY_END } from "@/lib/booking-durations";
 import { memberColor } from "@/lib/member-colors";
 import { BookingForm } from "./BookingForm";
 import { cancelBooking } from "./actions";
@@ -36,12 +42,17 @@ export function ListView({
       {days.map((day) => {
         const key = londonDateKey(day);
         const dayBookings = bookingsByDay.get(key) ?? [];
-        // A day fully occupied by a booking continuing from an
-        // earlier start has no room for a new one — offering "+ Book"
-        // there would just lead to a clash error every time.
-        const isFullyBooked = dayBookings.some(
-          (b) => londonDateKey(new Date(b.starts_at)) !== key,
-        );
+        // A day is fully booked once something already covers the
+        // standard flying window (Full day, or a multi-day booking
+        // passing through) — offering "+ Book" then would just lead
+        // to a clash error every time.
+        const dayWindowStart = londonWallTimeToUtc(key, FULL_DAY_START).getTime();
+        const dayWindowEnd = londonWallTimeToUtc(key, FULL_DAY_END).getTime();
+        const isFullyBooked = dayBookings.some((b) => {
+          const start = new Date(b.starts_at).getTime();
+          const end = new Date(b.ends_at).getTime();
+          return start <= dayWindowStart && end >= dayWindowEnd;
+        });
 
         return (
           <section key={key} className="flex flex-col gap-2">

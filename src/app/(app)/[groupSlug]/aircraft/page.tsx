@@ -1,28 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { getGroupBySlug } from "@/lib/groups";
 import { LONDON_TZ } from "@/lib/datetime";
-import { NotificationsForm } from "./NotificationsForm";
-
-const DUE_SOON_DAYS = 30;
-const HOURS_DUE_SOON = 10;
-
-type Status = "overdue" | "soon" | "ok" | "unset";
-
-function dateStatus(dateStr: string | null): Status {
-  if (!dateStr) return "unset";
-  const daysUntil =
-    (new Date(`${dateStr}T00:00:00Z`).getTime() - Date.now()) / 86_400_000;
-  if (daysUntil < 0) return "overdue";
-  if (daysUntil <= DUE_SOON_DAYS) return "soon";
-  return "ok";
-}
-
-function hoursStatus(hours: number | null): Status {
-  if (hours === null) return "unset";
-  if (hours <= 0) return "overdue";
-  if (hours <= HOURS_DUE_SOON) return "soon";
-  return "ok";
-}
+import { dateStatus, hoursStatus, type Status } from "@/lib/aircraft-status";
+import { AircraftForm } from "./AircraftForm";
 
 const STATUS_STYLES: Record<Status, string> = {
   overdue: "border-red-300 bg-red-50 text-red-700",
@@ -76,7 +56,7 @@ function StatusRow({
   );
 }
 
-export default async function NotificationsPage({
+export default async function AircraftPage({
   params,
 }: {
   params: Promise<{ groupSlug: string }>;
@@ -133,7 +113,7 @@ export default async function NotificationsPage({
       </div>
 
       {isAdmin && (
-        <NotificationsForm
+        <AircraftForm
           groupId={group.id}
           groupSlug={groupSlug}
           initial={{

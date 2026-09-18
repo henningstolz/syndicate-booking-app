@@ -8,7 +8,7 @@ const initialState: StatusActionState = {};
 const inputClass =
   "rounded-md border border-zinc-300 px-2 py-1.5 text-sm text-zinc-900";
 
-export function NotificationsForm({
+export function AircraftForm({
   groupId,
   groupSlug,
   initial,

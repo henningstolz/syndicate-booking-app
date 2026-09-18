@@ -47,6 +47,7 @@ export async function updateAircraftStatus(
     return { error: error.message };
   }
 
-  revalidatePath(`/${groupSlug}/notifications`);
+  revalidatePath(`/${groupSlug}/aircraft`);
+  revalidatePath(`/${groupSlug}`);
   return { success: true };
 }

@@ -9,7 +9,7 @@ const NAV_ITEMS = [
   { path: "/calendar", label: "Calendar" },
   { path: "/squawks", label: "Squawks" },
   { path: "/reports", label: "Reports" },
-  { path: "/notifications", label: "Notifications" },
+  { path: "/aircraft", label: "Aircraft" },
 ];
 
 function NavLinks({

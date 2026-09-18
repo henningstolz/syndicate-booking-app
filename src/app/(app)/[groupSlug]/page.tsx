@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getGroupBySlug } from "@/lib/groups";
 import { memberColor } from "@/lib/member-colors";
 import { formatDayHeading, formatTime } from "@/lib/datetime";
+import { statusEntries } from "@/lib/aircraft-status";
 
 type MemberRow = { user_id: string; display_name: string | null };
 
@@ -53,8 +54,29 @@ export default async function GroupDashboardPage({
 
   const nextBooking = nextBookings?.[0];
 
+  // Only worth showing on the dashboard when something actually needs
+  // attention — a banner that always says "all fine" is just clutter.
+  const alerts = statusEntries(group).filter(
+    (entry) => entry.status === "overdue" || entry.status === "soon",
+  );
+  const hasOverdue = alerts.some((entry) => entry.status === "overdue");
+
   return (
     <main className="flex flex-1 flex-col gap-4 px-4 py-6">
+      {alerts.length > 0 && (
+        <Link
+          href={`/${groupSlug}/aircraft`}
+          className={`rounded-lg border px-4 py-3 text-sm font-medium ${
+            hasOverdue
+              ? "border-red-300 bg-red-50 text-red-700"
+              : "border-amber-300 bg-amber-50 text-amber-700"
+          }`}
+        >
+          {hasOverdue ? "Overdue: " : "Due soon: "}
+          {alerts.map((entry) => entry.label).join(", ")}
+        </Link>
+      )}
+
       <section className="rounded-lg border border-zinc-200 bg-white p-4">
         <h1 className="font-mono text-sm tracking-wide text-zinc-500 uppercase">
           {group.aircraft_registration}

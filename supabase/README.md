@@ -9,6 +9,7 @@ paste a file's contents, run it — in order, once each.
 3. `0003_add_member_display_name.sql` — adds `group_members.display_name`
    (run once; if you added yourself before this existed, also run:
    `update public.group_members set display_name = 'Henning' where display_name is null;`)
+4. `0004_add_squawks.sql` — the shared message board (`squawks` table)
 
 ## Adding a member to a group
 

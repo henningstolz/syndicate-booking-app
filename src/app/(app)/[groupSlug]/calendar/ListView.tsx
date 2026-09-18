@@ -1,7 +1,10 @@
 import type { User } from "@supabase/supabase-js";
+import Link from "next/link";
 import {
+  LONDON_TZ,
   londonDateKey,
   londonWallTimeToUtc,
+  addLondonCalendarDays,
   formatDayHeading,
   formatTime,
 } from "@/lib/datetime";
@@ -9,6 +12,12 @@ import { FULL_DAY_START, FULL_DAY_END } from "@/lib/booking-durations";
 import { memberColor } from "@/lib/member-colors";
 import { BookingForm } from "./BookingForm";
 import { cancelBooking } from "./actions";
+
+const rangeLabelFormat = new Intl.DateTimeFormat("en-GB", {
+  timeZone: LONDON_TZ,
+  day: "numeric",
+  month: "short",
+});
 
 type BookingRow = {
   id: string;
@@ -37,8 +46,33 @@ export function ListView({
   user: User | null;
   myRole: string | undefined;
 }) {
+  const windowSize = days.length;
+  const prevStart = londonDateKey(
+    addLondonCalendarDays(days[0], -windowSize),
+  );
+  const nextStart = londonDateKey(addLondonCalendarDays(days[0], windowSize));
+
   return (
     <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between">
+        <Link
+          href={`/${groupSlug}/calendar?start=${prevStart}`}
+          className="rounded-full border border-zinc-300 px-3 py-1 text-sm text-zinc-600 hover:bg-zinc-100"
+        >
+          ← Prev
+        </Link>
+        <span className="text-sm font-medium text-zinc-900">
+          {rangeLabelFormat.format(days[0])} –{" "}
+          {rangeLabelFormat.format(days[days.length - 1])}
+        </span>
+        <Link
+          href={`/${groupSlug}/calendar?start=${nextStart}`}
+          className="rounded-full border border-zinc-300 px-3 py-1 text-sm text-zinc-600 hover:bg-zinc-100"
+        >
+          Next →
+        </Link>
+      </div>
+
       {days.map((day) => {
         const key = londonDateKey(day);
         const dayBookings = bookingsByDay.get(key) ?? [];

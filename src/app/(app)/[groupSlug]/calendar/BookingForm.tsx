@@ -13,11 +13,11 @@ const initialState: BookingActionState = {};
 type Mode = "custom" | "half-am" | "half-pm" | "full-day" | "multi-day";
 
 const MODE_LABELS: Record<Mode, string> = {
-  custom: "Custom times",
-  "half-am": "Half day (morning)",
-  "half-pm": "Half day (afternoon)",
   "full-day": "Full day",
   "multi-day": "Multiple days",
+  "half-am": "Half day (morning)",
+  "half-pm": "Half day (afternoon)",
+  custom: "Custom times",
 };
 
 const inputClass =
@@ -33,7 +33,7 @@ export function BookingForm({
   defaultDate: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<Mode>("custom");
+  const [mode, setMode] = useState<Mode>("full-day");
   const [state, action, pending] = useActionState(createBooking, initialState);
 
   // Close the form when a submission just succeeded, without the extra
@@ -44,7 +44,7 @@ export function BookingForm({
     setHandledState(state);
     if (state.success && open) {
       setOpen(false);
-      setMode("custom");
+      setMode("full-day");
     }
   }
 

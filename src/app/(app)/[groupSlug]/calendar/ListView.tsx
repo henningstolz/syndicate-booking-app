@@ -36,6 +36,12 @@ export function ListView({
       {days.map((day) => {
         const key = londonDateKey(day);
         const dayBookings = bookingsByDay.get(key) ?? [];
+        // A day fully occupied by a booking continuing from an
+        // earlier start has no room for a new one — offering "+ Book"
+        // there would just lead to a clash error every time.
+        const isFullyBooked = dayBookings.some(
+          (b) => londonDateKey(new Date(b.starts_at)) !== key,
+        );
 
         return (
           <section key={key} className="flex flex-col gap-2">
@@ -106,11 +112,13 @@ export function ListView({
               );
             })}
 
-            <BookingForm
-              groupId={groupId}
-              groupSlug={groupSlug}
-              defaultDate={key}
-            />
+            {!isFullyBooked && (
+              <BookingForm
+                groupId={groupId}
+                groupSlug={groupSlug}
+                defaultDate={key}
+              />
+            )}
           </section>
         );
       })}

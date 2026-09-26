@@ -1,5 +1,6 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { slugify } from "@/lib/slugify";
@@ -36,31 +37,36 @@ export async function createGroup(
   // to pre-check availability (RLS hides them), so we just attempt
   // the insert and retry with a suffix on a collision instead of
   // trying to check-then-insert.
+  //
+  // The id is generated here (rather than left to the DB default and
+  // read back via .select()) because asking for the row back would
+  // add a RETURNING clause, which Postgres also checks against the
+  // groups SELECT policy (is_group_member) — and at this exact
+  // moment the user isn't a member of the group yet, so that would
+  // fail even though the insert itself is allowed.
   const baseSlug = slugify(name);
   let groupId: string | null = null;
   let finalSlug = baseSlug;
 
   for (let attempt = 0; attempt < MAX_SLUG_ATTEMPTS; attempt++) {
     const candidateSlug = attempt === 0 ? baseSlug : `${baseSlug}-${attempt + 1}`;
-    const { data, error } = await supabase
-      .from("groups")
-      .insert({
-        slug: candidateSlug,
-        name,
-        aircraft_registration: aircraftRegistration,
-        aircraft_type: aircraftType,
-        home_base: homeBase,
-      })
-      .select("id")
-      .single();
+    const candidateId = randomUUID();
+    const { error } = await supabase.from("groups").insert({
+      id: candidateId,
+      slug: candidateSlug,
+      name,
+      aircraft_registration: aircraftRegistration,
+      aircraft_type: aircraftType,
+      home_base: homeBase,
+    });
 
-    if (!error && data) {
-      groupId = data.id;
+    if (!error) {
+      groupId = candidateId;
       finalSlug = candidateSlug;
       break;
     }
 
-    if (error && error.code !== "23505") {
+    if (error.code !== "23505") {
       return { error: error.message };
     }
     // 23505 = slug already taken — loop and try the next suffix.

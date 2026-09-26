@@ -15,6 +15,11 @@ paste a file's contents, run it — in order, once each.
 6. `0006_group_creation_and_invites.sql` — anyone can create a group and
    becomes its founding admin; admins can invite others via a shareable
    `/join/<id>` link (the `invites` table + `get_invite_info` RPC)
+7. `0007_fix_invite_and_claim_rls.sql` — fixes two RLS policies from 0006
+   that had raw subqueries subject to their own table's RLS (a joining
+   non-member couldn't see the invite they were trying to use; separately,
+   a real security gap where any user with no group could self-claim admin
+   of an *existing* group, not just a brand-new one)
 
 ## Adding members to a group
 

@@ -53,7 +53,8 @@ export default async function CalendarPage({
 }) {
   const { groupSlug } = await params;
   const { view, month, start } = await searchParams;
-  const isMonthView = view === "month";
+  // Month is the default landing view; List is opt-in via ?view=list.
+  const isMonthView = view !== "list";
   const validStart = start && /^\d{4}-\d{2}-\d{2}$/.test(start) ? start : null;
 
   const supabase = await createClient();
@@ -152,22 +153,22 @@ export default async function CalendarPage({
           <Link
             href={`/${groupSlug}/calendar`}
             className={`rounded-full px-4 py-1.5 text-sm font-medium ${
-              !isMonthView
-                ? "bg-zinc-900 text-white"
-                : "border border-zinc-300 text-zinc-600"
-            }`}
-          >
-            List
-          </Link>
-          <Link
-            href={`/${groupSlug}/calendar?view=month`}
-            className={`rounded-full px-4 py-1.5 text-sm font-medium ${
               isMonthView
                 ? "bg-zinc-900 text-white"
                 : "border border-zinc-300 text-zinc-600"
             }`}
           >
             Month
+          </Link>
+          <Link
+            href={`/${groupSlug}/calendar?view=list`}
+            className={`rounded-full px-4 py-1.5 text-sm font-medium ${
+              !isMonthView
+                ? "bg-zinc-900 text-white"
+                : "border border-zinc-300 text-zinc-600"
+            }`}
+          >
+            List
           </Link>
         </div>
       </div>
@@ -179,6 +180,7 @@ export default async function CalendarPage({
           monthIndex={monthIndex}
           bookingsByDay={bookingsByDay}
           memberIndex={memberIndex}
+          memberName={memberName}
         />
       ) : (
         <ListView

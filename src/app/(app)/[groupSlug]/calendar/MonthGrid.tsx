@@ -33,12 +33,14 @@ export function MonthGrid({
   monthIndex,
   bookingsByDay,
   memberIndex,
+  memberName,
 }: {
   groupSlug: string;
   year: number;
   monthIndex: number;
   bookingsByDay: Map<string, BookingRow[]>;
   memberIndex: Map<string, number>;
+  memberName: (userId: string) => string;
 }) {
   const totalDays = daysInMonth(year, monthIndex);
   const leadingBlanks = mondayFirstWeekday(year, monthIndex);
@@ -95,16 +97,20 @@ export function MonthGrid({
           return (
             <Link
               key={dateKey}
-              href={`/${groupSlug}/calendar?start=${dateKey}`}
+              href={`/${groupSlug}/calendar?view=list&start=${dateKey}`}
               className="flex min-h-16 flex-col gap-1 rounded-md border border-zinc-200 bg-white p-1 hover:border-zinc-400"
             >
               <span className="font-mono text-xs text-zinc-500">{day}</span>
-              <div className="flex flex-wrap gap-0.5">
+              <div className="flex flex-col gap-0.5">
                 {dayBookings.map((booking) => (
-                  <span
-                    key={booking.id}
-                    className={`h-1.5 w-1.5 rounded-full ${memberColor(memberIndex.get(booking.member_id) ?? 0).dot}`}
-                  />
+                  <div key={booking.id} className="flex items-center gap-1">
+                    <span
+                      className={`h-1.5 w-1.5 shrink-0 rounded-full ${memberColor(memberIndex.get(booking.member_id) ?? 0).dot}`}
+                    />
+                    <span className="truncate text-[10px] text-zinc-600">
+                      {memberName(booking.member_id)}
+                    </span>
+                  </div>
                 ))}
               </div>
             </Link>

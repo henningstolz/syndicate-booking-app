@@ -111,10 +111,13 @@ export async function acceptInvite(
   // after the insert above already succeeded, the user has still
   // joined — worst case the invite stays claimable, which the group's
   // admin can just ignore.
-  await supabase
-    .from("invites")
-    .update({ used_by: user.id, used_at: new Date().toISOString() })
-    .eq("id", inviteId);
+  const { error: markUsedError } = await supabase.rpc("mark_invite_used", {
+    p_invite_id: inviteId,
+  });
+
+  if (markUsedError) {
+    console.error("Failed to mark invite as used:", markUsedError);
+  }
 
   redirect(`/${info.group_slug}`);
 }

@@ -20,6 +20,10 @@ paste a file's contents, run it — in order, once each.
    non-member couldn't see the invite they were trying to use; separately,
    a real security gap where any user with no group could self-claim admin
    of an *existing* group, not just a brand-new one)
+8. `0008_mark_invite_used_function.sql` — replaces the raw UPDATE + RLS
+   policy for marking an invite used (which reliably matched zero rows for
+   reasons that resisted diagnosis) with a `mark_invite_used()` SECURITY
+   DEFINER function, the same fix pattern as 0007
 
 ## Adding members to a group
 

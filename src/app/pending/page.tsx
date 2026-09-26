@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { signOut } from "@/app/login/actions";
 
 export default function PendingPage() {
@@ -7,9 +8,15 @@ export default function PendingPage() {
         You&apos;re signed in
       </h1>
       <p className="max-w-xs text-sm text-zinc-600">
-        Your account isn&apos;t linked to a group yet — ask Henning to add
-        you.
+        Your account isn&apos;t linked to a group yet. If someone invited
+        you, ask them for the invite link — or start your own group below.
       </p>
+      <Link
+        href="/groups/new"
+        className="rounded-full bg-zinc-900 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-zinc-700"
+      >
+        Create a group
+      </Link>
       <form action={signOut}>
         <button
           type="submit"

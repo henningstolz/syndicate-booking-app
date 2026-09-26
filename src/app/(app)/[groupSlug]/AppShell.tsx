@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { path: "/squawks", label: "Squawks" },
   { path: "/reports", label: "Reports" },
   { path: "/aircraft", label: "Aircraft" },
+  { path: "/members", label: "Members" },
 ];
 
 function NavLinks({

@@ -11,19 +11,20 @@ paste a file's contents, run it — in order, once each.
    `update public.group_members set display_name = 'Henning' where display_name is null;`)
 4. `0004_add_squawks.sql` — the shared message board (`squawks` table)
 5. `0005_add_aircraft_status.sql` — renewal/check status fields on `groups`,
-   editable by admins (the Notifications page)
+   editable by admins (the Aircraft page)
+6. `0006_group_creation_and_invites.sql` — anyone can create a group and
+   becomes its founding admin; admins can invite others via a shareable
+   `/join/<id>` link (the `invites` table + `get_invite_info` RPC)
 
-## Adding a member to a group
+## Adding members to a group
 
-`group_members` links a Supabase auth user to a group and can't be seeded
-in advance, since the user has to sign up first (creating their row in
-`auth.users`) before we know their `id`.
+Two ways now:
 
-Once someone has signed up:
-
-1. Dashboard → **Authentication → Users**, find them, copy their `User UID`
-2. Dashboard → **SQL Editor**, run (swap in the real UID and name, and
-   `'admin'` only for Henning):
+- **The app itself**: any signed-up user with no group can create one at
+  `/groups/new` (becomes its admin), and admins can generate invite links
+  from a group's **Members** page — no SQL needed for either.
+- **Manually, via SQL** (still useful for one-off fixes): swap in the real
+  UID and name (find the UID at Dashboard → **Authentication → Users**):
 
    ```sql
    insert into public.group_members (group_id, user_id, role, display_name)

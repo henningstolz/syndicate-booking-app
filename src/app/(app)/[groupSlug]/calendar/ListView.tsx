@@ -56,7 +56,7 @@ export function ListView({
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <Link
-          href={`/${groupSlug}/calendar?start=${prevStart}`}
+          href={`/${groupSlug}/calendar?view=list&start=${prevStart}`}
           className="rounded-full border border-zinc-300 px-3 py-1 text-sm text-zinc-600 hover:bg-zinc-100"
         >
           ← Prev
@@ -66,7 +66,7 @@ export function ListView({
           {rangeLabelFormat.format(days[days.length - 1])}
         </span>
         <Link
-          href={`/${groupSlug}/calendar?start=${nextStart}`}
+          href={`/${groupSlug}/calendar?view=list&start=${nextStart}`}
           className="rounded-full border border-zinc-300 px-3 py-1 text-sm text-zinc-600 hover:bg-zinc-100"
         >
           Next →

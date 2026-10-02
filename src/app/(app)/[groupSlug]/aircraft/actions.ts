@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { STATUS_FIELDS } from "@/lib/aircraft-status";
 
 export type StatusActionState = { error?: string; success?: boolean };
 
@@ -13,14 +14,22 @@ export async function updateAircraftStatus(
   const groupId = formData.get("groupId") as string;
   const groupSlug = formData.get("groupSlug") as string;
 
-  const annualRenewalDue = (formData.get("annualRenewalDue") as string) || null;
-  const insuranceRenewalDue =
-    (formData.get("insuranceRenewalDue") as string) || null;
-  const nextCheckDue = (formData.get("nextCheckDue") as string) || null;
-  const hoursToNextCheckRaw = formData.get("hoursToNextCheck") as string;
-  const hoursToNextCheck = hoursToNextCheckRaw
-    ? Number(hoursToNextCheckRaw)
-    : null;
+  // One entry per field in STATUS_FIELDS; a blank input clears the value.
+  const updates: Record<string, string | number | null> = {};
+  for (const field of STATUS_FIELDS) {
+    const raw = ((formData.get(field.column) as string) ?? "").trim();
+    if (raw === "") {
+      updates[field.column] = null;
+    } else if (field.kind === "hours") {
+      const hours = Number(raw);
+      if (Number.isNaN(hours)) {
+        return { error: `${field.label} must be a number.` };
+      }
+      updates[field.column] = hours;
+    } else {
+      updates[field.column] = raw;
+    }
+  }
 
   const supabase = await createClient();
   const {
@@ -35,12 +44,7 @@ export async function updateAircraftStatus(
   // zero rows rather than erroring.
   const { error } = await supabase
     .from("groups")
-    .update({
-      annual_renewal_due: annualRenewalDue,
-      insurance_renewal_due: insuranceRenewalDue,
-      next_check_due: nextCheckDue,
-      hours_to_next_check: hoursToNextCheck,
-    })
+    .update(updates)
     .eq("id", groupId);
 
   if (error) {

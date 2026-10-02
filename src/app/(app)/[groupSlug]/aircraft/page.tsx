@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getGroupBySlug } from "@/lib/groups";
 import { LONDON_TZ } from "@/lib/datetime";
-import { dateStatus, hoursStatus, type Status } from "@/lib/aircraft-status";
+import { STATUS_FIELDS, fieldStatus, type Status } from "@/lib/aircraft-status";
 import { AircraftForm } from "./AircraftForm";
 
 const STATUS_STYLES: Record<Status, string> = {
@@ -86,42 +86,30 @@ export default async function AircraftPage({
   return (
     <main className="flex flex-1 flex-col gap-4 px-4 py-6">
       <div className="flex flex-col gap-2">
-        <StatusRow
-          label="Annual/Permit Renewal Due"
-          value={formatDate(group.annual_renewal_due)}
-          status={dateStatus(group.annual_renewal_due)}
-        />
-        <StatusRow
-          label="Insurance Renewal Due"
-          value={formatDate(group.insurance_renewal_due)}
-          status={dateStatus(group.insurance_renewal_due)}
-        />
-        <StatusRow
-          label="Next Check Due"
-          value={formatDate(group.next_check_due)}
-          status={dateStatus(group.next_check_due)}
-        />
-        <StatusRow
-          label="Hours To Next Check"
-          value={
-            group.hours_to_next_check === null
-              ? "Not stated"
-              : `${group.hours_to_next_check}`
-          }
-          status={hoursStatus(group.hours_to_next_check)}
-        />
+        {STATUS_FIELDS.map((field) => {
+          const value = group[field.column];
+          return (
+            <StatusRow
+              key={field.column}
+              label={field.label}
+              value={
+                field.kind === "date"
+                  ? formatDate(value as string | null)
+                  : value === null
+                    ? "Not stated"
+                    : `${value}`
+              }
+              status={fieldStatus(field.kind, value)}
+            />
+          );
+        })}
       </div>
 
       {isAdmin && (
         <AircraftForm
           groupId={group.id}
           groupSlug={groupSlug}
-          initial={{
-            annualRenewalDue: group.annual_renewal_due,
-            insuranceRenewalDue: group.insurance_renewal_due,
-            nextCheckDue: group.next_check_due,
-            hoursToNextCheck: group.hours_to_next_check,
-          }}
+          initial={group}
         />
       )}
     </main>

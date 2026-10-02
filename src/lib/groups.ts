@@ -1,4 +1,22 @@
 import type { createClient } from "@/lib/supabase/server";
+import { STATUS_FIELDS, type AircraftStatusFields } from "@/lib/aircraft-status";
+
+export type GroupRow = AircraftStatusFields & {
+  id: string;
+  name: string;
+  aircraft_registration: string;
+  aircraft_type: string | null;
+  home_base: string | null;
+};
+
+const COLUMNS = [
+  "id",
+  "name",
+  "aircraft_registration",
+  "aircraft_type",
+  "home_base",
+  ...STATUS_FIELDS.map((field) => field.column),
+].join(", ");
 
 export async function getGroupBySlug(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -6,11 +24,11 @@ export async function getGroupBySlug(
 ) {
   const { data } = await supabase
     .from("groups")
-    .select(
-      "id, name, aircraft_registration, aircraft_type, home_base, annual_renewal_due, insurance_renewal_due, next_check_due, hours_to_next_check",
-    )
+    .select(COLUMNS)
     .eq("slug", slug)
     .maybeSingle();
 
-  return data;
+  // The select list is built from STATUS_FIELDS at runtime, so the
+  // client can't infer the row type from it — it's asserted here.
+  return data as unknown as GroupRow | null;
 }

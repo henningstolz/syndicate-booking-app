@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { updateAircraftStatus, type StatusActionState } from "./actions";
+import { STATUS_FIELDS, type AircraftStatusFields } from "@/lib/aircraft-status";
 
 const initialState: StatusActionState = {};
 
@@ -15,12 +16,7 @@ export function AircraftForm({
 }: {
   groupId: string;
   groupSlug: string;
-  initial: {
-    annualRenewalDue: string | null;
-    insuranceRenewalDue: string | null;
-    nextCheckDue: string | null;
-    hoursToNextCheck: number | null;
-  };
+  initial: AircraftStatusFields;
 }) {
   const [open, setOpen] = useState(false);
   const [state, action, pending] = useActionState(
@@ -58,43 +54,21 @@ export function AircraftForm({
       <input type="hidden" name="groupId" value={groupId} />
       <input type="hidden" name="groupSlug" value={groupSlug} />
 
-      <label className="flex flex-col gap-1 text-xs text-zinc-600">
-        Annual/Permit Renewal Due
-        <input
-          type="date"
-          name="annualRenewalDue"
-          defaultValue={initial.annualRenewalDue ?? ""}
-          className={inputClass}
-        />
-      </label>
-      <label className="flex flex-col gap-1 text-xs text-zinc-600">
-        Insurance Renewal Due
-        <input
-          type="date"
-          name="insuranceRenewalDue"
-          defaultValue={initial.insuranceRenewalDue ?? ""}
-          className={inputClass}
-        />
-      </label>
-      <label className="flex flex-col gap-1 text-xs text-zinc-600">
-        Next Check Due
-        <input
-          type="date"
-          name="nextCheckDue"
-          defaultValue={initial.nextCheckDue ?? ""}
-          className={inputClass}
-        />
-      </label>
-      <label className="flex flex-col gap-1 text-xs text-zinc-600">
-        Hours To Next Check
-        <input
-          type="number"
-          step="0.1"
-          name="hoursToNextCheck"
-          defaultValue={initial.hoursToNextCheck ?? ""}
-          className={inputClass}
-        />
-      </label>
+      {STATUS_FIELDS.map((field) => (
+        <label
+          key={field.column}
+          className="flex flex-col gap-1 text-xs text-zinc-600"
+        >
+          {field.label}
+          <input
+            type={field.kind === "date" ? "date" : "number"}
+            step={field.kind === "hours" ? "0.1" : undefined}
+            name={field.column}
+            defaultValue={initial[field.column] ?? ""}
+            className={inputClass}
+          />
+        </label>
+      ))}
 
       {state.error && <p className="text-xs text-red-600">{state.error}</p>}
 

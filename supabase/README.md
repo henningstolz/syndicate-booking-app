@@ -24,6 +24,9 @@ paste a file's contents, run it — in order, once each.
    policy for marking an invite used (which reliably matched zero rows for
    reasons that resisted diagnosis) with a `mark_invite_used()` SECURITY
    DEFINER function, the same fix pattern as 0007
+9. `0009_add_equipment_due_dates.sql` — life raft, life vests and fire
+   extinguisher due dates on `groups` (the Aircraft page; adding a further
+   field is one entry in `src/lib/aircraft-status.ts` plus a column)
 
 ## Adding members to a group
 

@@ -24,16 +24,22 @@ function formatPercent(fraction: number) {
 
 export function DistributionChart({
   slices,
-  year,
+  unit,
+  periodLabel,
 }: {
   slices: Slice[];
-  year: number;
+  unit: "bookings" | "days";
+  // Already phrased to follow the unit, e.g. "in 2026" or "all time".
+  periodLabel: string;
 }) {
   const total = slices.reduce((sum, s) => sum + s.count, 0);
+  const singular = unit.slice(0, -1);
 
   if (total === 0) {
     return (
-      <p className="text-sm text-zinc-500">No bookings in {year} yet.</p>
+      <p className="text-sm text-zinc-500">
+        Nothing booked in this period yet.
+      </p>
     );
   }
 
@@ -55,7 +61,7 @@ export function DistributionChart({
           viewBox={`0 0 ${SIZE} ${SIZE}`}
           className="h-40 w-40 shrink-0"
           role="img"
-          aria-label={`Bookings per member in ${year}: ${arcs
+          aria-label={`${unit} per member ${periodLabel}: ${arcs
             .map(
               (a) => `${a.slice.label} ${a.slice.count} (${formatPercent(a.fraction)})`,
             )
@@ -84,7 +90,7 @@ export function DistributionChart({
                     single text node in <title> and mismatches on hydration
                     otherwise. */}
                 <title>{`${slice.label}: ${slice.count} ${
-                  slice.count === 1 ? "booking" : "bookings"
+                  slice.count === 1 ? singular : unit
                 } (${formatPercent(fraction)})`}</title>
               </circle>
             );
@@ -103,7 +109,7 @@ export function DistributionChart({
             textAnchor="middle"
             className="fill-zinc-500 text-[10px]"
           >
-            bookings in {year}
+            {unit} {periodLabel}
           </text>
         </svg>
       )}

@@ -2,13 +2,14 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getGroupBySlug } from "@/lib/groups";
 import { memberColor } from "@/lib/member-colors";
+import { londonDateKey, formatDayHeading, formatTime } from "@/lib/datetime";
+import { DistributionChart } from "./DistributionChart";
+import { DistributionControls } from "./DistributionControls";
 import {
-  londonDateKey,
-  londonWallTimeToUtc,
-  formatDayHeading,
-  formatTime,
-} from "@/lib/datetime";
-import { DistributionChart, type Slice } from "./DistributionChart";
+  bookingYearRange,
+  loadDistribution,
+  type Metric,
+} from "./distribution";
 
 type MemberRow = { user_id: string; display_name: string | null };
 
@@ -22,21 +23,18 @@ type BookingRow = {
 
 type ReportView = "all" | "mine" | "distribution";
 
-// More segments than this stop being readable as a ring, so the tail
-// is folded into a single "Other" bucket.
-const MAX_SLICES = 6;
-
 export default async function ReportsPage({
   params,
   searchParams,
 }: {
   params: Promise<{ groupSlug: string }>;
-  searchParams: Promise<{ view?: string }>;
+  searchParams: Promise<{ view?: string; metric?: string; year?: string }>;
 }) {
   const { groupSlug } = await params;
-  const { view } = await searchParams;
+  const { view, metric: metricParam, year: yearParam } = await searchParams;
   const activeView: ReportView =
     view === "mine" || view === "distribution" ? view : "all";
+  const metric: Metric = metricParam === "days" ? "days" : "bookings";
 
   const supabase = await createClient();
   const group = await getGroupBySlug(supabase, groupSlug);
@@ -49,7 +47,15 @@ export default async function ReportsPage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  const year = Number(londonDateKey(new Date()).slice(0, 4));
+  const currentYear = Number(londonDateKey(new Date()).slice(0, 4));
+  // Period for the distribution report: a specific year, or null for
+  // all time. Defaults to the current year when absent or unusable.
+  const selectedYear: number | null =
+    yearParam === "all"
+      ? null
+      : /^\d{4}$/.test(yearParam ?? "")
+        ? Number(yearParam)
+        : currentYear;
 
   const membersQuery = supabase
     .from("group_members")
@@ -62,58 +68,50 @@ export default async function ReportsPage({
   let memberList: MemberRow[];
 
   if (activeView === "distribution") {
-    const [{ data: members }, { data: rows }] = await Promise.all([
+    const [{ data: members }, yearRange] = await Promise.all([
       membersQuery,
-      supabase
-        .from("bookings")
-        .select("member_id")
-        .eq("group_id", group.id)
-        .eq("status", "confirmed")
-        .gte("starts_at", londonWallTimeToUtc(`${year}-01-01`, "00:00").toISOString())
-        .lt("starts_at", londonWallTimeToUtc(`${year + 1}-01-01`, "00:00").toISOString())
-        .returns<{ member_id: string }[]>(),
+      bookingYearRange(supabase, group.id),
     ]);
     memberList = members ?? [];
 
-    const counts = new Map<string, number>();
-    for (const row of rows ?? []) {
-      counts.set(row.member_id, (counts.get(row.member_id) ?? 0) + 1);
-    }
+    // Offer every year from the first booking to now (or the last
+    // booking, if it's in the future) — plus the selected one, so a
+    // hand-edited URL still shows where you are.
+    const firstYear = Math.min(yearRange?.first ?? currentYear, selectedYear ?? currentYear);
+    const lastYear = Math.max(yearRange?.last ?? currentYear, currentYear, selectedYear ?? currentYear);
+    const years = Array.from(
+      { length: lastYear - firstYear + 1 },
+      (_, i) => firstYear + i,
+    );
 
-    const byMember: Slice[] = [...counts.entries()]
-      .map(([memberId, count]) => {
-        const index = memberList.findIndex((m) => m.user_id === memberId);
-        return {
-          key: memberId,
-          label:
-            (index >= 0 ? memberList[index].display_name : null) ?? "Member",
-          count,
-          colorIndex: index >= 0 ? index : 0,
-        };
-      })
-      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+    const slices = await loadDistribution(
+      supabase,
+      group.id,
+      memberList,
+      metric,
+      selectedYear,
+    );
 
-    let slices = byMember;
-    if (byMember.length > MAX_SLICES) {
-      const rest = byMember.slice(MAX_SLICES - 1);
-      slices = [
-        ...byMember.slice(0, MAX_SLICES - 1),
-        {
-          key: "other",
-          label: `Other (${rest.length} members)`,
-          count: rest.reduce((sum, s) => sum + s.count, 0),
-          colorIndex: null,
-        },
-      ];
-    }
+    const periodLabel = selectedYear === null ? "all time" : `in ${selectedYear}`;
 
     content = (
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-4">
+        <DistributionControls
+          groupSlug={groupSlug}
+          metric={metric}
+          year={selectedYear}
+          years={years}
+        />
         <p className="text-sm text-zinc-500">
-          Confirmed bookings starting in {year}, past and upcoming. A
-          multi-day booking counts once.
+          {metric === "bookings"
+            ? `Confirmed bookings starting ${periodLabel}, past and upcoming. A multi-day booking counts once.`
+            : `Calendar days each member has a booking on, ${periodLabel}. A half day counts as a day, and a multi-day booking counts every day it spans.`}
         </p>
-        <DistributionChart slices={slices} year={year} />
+        <DistributionChart
+          slices={slices}
+          unit={metric === "bookings" ? "bookings" : "days"}
+          periodLabel={periodLabel}
+        />
       </div>
     );
   } else {
@@ -184,7 +182,7 @@ export default async function ReportsPage({
     },
     {
       view: "distribution",
-      label: `Bookings per member ${year}`,
+      label: "Bookings per member",
       href: `/${groupSlug}/reports?view=distribution`,
     },
   ];

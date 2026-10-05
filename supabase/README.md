@@ -47,9 +47,11 @@ Two ways now:
 
 ## Confirmation emails
 
-Editing Supabase's email templates requires custom SMTP to be configured,
-which we're not doing — so we use the **default, unmodified** "Confirm
-signup" email as-is. It links through Supabase's own verify endpoint, which
+Emails are sent through Resend (custom SMTP, sender
+`noreply@mail.blocktime.group`, configured in Supabase under Authentication,
+then SMTP Settings). The email templates could now be edited, but we still use
+the **default, unmodified** "Confirm signup" email. It links through Supabase's
+own verify endpoint, which
 then redirects to the `emailRedirectTo` URL we pass at sign-up
 (`/auth/callback`) with a `?code=` parameter.
 [`src/app/auth/callback/route.ts`](../src/app/auth/callback/route.ts)

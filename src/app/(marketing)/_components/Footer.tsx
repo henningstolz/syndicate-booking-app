@@ -1,9 +1,6 @@
-// TODO(owner): the "Privacy" item below is still a placeholder. Replace it
-// with a real link to the privacy policy, then drop the placeholder styling.
-const CONTACT_EMAIL = "hello@blocktime.group";
+import Link from "next/link";
 
-const placeholder =
-  "border border-dashed border-bt-amber-line px-2 text-bt-amber";
+const CONTACT_EMAIL = "hello@blocktime.group";
 
 export function Footer() {
   return (
@@ -13,7 +10,12 @@ export function Footer() {
           blocktime<span className="font-normal text-bt-muted">.group</span>
         </p>
         <div className="flex flex-wrap gap-[22px] text-sm text-bt-muted">
-          <span className={placeholder}>Privacy [placeholder]</span>
+          <Link
+            href="/privacy"
+            className="text-bt-ink underline underline-offset-4 hover:text-bt-blue"
+          >
+            Privacy
+          </Link>
           <span>
             Contact:{" "}
             <a

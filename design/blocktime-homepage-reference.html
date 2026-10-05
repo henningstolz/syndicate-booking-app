@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Blocktime: booking, squawks and costs for your flying group</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{text-decoration:none}
+a.btn-dark:hover{background:#2B3A44}
+a.btn-line:hover{background:#FFFFFF;border-color:#172026}
+a.btn-light:hover{background:#FFFFFF}
+a.navlink:hover{color:#FFFFFF;text-decoration:underline}
+a.btn-ghost:hover{background:rgba(244,245,240,0.14)}
+a:focus-visible{outline:2px solid #1F5673;outline-offset:3px}
+a.on-dark:focus-visible{outline-color:#F4F5F0}
+</style>
+</head>
+<body>
+<div style="width:100%;background:#F4F5F0;color:#172026;font-family:'Hanken Grotesk',system-ui,sans-serif;font-size:17px;line-height:1.55;box-sizing:border-box">
+
+  <!-- FILM HERO -->
+  <div style="position:relative;background:#16242C;color:#F4F5F0;overflow:hidden">
+
+    <!-- film layer: replace this block with the looping video (muted, inline, poster image as fallback) -->
+    <div style="position:absolute;top:0;left:0;right:0;bottom:0;background:#2A3F4B"></div>
+    <div style="position:absolute;right:24px;bottom:24px;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12px;line-height:1.5;color:#DCE3E0;border:1px dashed rgba(244,245,240,0.5);padding:10px 14px;text-align:right;max-width:260px">FILM LOOP GOES HERE<br>10 to 15 s, muted, poster image as fallback</div>
+    <!-- darkening layer keeps the words readable over any footage -->
+    <div style="position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(15,26,33,0.55)"></div>
+
+    <div style="position:relative">
+      <!-- NAV -->
+      <div style="max-width:1160px;margin:0 auto;padding:22px 24px;box-sizing:border-box;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px">
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-weight:600;font-size:20px;letter-spacing:0.01em">blocktime<span style="color:#C9D2CF;font-weight:400">.group</span></div>
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:22px">
+          <a class="navlink on-dark" href="https://blocktime.group/login" style="color:#E6EBE8;font-size:15px;min-height:44px;display:flex;align-items:center">Sign in</a>
+          <a class="btn-light on-dark" href="https://blocktime.group/login" style="background:#F4F5F0;color:#172026;font-weight:600;font-size:15px;padding:0 20px;min-height:44px;display:flex;align-items:center">Create a group</a>
+        </div>
+      </div>
+      <div style="border-top:1px solid rgba(244,245,240,0.28)"></div>
+
+      <!-- HERO TEXT -->
+      <div style="max-width:1160px;margin:0 auto;padding:128px 24px 168px;box-sizing:border-box">
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:13px;letter-spacing:0.04em;color:#C9D6DC;margin-bottom:20px">BOOKING FOR SHARED AIRCRAFT</div>
+        <h1 style="margin:0 0 24px;font-size:clamp(40px,6vw,76px);line-height:1.03;font-weight:700;letter-spacing:-0.02em;max-width:820px">Booking, squawks and costs for your flying group.</h1>
+        <p style="margin:0 0 38px;font-size:21px;line-height:1.5;color:#E6EBE8;max-width:560px">One calendar everyone trusts, for the people you share an aircraft with. Built for a phone in one hand at the airfield.</p>
+        <div style="display:flex;flex-wrap:wrap;gap:14px">
+          <a class="btn-light on-dark" href="https://blocktime.group/login" style="background:#F4F5F0;color:#172026;font-weight:600;font-size:17px;padding:0 28px;min-height:52px;display:flex;align-items:center">Create your group</a>
+          <a class="btn-ghost on-dark" href="https://blocktime.group/login" style="border:1px solid rgba(244,245,240,0.7);color:#F4F5F0;font-weight:600;font-size:17px;padding:0 28px;min-height:52px;display:flex;align-items:center">Sign in</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOARD -->
+  <div style="max-width:1160px;margin:0 auto;padding:88px 24px 96px;box-sizing:border-box;display:flex;flex-wrap:wrap;align-items:center;gap:56px">
+    <div style="flex:1 1 300px;min-width:0">
+      <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:13px;letter-spacing:0.04em;color:#1F5673;margin-bottom:14px">THE BOARD</div>
+      <h2 style="margin:0 0 18px;font-size:clamp(30px,3.6vw,42px);line-height:1.1;font-weight:700;letter-spacing:-0.015em">One board for the whole week.</h2>
+      <p style="margin:0;color:#4F5A54;max-width:420px">Every booking and every open squawk, visible to everyone in the group, so nobody has to ask who has the aircraft.</p>
+    </div>
+
+    <!-- illustrative board -->
+    <div style="flex:1 1 440px;min-width:0">
+      <div style="background:#FFFFFF;border:1px solid #172026">
+        <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;border-bottom:1px solid #172026">
+          <div>
+            <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-weight:600;font-size:20px">G-ABCD</div>
+            <div style="font-size:13px;color:#4F5A54">Piper PA28R Arrow</div>
+          </div>
+          <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12px;color:#2F5E43;border:1px solid #3F7355;padding:4px 9px">available now</div>
+        </div>
+        <div style="display:grid;grid-template-columns:44px repeat(5,minmax(0,1fr));grid-template-rows:34px repeat(8,34px);font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;color:#4F5A54">
+          <div style="grid-column:1;grid-row:1;border-bottom:1px solid #D9DBD2"></div>
+          <div style="grid-column:2;grid-row:1;border-bottom:1px solid #D9DBD2;border-left:1px solid #D9DBD2;padding:9px 0 0 8px">Mon</div>
+          <div style="grid-column:3;grid-row:1;border-bottom:1px solid #D9DBD2;border-left:1px solid #D9DBD2;padding:9px 0 0 8px">Tue</div>
+          <div style="grid-column:4;grid-row:1;border-bottom:1px solid #D9DBD2;border-left:1px solid #D9DBD2;padding:9px 0 0 8px">Wed</div>
+          <div style="grid-column:5;grid-row:1;border-bottom:1px solid #D9DBD2;border-left:1px solid #D9DBD2;padding:9px 0 0 8px">Thu</div>
+          <div style="grid-column:6;grid-row:1;border-bottom:1px solid #D9DBD2;border-left:1px solid #D9DBD2;padding:9px 0 0 8px">Fri</div>
+
+          <div style="grid-column:1;grid-row:2;padding:4px 8px 0 0;text-align:right;border-bottom:1px solid #D9DBD2">08:00</div>
+          <div style="grid-column:1;grid-row:3;padding:4px 8px 0 0;text-align:right;border-bottom:1px solid #D9DBD2">09:00</div>
+          <div style="grid-column:1;grid-row:4;padding:4px 8px 0 0;text-align:right;border-bottom:1px solid #D9DBD2">10:00</div>
+          <div style="grid-column:1;grid-row:5;padding:4px 8px 0 0;text-align:right;border-bottom:1px solid #D9DBD2">11:00</div>
+          <div style="grid-column:1;grid-row:6;padding:4px 8px 0 0;text-align:right;border-bottom:1px solid #D9DBD2">12:00</div>
+          <div style="grid-column:1;grid-row:7;padding:4px 8px 0 0;text-align:right;border-bottom:1px solid #D9DBD2">13:00</div>
+          <div style="grid-column:1;grid-row:8;padding:4px 8px 0 0;text-align:right;border-bottom:1px solid #D9DBD2">14:00</div>
+          <div style="grid-column:1;grid-row:9;padding:4px 8px 0 0;text-align:right;border-bottom:1px solid #D9DBD2">15:00</div>
+
+          <div style="grid-column:2 / 7;grid-row:2 / 10;background-image:linear-gradient(to right,#D9DBD2 1px,transparent 1px),linear-gradient(to bottom,#D9DBD2 1px,transparent 1px);background-size:20% 100%,100% 34px;pointer-events:none"></div>
+
+          <div style="grid-column:3;grid-row:3 / 6;margin:2px;background:#E4EDF0;color:#1F5673;padding:6px 7px;font-weight:500">09–12<div style="font-weight:400;font-size:10.5px">booked</div></div>
+          <div style="grid-column:4;grid-row:7 / 9;margin:2px;background:#EBE5ED;color:#5A3F66;padding:6px 7px;font-weight:500">13–15<div style="font-weight:400;font-size:10.5px">booked</div></div>
+          <div style="grid-column:5;grid-row:6 / 9;margin:2px;background:#E7EFE6;color:#2F5E43;padding:6px 7px;font-weight:500">12–15<div style="font-weight:400;font-size:10.5px">booked</div></div>
+          <div style="grid-column:6;grid-row:3 / 5;margin:2px;background:#F5E9D9;color:#8A5316;padding:6px 7px;font-weight:500">09–11<div style="font-weight:400;font-size:10.5px">booked</div></div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:12px 16px;border-top:1px solid #172026;background:#F4F5F0">
+          <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;color:#8A5316;border:1px solid #B97327;padding:2px 7px">SQUAWK</div>
+          <div style="font-size:14px;flex:1 1 180px">Transponder: intermittent fault</div>
+          <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;color:#4F5A54">open</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- WHAT IT DOES -->
+  <div style="border-top:1px solid #B9BCB1;border-bottom:1px solid #B9BCB1;background:#FFFFFF">
+    <div style="max-width:1160px;margin:0 auto;padding:80px 24px;box-sizing:border-box">
+      <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:13px;letter-spacing:0.04em;color:#1F5673;margin-bottom:14px">WHAT IT DOES</div>
+      <h2 style="margin:0 0 44px;font-size:clamp(30px,3.6vw,42px);line-height:1.1;font-weight:700;letter-spacing:-0.015em;max-width:640px">Everything a shared aircraft needs, in one place.</h2>
+      <div style="display:flex;flex-wrap:wrap;gap:20px">
+        <div style="flex:1 1 280px;min-width:0;border:1px solid #B9BCB1;background:#F4F5F0;padding:28px">
+          <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12px;color:#2F5E43;border:1px solid #3F7355;padding:2px 8px;display:inline-block;margin-bottom:18px">Live</div>
+          <h3 style="margin:0 0 10px;font-size:22px;font-weight:600">Booking calendar</h3>
+          <p style="margin:0;color:#4F5A54">See the whole week at a glance. Book a slot in seconds, and clashes are caught before they happen.</p>
+        </div>
+        <div style="flex:1 1 280px;min-width:0;border:1px solid #B9BCB1;background:#F4F5F0;padding:28px">
+          <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12px;color:#2F5E43;border:1px solid #3F7355;padding:2px 8px;display:inline-block;margin-bottom:18px">Live</div>
+          <h3 style="margin:0 0 10px;font-size:22px;font-weight:600">Squawk log</h3>
+          <p style="margin:0;color:#4F5A54">Anyone can log a defect. Everyone sees what is open, so the next pilot knows before walking out to the aircraft.</p>
+        </div>
+        <div style="flex:1 1 280px;min-width:0;border:1px solid #B9BCB1;background:#F4F5F0;padding:28px">
+          <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12px;color:#4F5A54;border:1px solid #8A948D;padding:2px 8px;display:inline-block;margin-bottom:18px">Next</div>
+          <h3 style="margin:0 0 10px;font-size:22px;font-weight:600">Hours and costs</h3>
+          <p style="margin:0;color:#4F5A54">Hobbs in and out, fuel, and a fair monthly split per member. Being built next.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HOW IT WORKS -->
+  <div style="max-width:1160px;margin:0 auto;padding:88px 24px;box-sizing:border-box">
+    <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:13px;letter-spacing:0.04em;color:#1F5673;margin-bottom:14px">HOW IT WORKS</div>
+    <h2 style="margin:0 0 48px;font-size:clamp(30px,3.6vw,42px);line-height:1.1;font-weight:700;letter-spacing:-0.015em;max-width:640px">From sign-up to first booking in a few minutes.</h2>
+    <div style="display:flex;flex-wrap:wrap;gap:0;border-top:1px solid #172026">
+      <div style="flex:1 1 260px;min-width:0;padding:28px 28px 28px 0;border-bottom:1px solid #D9DBD2">
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:14px;color:#4F5A54;margin-bottom:14px">01</div>
+        <h3 style="margin:0 0 8px;font-size:21px;font-weight:600">Create your group</h3>
+        <p style="margin:0;color:#4F5A54">Name it and add your aircraft.</p>
+      </div>
+      <div style="flex:1 1 260px;min-width:0;padding:28px 28px 28px 0;border-bottom:1px solid #D9DBD2">
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:14px;color:#4F5A54;margin-bottom:14px">02</div>
+        <h3 style="margin:0 0 8px;font-size:21px;font-weight:600">Invite your members</h3>
+        <p style="margin:0;color:#4F5A54">Bring in the people you fly with.</p>
+      </div>
+      <div style="flex:1 1 260px;min-width:0;padding:28px 0 28px 0;border-bottom:1px solid #D9DBD2">
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:14px;color:#4F5A54;margin-bottom:14px">03</div>
+        <h3 style="margin:0 0 8px;font-size:21px;font-weight:600">Book your first flight</h3>
+        <p style="margin:0;color:#4F5A54">Pick a slot. Everyone sees it straight away.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- PRIVATE + ABOUT -->
+  <div style="border-top:1px solid #B9BCB1;background:#FFFFFF">
+    <div style="max-width:1160px;margin:0 auto;padding:80px 24px;box-sizing:border-box;display:flex;flex-wrap:wrap;gap:56px">
+      <div style="flex:1 1 360px;min-width:0">
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:13px;letter-spacing:0.04em;color:#1F5673;margin-bottom:14px">PRIVATE BY DESIGN</div>
+        <h2 style="margin:0 0 18px;font-size:clamp(28px,3.2vw,36px);line-height:1.12;font-weight:700;letter-spacing:-0.015em">Your group&#39;s data stays your group&#39;s.</h2>
+        <p style="margin:0;color:#4F5A54">Each group has its own aircraft, members, bookings and squawks, and other groups cannot see them. Everyone signs in with their own email and password.</p>
+      </div>
+      <div style="flex:1 1 360px;min-width:0">
+        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:13px;letter-spacing:0.04em;color:#1F5673;margin-bottom:14px">WHO BUILT IT</div>
+        <h2 style="margin:0 0 18px;font-size:clamp(28px,3.2vw,36px);line-height:1.12;font-weight:700;letter-spacing:-0.015em">Built by a group member, for groups.</h2>
+        <p style="margin:0;color:#4F5A54">Blocktime started inside a UK flying group, built by one of its members who wanted something better than the old booking site. It is made for small groups sharing an aircraft, not for flight schools.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- CTA -->
+  <div style="background:#172026;color:#F4F5F0">
+    <div style="max-width:1160px;margin:0 auto;padding:80px 24px;box-sizing:border-box;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:32px">
+      <h2 style="margin:0;font-size:clamp(30px,4vw,46px);line-height:1.08;font-weight:700;letter-spacing:-0.015em;max-width:560px">Give your group a better calendar.</h2>
+      <div style="display:flex;flex-wrap:wrap;gap:14px">
+        <a class="btn-light" href="https://blocktime.group/login" style="background:#F4F5F0;color:#172026;font-weight:600;font-size:17px;padding:0 28px;min-height:52px;display:flex;align-items:center">Create your group</a>
+        <a href="https://blocktime.group/login" style="border:1px solid #8A948D;color:#F4F5F0;font-weight:600;font-size:17px;padding:0 28px;min-height:52px;display:flex;align-items:center">Sign in</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div style="max-width:1160px;margin:0 auto;padding:32px 24px 40px;box-sizing:border-box">
+    <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:16px;margin-bottom:14px">
+      <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:14px;font-weight:600">blocktime<span style="color:#4F5A54;font-weight:400">.group</span></div>
+      <div style="display:flex;flex-wrap:wrap;gap:22px;font-size:14px;color:#4F5A54">
+        <span>Privacy</span>
+        <span>Contact: [CONTACT EMAIL]</span>
+      </div>
+    </div>
+    <p style="margin:0;font-size:13px;color:#4F5A54;max-width:720px">Blocktime is a scheduling convenience. It is not an authoritative source for flight planning, aircraft airworthiness or maintenance status.</p>
+  </div>
+
+</div>
+</body>
+</html>

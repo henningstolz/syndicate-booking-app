@@ -10,6 +10,22 @@
   --color-foreground: var(--foreground);
 }
 
+/* Palette of the public homepage (design/blocktime-homepage-reference.html). */
+@theme {
+  --color-bt-paper: #f4f5f0;
+  --color-bt-ink: #172026;
+  --color-bt-night: #16242c;
+  --color-bt-blue: #1f5673;
+  --color-bt-muted: #4f5a54;
+  --color-bt-line: #b9bcb1;
+  --color-bt-grid: #d9dbd2;
+  --color-bt-neutral: #8a948d;
+  --color-bt-green: #2f5e43;
+  --color-bt-green-line: #3f7355;
+  --color-bt-amber: #8a5316;
+  --color-bt-amber-line: #b97327;
+}
+
 /*
  * Dark mode isn't designed yet — pages currently use fixed light-mode
  * Tailwind colors, so an auto-dark background would make text unreadable.

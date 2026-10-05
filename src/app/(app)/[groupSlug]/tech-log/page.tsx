@@ -22,7 +22,7 @@ const timestampFormat = new Intl.DateTimeFormat("en-GB", {
   hour12: false,
 });
 
-export default async function SquawksPage({
+export default async function TechLogPage({
   params,
 }: {
   params: Promise<{ groupSlug: string }>;

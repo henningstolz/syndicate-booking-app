@@ -21,14 +21,14 @@ export function BoardSection() {
           One board for the whole week.
         </h2>
         <p className="max-w-[420px] text-bt-muted">
-          Every booking and every open squawk, visible to everyone in the
-          group, so nobody has to ask who has the aircraft.
+          Every booking and every open entry in the tech log, visible to
+          everyone in the group, so nobody has to ask who has the aircraft.
         </p>
       </div>
 
       <figure
         role="img"
-        aria-label="Illustration of a booking board for G-ABCD: four bookings between Tuesday and Friday and one open squawk about an intermittent transponder fault."
+        aria-label="Illustration of a booking board for G-ABCD: four bookings between Tuesday and Friday and one open tech log entry about an intermittent transponder fault."
         className="min-w-0 flex-[1_1_440px]"
       >
         <div className="border border-bt-ink bg-white">
@@ -95,7 +95,7 @@ export function BoardSection() {
 
           <div className="flex flex-wrap items-center gap-3 border-t border-bt-ink bg-bt-paper px-4 py-3">
             <p className="border border-bt-amber-line px-[7px] py-0.5 font-mono text-[11px] text-bt-amber">
-              SQUAWK
+              TECH LOG
             </p>
             <p className="flex-[1_1_180px] text-sm">Transponder: intermittent fault</p>
             <p className="font-mono text-[11px] text-bt-muted">open</p>

@@ -11,7 +11,7 @@ export function PrivacyAbout() {
           <Eyebrow>PRIVATE BY DESIGN</Eyebrow>
           <h2 className={heading}>Your group&apos;s data stays your group&apos;s.</h2>
           <p className="text-bt-muted">
-            Each group has its own aircraft, members, bookings and squawks, and
+            Each group has its own aircraft, members, bookings and tech log, and
             other groups cannot see them. Everyone signs in with their own
             email and password.
           </p>

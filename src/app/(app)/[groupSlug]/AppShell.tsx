@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 const NAV_ITEMS = [
   { path: "", label: "Dashboard" },
   { path: "/calendar", label: "Calendar" },
-  { path: "/squawks", label: "Squawks" },
+  { path: "/tech-log", label: "Tech log" },
   { path: "/reports", label: "Reports" },
   { path: "/aircraft", label: "Aircraft" },
   { path: "/members", label: "Members" },

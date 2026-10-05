@@ -15,7 +15,7 @@ const ibmPlexMono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: "G-BBFD Syndicate",
-  description: "Shared booking calendar and squawk log for the G-BBFD syndicate.",
+  description: "Shared booking calendar and tech log for the G-BBFD syndicate.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

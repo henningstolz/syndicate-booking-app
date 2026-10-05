@@ -36,6 +36,6 @@ export async function postSquawk(
     return { error: error.message };
   }
 
-  revalidatePath(`/${groupSlug}/squawks`);
+  revalidatePath(`/${groupSlug}/tech-log`);
   return { success: true };
 }

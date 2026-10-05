@@ -7,9 +7,9 @@ const FEATURES = [
     text: "See the whole week at a glance. Book a slot in seconds, and clashes are caught before they happen.",
   },
   {
-    status: "Live",
-    title: "Squawk log",
-    text: "Anyone can log a defect. Everyone sees what is open, so the next pilot knows before walking out to the aircraft.",
+    status: "In progress",
+    title: "Tech log",
+    text: "One shared record of the aircraft: defects, hours and fixes. The next pilot knows its state before walking out to it.",
   },
   {
     status: "Next",
@@ -17,6 +17,12 @@ const FEATURES = [
     text: "Hobbs in and out, fuel, and a fair monthly split per member. Being built next.",
   },
 ];
+
+const STATUS_STYLES: Record<(typeof FEATURES)[number]["status"], string> = {
+  Live: "border-bt-green-line text-bt-green",
+  "In progress": "border-bt-amber-line text-bt-amber",
+  Next: "border-bt-neutral text-bt-muted",
+};
 
 export function Features() {
   return (
@@ -27,27 +33,20 @@ export function Features() {
           Everything a shared aircraft needs, in one place.
         </h2>
         <div className="flex flex-wrap gap-5">
-          {FEATURES.map((feature) => {
-            const live = feature.status === "Live";
-            return (
-              <div
-                key={feature.title}
-                className="min-w-0 flex-[1_1_280px] border border-bt-line bg-bt-paper p-7"
+          {FEATURES.map((feature) => (
+            <div
+              key={feature.title}
+              className="min-w-0 flex-[1_1_280px] border border-bt-line bg-bt-paper p-7"
+            >
+              <p
+                className={`mb-[18px] inline-block border px-2 py-0.5 font-mono text-xs ${STATUS_STYLES[feature.status]}`}
               >
-                <p
-                  className={`mb-[18px] inline-block border px-2 py-0.5 font-mono text-xs ${
-                    live
-                      ? "border-bt-green-line text-bt-green"
-                      : "border-bt-neutral text-bt-muted"
-                  }`}
-                >
-                  {feature.status}
-                </p>
-                <h3 className="mb-2.5 text-[22px] font-semibold">{feature.title}</h3>
-                <p className="text-bt-muted">{feature.text}</p>
-              </div>
-            );
-          })}
+                {feature.status}
+              </p>
+              <h3 className="mb-2.5 text-[22px] font-semibold">{feature.title}</h3>
+              <p className="text-bt-muted">{feature.text}</p>
+            </div>
+          ))}
         </div>
       </div>
     </section>

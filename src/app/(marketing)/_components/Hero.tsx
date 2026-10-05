@@ -40,7 +40,7 @@ export function Hero() {
         <div className="mx-auto max-w-[1160px] px-6 pt-20 pb-28 sm:pt-32 sm:pb-[168px]">
           <Eyebrow className="text-[#c9d6dc]">BOOKING FOR SHARED AIRCRAFT</Eyebrow>
           <h1 className="mb-6 max-w-[820px] text-[clamp(40px,6vw,76px)] leading-[1.03] font-bold tracking-[-0.02em]">
-            Booking, squawks and costs for your flying group.
+            Booking, tech log and costs for your flying group.
           </h1>
           <p className="mb-[38px] max-w-[560px] text-[21px] leading-normal text-[#e6ebe8]">
             One calendar everyone trusts, for the people you share an aircraft

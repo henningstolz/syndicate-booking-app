@@ -1,6 +1,7 @@
-// TODO(owner): the two marked items below are placeholders. Replace
-// "Privacy" with a real link to the privacy policy and "[CONTACT EMAIL]"
-// with the real contact address, then drop the placeholder styling.
+// TODO(owner): the "Privacy" item below is still a placeholder. Replace it
+// with a real link to the privacy policy, then drop the placeholder styling.
+const CONTACT_EMAIL = "hello@blocktime.group";
+
 const placeholder =
   "border border-dashed border-bt-amber-line px-2 text-bt-amber";
 
@@ -13,7 +14,15 @@ export function Footer() {
         </p>
         <div className="flex flex-wrap gap-[22px] text-sm text-bt-muted">
           <span className={placeholder}>Privacy [placeholder]</span>
-          <span className={placeholder}>Contact: [CONTACT EMAIL]</span>
+          <span>
+            Contact:{" "}
+            <a
+              href={`mailto:${CONTACT_EMAIL}`}
+              className="text-bt-ink underline underline-offset-4 hover:text-bt-blue"
+            >
+              {CONTACT_EMAIL}
+            </a>
+          </span>
         </div>
       </div>
       <p className="max-w-[720px] text-[13px] text-bt-muted">

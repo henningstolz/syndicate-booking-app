@@ -9,7 +9,7 @@ import { GroupSwitcher, type GroupOption } from "./GroupSwitcher";
 const NAV_ITEMS = [
   { path: "", label: "Dashboard" },
   { path: "/calendar", label: "Calendar" },
-  { path: "/board", label: "Board" },
+  { path: "/chat", label: "Chat" },
   { path: "/tech-log", label: "Tech log" },
   { path: "/reports", label: "Reports" },
   { path: "/aircraft", label: "Aircraft" },

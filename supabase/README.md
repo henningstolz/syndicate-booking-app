@@ -9,7 +9,7 @@ paste a file's contents, run it — in order, once each.
 3. `0003_add_member_display_name.sql` — adds `group_members.display_name`
    (run once; if you added yourself before this existed, also run:
    `update public.group_members set display_name = 'Henning' where display_name is null;`)
-4. `0004_add_squawks.sql` — the shared message board (`squawks` table)
+4. `0004_add_squawks.sql` — the shared group chat (`squawks` table; first called the message board)
 5. `0005_add_aircraft_status.sql` — renewal/check status fields on `groups`,
    editable by admins (the Aircraft page)
 6. `0006_group_creation_and_invites.sql` — anyone can create a group and

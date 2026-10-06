@@ -89,14 +89,14 @@ export default function PrivacyPage() {
             <li>
               <strong>Your name in the group:</strong> the display name you
               enter when you join a group. Other members of that group see it
-              on bookings, flight log entries and board posts.
+              on bookings, flight log entries and chat messages.
             </li>
             <li>
               <strong>What your group records:</strong> the aircraft details
               and due dates, bookings (times, notes and who made them), the
               flight log (for each flight: the captain&apos;s name, where it
               went, times, fuel, oil and any defect noted, and who entered
-              it), messages on the group&apos;s board, and the invitations an
+              it), messages in the group&apos;s chat, and the invitations an
               admin has created.
             </li>
             <li>
@@ -116,7 +116,7 @@ export default function PrivacyPage() {
           <ul>
             <li>
               <strong>Your group:</strong> every member of a group can see that
-              group&apos;s aircraft, bookings, flight log, board and member
+              group&apos;s aircraft, bookings, flight log, chat and member
               names.
               Group admins can also create invitations. Other groups cannot see
               any of it; this is enforced in the database itself, not just in

@@ -6,7 +6,7 @@ import { PostForm } from "./PostForm";
 
 type MemberRow = { user_id: string; display_name: string | null };
 
-// Rows of the `squawks` table (the board's original name).
+// Rows of the `squawks` table (the chat's original name).
 type MessageRow = {
   id: string;
   author_id: string;
@@ -23,7 +23,7 @@ const timestampFormat = new Intl.DateTimeFormat("en-GB", {
   hour12: false,
 });
 
-export default async function BoardPage({
+export default async function ChatPage({
   params,
 }: {
   params: Promise<{ groupSlug: string }>;

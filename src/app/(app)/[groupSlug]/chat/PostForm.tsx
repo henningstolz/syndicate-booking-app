@@ -1,9 +1,9 @@
 "use client";
 
 import { useActionState, useEffect, useRef } from "react";
-import { postBoardMessage, type BoardActionState } from "./actions";
+import { postChatMessage, type ChatActionState } from "./actions";
 
-const initialState: BoardActionState = {};
+const initialState: ChatActionState = {};
 
 export function PostForm({
   groupId,
@@ -12,7 +12,7 @@ export function PostForm({
   groupId: string;
   groupSlug: string;
 }) {
-  const [state, action, pending] = useActionState(postBoardMessage, initialState);
+  const [state, action, pending] = useActionState(postChatMessage, initialState);
   const formRef = useRef<HTMLFormElement>(null);
 
   // Refs are a DOM escape hatch, not render state — clearing the

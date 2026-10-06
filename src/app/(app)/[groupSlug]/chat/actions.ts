@@ -4,15 +4,15 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
-// The board's messages live in the `squawks` table (its original name; the
-// table keeps it, only the screens say "Board").
+// The chat's messages live in the `squawks` table (its original name; the
+// table keeps it, only the screens say "Chat").
 
-export type BoardActionState = { error?: string; success?: boolean };
+export type ChatActionState = { error?: string; success?: boolean };
 
-export async function postBoardMessage(
-  _prevState: BoardActionState,
+export async function postChatMessage(
+  _prevState: ChatActionState,
   formData: FormData,
-): Promise<BoardActionState> {
+): Promise<ChatActionState> {
   const groupId = formData.get("groupId") as string;
   const groupSlug = formData.get("groupSlug") as string;
   const message = (formData.get("message") as string)?.trim();
@@ -39,6 +39,6 @@ export async function postBoardMessage(
     return { error: error.message };
   }
 
-  revalidatePath(`/${groupSlug}/board`);
+  revalidatePath(`/${groupSlug}/chat`);
   return { success: true };
 }

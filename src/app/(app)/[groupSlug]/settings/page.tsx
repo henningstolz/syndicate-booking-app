@@ -192,6 +192,16 @@ export default async function SettingsPage({
             Change password
           </Link>
         </p>
+        <p className="text-sm text-zinc-600">
+          Run more than one aircraft?{" "}
+          <Link
+            href="/groups/new"
+            className="text-zinc-900 underline underline-offset-4"
+          >
+            Start another group
+          </Link>
+          . It appears in the group menu at the top.
+        </p>
 
         <details className="max-w-md text-sm text-zinc-600">
           <summary className="w-fit cursor-pointer text-zinc-500 underline underline-offset-4">

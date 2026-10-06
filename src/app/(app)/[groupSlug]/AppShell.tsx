@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { LAST_GROUP_COOKIE } from "@/lib/pick-group";
+import { GroupSwitcher, type GroupOption } from "./GroupSwitcher";
 
 const NAV_ITEMS = [
   { path: "", label: "Dashboard" },
@@ -50,15 +52,23 @@ function NavLinks({
 export function AppShell({
   groupSlug,
   groupName,
+  groups,
   signOutAction,
   children,
 }: {
   groupSlug: string;
   groupName: string;
+  groups: GroupOption[];
   signOutAction: () => void;
   children: React.ReactNode;
 }) {
   const [navOpen, setNavOpen] = useState(false);
+
+  // Remember this group so the next sign-in opens it again.
+  useEffect(() => {
+    const secure = location.protocol === "https:" ? "; secure" : "";
+    document.cookie = `${LAST_GROUP_COOKIE}=${groupSlug}; path=/; max-age=31536000; samesite=lax${secure}`;
+  }, [groupSlug]);
 
   return (
     <div className="flex flex-1 flex-col">
@@ -72,7 +82,11 @@ export function AppShell({
           >
             ☰
           </button>
-          <span className="font-mono text-sm text-zinc-500">{groupName}</span>
+          <GroupSwitcher
+            groups={groups}
+            currentSlug={groupSlug}
+            currentName={groupName}
+          />
         </div>
         <form action={signOutAction}>
           <button

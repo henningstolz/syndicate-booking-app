@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { homePathFor } from "@/lib/user-home";
 
 // Every action ends by redirecting back to the Settings page with a short
 // code in the URL (?notice=...). The page turns the code into a message, so
@@ -55,7 +56,13 @@ export async function leaveGroup(formData: FormData) {
   const result = (data as RpcResult | null)?.result;
 
   if (error || !result) redirect(settingsUrl(groupSlug, "error"));
-  if (result === "ok") redirect("/pending");
+  if (result === "ok") {
+    // On to another of their groups if they have one.
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    redirect(user ? await homePathFor(supabase, user.id) : "/pending");
+  }
   redirect(settingsUrl(groupSlug, result));
 }
 

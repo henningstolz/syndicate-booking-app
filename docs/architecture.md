@@ -81,6 +81,15 @@ form actions that talk to Supabase.
 Signed-out visitors to `/<group>/…` are sent to `/login`. A signed-in user
 with no group lands on `/pending`, which offers "Create a group".
 
+**Several groups.** The group name in the header becomes a menu when someone
+belongs to two or more groups (`GroupSwitcher.tsx`), with a "Start another
+group" entry. The group you last used is remembered in a cookie
+(`bt_last_group`, holding only the group's web address) so the next sign-in
+opens it; if that group is gone or the cookie is missing, the oldest group
+is opened (`lib/pick-group.ts`, `lib/user-home.ts`). Visiting a group you are
+not in, leaving a group, or being removed from one sends you to another of
+your groups, or to `/pending` if you have none.
+
 ## Routes
 
 | Path | What it is |
@@ -247,7 +256,6 @@ something to keep working.
 - Email notifications for bookings, cancellations and tech log posts.
 - Self-service account deletion (done by hand in Supabase today). Members can
   leave a group, but their login stays.
-- A group switcher: someone in two groups can only reach the first by sign-in.
 - Separate development and production databases.
 - An installable (PWA) version for phones.
 - Colour palette retune for red-green colour blindness (rose and lime are too

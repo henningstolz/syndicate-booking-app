@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getGroupBySlug } from "@/lib/groups";
+import { homePathFor } from "@/lib/user-home";
 import { signOut } from "@/app/login/actions";
 import { AppShell } from "./AppShell";
+import type { GroupOption } from "./GroupSwitcher";
 
 // This is a live shared booking system — every page under a group
 // must always reflect the current database state. Without this,
@@ -31,14 +33,29 @@ export default async function GroupLayout({
   // RLS on `groups` only returns a row if the signed-in user belongs to
   // it, so a null result here covers both "no such group" and "signed
   // in but not a member of this one" — either way, send them onward.
-  const group = await getGroupBySlug(supabase, groupSlug);
+  const [group, { data: groups }] = await Promise.all([
+    getGroupBySlug(supabase, groupSlug),
+    // Row-level security returns only the groups this person belongs to.
+    supabase
+      .from("groups")
+      .select("slug, name, aircraft_registration")
+      .order("name")
+      .returns<GroupOption[]>(),
+  ]);
 
   if (!group) {
-    redirect("/pending");
+    // Not (or no longer) in this group: open another of theirs if they
+    // have one, otherwise the "no group yet" page.
+    redirect(await homePathFor(supabase, user.id));
   }
 
   return (
-    <AppShell groupSlug={groupSlug} groupName={group.name} signOutAction={signOut}>
+    <AppShell
+      groupSlug={groupSlug}
+      groupName={group.name}
+      groups={groups ?? []}
+      signOutAction={signOut}
+    >
       {children}
     </AppShell>
   );

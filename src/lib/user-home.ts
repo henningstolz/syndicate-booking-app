@@ -1,25 +1,26 @@
+import { cookies } from "next/headers";
 import type { createClient } from "@/lib/supabase/server";
+import { LAST_GROUP_COOKIE, pickGroupSlug } from "@/lib/pick-group";
 
-// Where a signed-in person should land: their group's dashboard, or
-// /pending when they belong to none.
+type MembershipRow = { groups: { slug: string } | null };
+
+// Where a signed-in person should land: the dashboard of the group they used
+// last (or their oldest group), or /pending when they belong to none.
 export async function homePathFor(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
 ) {
-  const { data: membership } = await supabase
+  const { data } = await supabase
     .from("group_members")
-    .select("group_id")
+    .select("groups(slug)")
     .eq("user_id", userId)
     .is("removed_at", null)
-    .limit(1)
-    .maybeSingle();
-  if (!membership) return "/pending";
+    .order("created_at")
+    .returns<MembershipRow[]>();
 
-  const { data: group } = await supabase
-    .from("groups")
-    .select("slug")
-    .eq("id", membership.group_id)
-    .single();
+  const slugs = (data ?? []).flatMap((row) => (row.groups ? [row.groups.slug] : []));
+  const lastUsed = (await cookies()).get(LAST_GROUP_COOKIE)?.value;
+  const slug = pickGroupSlug(slugs, lastUsed);
 
-  return group ? `/${group.slug}` : "/pending";
+  return slug ? `/${slug}` : "/pending";
 }

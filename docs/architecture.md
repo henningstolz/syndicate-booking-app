@@ -168,7 +168,7 @@ src/
     datetime.ts               all UK-time handling (see below)
     member-colors.ts          the colour palette for members
     booking-durations.ts, slugify.ts
-public/video/                 hero.mp4 and its poster image
+public/video/                 the hero film and its poster (fingerprinted file names)
 scripts/encode-hero-video.sh  turns raw footage into the hero film
 supabase/migrations/          the database history, run by hand
 design/                       homepage design reference (film.mov is not tracked)

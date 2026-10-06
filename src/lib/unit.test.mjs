@@ -8,6 +8,7 @@ import {
   formatMonthKey, monthKeysDescending,
 } from "./flight-times.ts";
 import { buildFlightLogPdf } from "./flight-log-pdf.ts";
+import { runningTotals } from "./flight-totals.ts";
 import { PDFDocument } from "pdf-lib";
 
 let count = 0;
@@ -64,6 +65,17 @@ eq(wallTimesToUtcIso("2026-10-24", ["23:30", "23:40", "00:10", "00:20"], [0, 0, 
   ["2026-10-24T22:30:00.000Z", "2026-10-24T22:40:00.000Z", "2026-10-24T23:10:00.000Z", "2026-10-24T23:20:00.000Z"], "night before the clocks go back");
 eq(wallTimesToUtcIso("2026-10-25", ["09:00", "09:05", "10:00", "10:10"], [0, 0, 0, 0]),
   ["2026-10-25T09:00:00.000Z", "2026-10-25T09:05:00.000Z", "2026-10-25T10:00:00.000Z", "2026-10-25T10:10:00.000Z"], "morning after clocks went back (GMT)");
+
+// --- running airframe totals (PDF and list)
+const f = (flightDeci, o = {}) => ({ flightDeci, voided: false, checkLimitHours: 5892.9, ...o });
+eq(runningTotals([f(1.2), f(0.8)], 5870.4), [{ total: 5871.6, toCheck: 21.3 }, { total: 5872.4, toCheck: 20.5 }], "adds up from the baseline");
+eq(runningTotals([f(1.2), f(1, { voided: true }), f(0.8)], 5870.4), [{ total: 5871.6, toCheck: 21.3 }, { total: null, toCheck: null }, { total: 5872.4, toCheck: 20.5 }], "a voided flight does not count");
+eq(runningTotals([f(1.2), f(0.8)], null), [{ total: null, toCheck: null }, { total: null, toCheck: null }], "no baseline: nothing shown");
+eq(runningTotals([f(1.2, { checkLimitHours: null })], 5870.4), [{ total: 5871.6, toCheck: null }], "no limit then: no hours to check");
+eq(runningTotals([f(1.2, { checkLimitHours: 5892.9 }), f(1.2, { checkLimitHours: 5992.9 })], 5870.4), [{ total: 5871.6, toCheck: 21.3 }, { total: 5872.8, toCheck: 120.1 }], "each flight uses the limit remembered at its time");
+eq(runningTotals([f(1.2, { checkLimitHours: 5871 })], 5870.4), [{ total: 5871.6, toCheck: -0.6 }], "past the limit goes negative");
+eq(runningTotals([], 5870.4), [], "empty");
+eq(runningTotals([f(0.1), f(0.1), f(0.1)], 100), [{ total: 100.1, toCheck: 5792.8 }, { total: 100.2, toCheck: 5792.7 }, { total: 100.3, toCheck: 5792.6 }], "no floating point drift");
 
 // --- months for the PDF picker
 eq(formatMonthKey("2026-10"), "October 2026", "month label");

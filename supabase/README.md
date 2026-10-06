@@ -43,6 +43,13 @@ paste a file's contents, run it — in order, once each.
     *before* pushing the matching code, because every group page now selects
     the new `groups` columns.
 
+12. `0012_flight_check_limit_snapshot.sql` — each flight entry remembers the check
+    limit ("next check at N hours") that applied when it was logged
+    (`check_limit_hours`, filled by a trigger), so "hours to check" stays right
+    for old entries and old PDFs after a check resets the limit. Existing
+    entries get the current limit. Backwards compatible: run it *before*
+    pushing the matching code.
+
 ## Adding members to a group
 
 Two ways now:

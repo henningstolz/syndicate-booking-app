@@ -4,12 +4,14 @@ import { getGroupBySlug } from "@/lib/groups";
 import { LONDON_TZ, formatTime } from "@/lib/datetime";
 import { formatMonthKey } from "@/lib/flight-times";
 import { buildFlightLogPdf, type PdfRow } from "@/lib/flight-log-pdf";
+import { runningTotals } from "@/lib/flight-totals";
 
 // The monthly flight log as a printable A4 landscape PDF:
 //   /<group>/tech-log/pdf?month=2026-10
 export const dynamic = "force-dynamic";
 
 type FlightRow = {
+  flight_date: string;
   brakes_off: string;
   airborne: string;
   landed: string;
@@ -21,6 +23,9 @@ type FlightRow = {
   fuel_left_usg: number;
   fuel_right_usg: number;
   oil_qt: number;
+  block_deci: number;
+  flight_deci: number;
+  check_limit_hours: number | null;
   defects: string | null;
   voided_at: string | null;
   void_reason: string | null;
@@ -74,27 +79,49 @@ export async function GET(
       ? `${year + 1}-01-01`
       : `${year}-${String(monthNumber + 1).padStart(2, "0")}-01`;
 
-  const { data, error } = await supabase
-    .from("flight_entries")
-    .select(
-      "brakes_off, airborne, landed, brakes_on, from_place, to_place, flight_category, captain_name, fuel_left_usg, fuel_right_usg, oil_qt, defects, voided_at, void_reason",
-    )
-    .eq("group_id", group.id)
-    .gte("flight_date", `${month}-01`)
-    .lt("flight_date", nextMonth)
-    .order("brakes_off", { ascending: true })
-    .limit(1000)
-    .returns<FlightRow[]>();
-
-  if (error) {
-    return NextResponse.json({ error: "Could not read the flight log." }, { status: 500 });
+  // Every entry up to the end of the month, oldest first, read in pages
+  // (the database returns at most 1000 rows per request): the totals on the
+  // printout are running sums, so the flights before the month are needed too.
+  const all: FlightRow[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await supabase
+      .from("flight_entries")
+      .select(
+        "flight_date, brakes_off, airborne, landed, brakes_on, from_place, to_place, flight_category, captain_name, fuel_left_usg, fuel_right_usg, oil_qt, block_deci, flight_deci, check_limit_hours, defects, voided_at, void_reason",
+      )
+      .eq("group_id", group.id)
+      .lt("flight_date", nextMonth)
+      .order("brakes_off", { ascending: true })
+      .range(from, from + 999)
+      .returns<FlightRow[]>();
+    if (error) {
+      return NextResponse.json({ error: "Could not read the flight log." }, { status: 500 });
+    }
+    all.push(...(data ?? []));
+    if ((data ?? []).length < 1000) break;
   }
 
-  const rows: PdfRow[] = (data ?? []).map((entry) => {
+  // Airframe total after each flight: the baseline plus the flight time of
+  // every earlier, non-voided entry. Hours to check uses the check limit
+  // that applied when that flight was logged, so old printouts stay right
+  // after a check resets the limit.
+  const totals = runningTotals(
+    all.map((entry) => ({
+      flightDeci: Number(entry.flight_deci),
+      voided: Boolean(entry.voided_at),
+      checkLimitHours:
+        entry.check_limit_hours === null ? null : Number(entry.check_limit_hours),
+    })),
+    group.airframe_hours_baseline,
+  );
+
+  const rows: PdfRow[] = [];
+  all.forEach((entry, index) => {
+    if (entry.flight_date < `${month}-01`) return; // only needed for the sums
+    const voided = Boolean(entry.voided_at);
     const left = Number(entry.fuel_left_usg);
     const right = Number(entry.fuel_right_usg);
-    const voided = Boolean(entry.voided_at);
-    return {
+    rows.push({
       date: dayFormat.format(new Date(entry.brakes_off)),
       from: entry.from_place,
       to: entry.to_place,
@@ -108,9 +135,13 @@ export async function GET(
       airborne: formatTime(entry.airborne),
       landed: formatTime(entry.landed),
       brakesOn: formatTime(entry.brakes_on),
+      blockDeci: Number(entry.block_deci).toFixed(1),
+      flightDeci: Number(entry.flight_deci).toFixed(1),
+      totalHours: totals[index].total === null ? "" : totals[index].total.toFixed(1),
+      hoursToCheck: totals[index].toCheck === null ? "" : totals[index].toCheck.toFixed(1),
       defects: voided ? `VOID: ${entry.void_reason ?? ""}` : (entry.defects ?? ""),
       voided,
-    };
+    });
   });
 
   const bytes = await buildFlightLogPdf({

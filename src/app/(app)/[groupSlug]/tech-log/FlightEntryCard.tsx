@@ -21,6 +21,8 @@ export type FlightRow = {
   flight_minutes: number;
   block_deci: number;
   flight_deci: number;
+  // The check limit ("next check at N hours") that applied when this was logged.
+  check_limit_hours: number | null;
   defects: string | null;
   voided_at: string | null;
   void_reason: string | null;

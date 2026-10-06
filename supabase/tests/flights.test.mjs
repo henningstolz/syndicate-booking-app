@@ -173,6 +173,19 @@ check("clearing the check limit keeps the baseline, stops deriving", result(awai
 await db.exec("reset role");
 check("hours to check left as last computed", [num((await group()).t), num((await group()).c), num((await group()).r)], [5881.2, null, 18.8]);
 
+// --- the check limit is remembered per entry ------------------------------
+await db.exec("reset role");
+const limitAt = async (clock) => num((await db.query("select check_limit_hours c from public.flight_entries where group_id=$1 and brakes_off=$2 and voided_at is null", [G1, t(clock)])).rows[0].c);
+check("entry logged while the limit was 5892.9 remembers 5892.9", await limitAt("07:00"), 5892.9);
+check("entry logged after the limit became 5900 remembers 5900", await limitAt("05:00"), 5900);
+check("admin moves the limit to 6000 (as after a check)", result(await rpc("alice", "set_airframe_hours", G1, 5881.2, 6000)), "ok");
+check("a new entry gets the new limit", result(await add("bob", { off: t("03:00"), up: t("03:05"), down: t("03:50"), on: t("03:55") })), "ok");
+await db.exec("reset role");
+check("...while older entries keep what applied then", [await limitAt("07:00"), await limitAt("05:00"), await limitAt("03:00")], [5892.9, 5900, 6000]);
+check("entries from before any limit was set stay empty", num((await db.query("select check_limit_hours c from public.flight_entries where group_id=$1 and brakes_off=$2", [G1, t("09:10")])).rows[0].c), null);
+check("group 2 has no limit, so its entry has none", (await db.query("select check_limit_hours c from public.flight_entries where group_id=$1 limit 1", [G2])).rows[0].c, null);
+check("the snapshot helper is not callable by the app", (await rpc("alice", "flight_entry_snapshot_check_limit")).thrown !== undefined, true);
+
 // --- access -------------------------------------------------------------
 check("members see their group's log (incl. voided)", (await q("cara", "select count(*)::int n from public.flight_entries"))[0].n > 0, true);
 check("other group's member sees only their own entries", (await q("eve", "select count(*)::int n from public.flight_entries where group_id=$1", [G1]))[0].n, 0);

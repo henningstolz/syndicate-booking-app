@@ -1,5 +1,7 @@
 // Builds the monthly flight log PDF: A4 landscape, laid out like the club's
-// paper Technical Log (simplified, and only the fields a pilot enters).
+// paper Technical Log (simplified): the fields a pilot enters, the calculated
+// decimal hours, the airframe total and hours to the next check, and a
+// signature line on every page.
 // Self-contained on purpose: it takes ready-formatted text, so it has no
 // dependency on the app and can be tested on its own.
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
@@ -18,6 +20,13 @@ export type PdfRow = {
   airborne: string;
   landed: string;
   brakesOn: string;
+  // Calculated: decimal hours (paper conversion table) for block and flight
+  // time, the airframe total after this flight and the hours left to the next
+  // check. Empty strings when not known (totals not set up, entry voided).
+  blockDeci: string;
+  flightDeci: string;
+  totalHours: string;
+  hoursToCheck: string;
   defects: string;
   // A voided entry stays on the printout, struck through, like a correction
   // on paper. Its `defects` text then holds the reason.
@@ -38,6 +47,8 @@ const PAGE_W = 841.89;
 const PAGE_H = 595.28;
 const MARGIN = 28;
 const FOOTER_H = 22;
+// Room kept at the bottom of every page for the signature line.
+const SIGN_H = 34;
 
 const INK = rgb(0.09, 0.125, 0.15);
 const MUTED = rgb(0.42, 0.45, 0.43);
@@ -55,26 +66,31 @@ type Column = { key: keyof PdfRow | null; label: string; width: number; align: "
 // Widths add up to the usable width (841.89 - 2 * 28 = 785.89); defects take
 // whatever is left.
 const FIXED: Column[] = [
-  { key: "date", label: "DATE", width: 44, align: "left" },
-  { key: "from", label: "FROM", width: 38, align: "left" },
-  { key: "to", label: "TO", width: 38, align: "left" },
-  { key: "category", label: "CAT", width: 26, align: "center" },
-  { key: "captain", label: "CAPTAIN", width: 92, align: "left" },
-  { key: "fuelLeft", label: "L", width: 32, align: "center" },
-  { key: "fuelRight", label: "R", width: 32, align: "center" },
-  { key: "fuelTotal", label: "TOTAL", width: 36, align: "center" },
-  { key: "oil", label: "OIL (qt)", width: 32, align: "center" },
-  { key: "brakesOff", label: "BRAKES OFF", width: 42, align: "center" },
+  { key: "date", label: "DATE", width: 40, align: "left" },
+  { key: "from", label: "FROM", width: 34, align: "left" },
+  { key: "to", label: "TO", width: 34, align: "left" },
+  { key: "category", label: "CAT", width: 24, align: "center" },
+  { key: "captain", label: "CAPTAIN", width: 74, align: "left" },
+  { key: "fuelLeft", label: "L", width: 28, align: "center" },
+  { key: "fuelRight", label: "R", width: 28, align: "center" },
+  { key: "fuelTotal", label: "TOTAL", width: 32, align: "center" },
+  { key: "oil", label: "OIL (qt)", width: 26, align: "center" },
+  { key: "brakesOff", label: "BRAKES OFF", width: 38, align: "center" },
   { key: "airborne", label: "AIRBORNE", width: 42, align: "center" },
-  { key: "landed", label: "LANDED", width: 42, align: "center" },
-  { key: "brakesOn", label: "BRAKES ON", width: 42, align: "center" },
+  { key: "landed", label: "LANDED", width: 38, align: "center" },
+  { key: "brakesOn", label: "BRAKES ON", width: 38, align: "center" },
+  { key: "blockDeci", label: "BLOCK", width: 32, align: "center" },
+  { key: "flightDeci", label: "FLIGHT", width: 32, align: "center" },
+  { key: "totalHours", label: "TOTAL HOURS", width: 44, align: "center" },
+  { key: "hoursToCheck", label: "HOURS TO CHK", width: 40, align: "center" },
 ];
 const USABLE_W = PAGE_W - 2 * MARGIN;
 
 // Column groups with a label above them: [first column, how many, label].
 const GROUPS: [number, number, string][] = [
-  [5, 3, "FUEL AT DEPARTURE (US gal)"],
+  [5, 3, "FUEL AT DEP. (US gal)"],
   [9, 4, "LOCAL TIMES"],
+  [13, 2, "DECI HOURS"],
 ];
 const GROUP_ROW_H = 12;
 const COLUMNS: Column[] = [
@@ -205,7 +221,7 @@ export async function buildFlightLogPdf(input: PdfInput): Promise<Uint8Array> {
   // ------------------------------------------------------------ page chrome
   let page!: PDFPage;
   let cursor = 0; // current y, from the top
-  const BOTTOM = PAGE_H - MARGIN - FOOTER_H; // lowest y a row may reach
+  const BOTTOM = PAGE_H - MARGIN - FOOTER_H - SIGN_H; // lowest y a row may reach
 
   const tableLeft = MARGIN;
   const colX: number[] = [];
@@ -353,6 +369,18 @@ export async function buildFlightLogPdf(input: PdfInput): Promise<Uint8Array> {
   // ---------------------------------------------------------------- footers
   const total = pages.length;
   pages.forEach((p, i) => {
+    // Signature line: each printed sheet in the folder gets signed.
+    const signY = PAGE_H - MARGIN - FOOTER_H - 10; // from the top
+    const fields: [string, number, number][] = [
+      ["SIGNED", MARGIN, 230],
+      ["NAME", MARGIN + 270, 190],
+      ["DATE", MARGIN + 500, 120],
+    ];
+    for (const [label, x, width] of fields) {
+      text(p, label, x, signY, { font: bold, size: 7.5 });
+      const labelW = bold.widthOfTextAtSize(label, 7.5);
+      hline(p, x + labelW + 6, x + labelW + 6 + width, signY + 2, 0.6);
+    }
     const left = `Blocktime flight log · ${input.registration} · ${input.monthLabel} · printed ${input.printedAt}`;
     text(p, left, MARGIN, PAGE_H - MARGIN + 6, { size: 7, color: MUTED });
     const right = `Page ${i + 1} of ${total}`;

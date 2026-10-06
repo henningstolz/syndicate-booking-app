@@ -94,7 +94,7 @@ export default async function TechLogPage({
   const { data: flights } = await supabase
     .from("flight_entries")
     .select(
-      "id, from_place, to_place, flight_category, captain_id, captain_name, created_by, fuel_left_usg, fuel_right_usg, oil_qt, brakes_off, airborne, landed, brakes_on, block_minutes, flight_minutes, block_deci, flight_deci, defects, voided_at, void_reason",
+      "id, from_place, to_place, flight_category, captain_id, captain_name, created_by, fuel_left_usg, fuel_right_usg, oil_qt, brakes_off, airborne, landed, brakes_on, block_minutes, flight_minutes, block_deci, flight_deci, check_limit_hours, defects, voided_at, void_reason",
     )
     .eq("group_id", group.id)
     .order("brakes_off", { ascending: false })
@@ -129,7 +129,12 @@ export default async function TechLogPage({
     if (entry.voided_at || running === null) continue;
     afterEach.set(entry.id, {
       total: round1(running),
-      toCheck: checkAt === null ? null : round1(checkAt - running),
+      // Against the limit that applied when the flight was logged, so old
+      // entries stay right after a check resets the limit.
+      toCheck:
+        entry.check_limit_hours === null
+          ? null
+          : round1(Number(entry.check_limit_hours) - running),
     });
     running = round1(running - entry.flight_deci);
   }

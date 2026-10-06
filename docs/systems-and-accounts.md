@@ -177,9 +177,13 @@ enters it again correctly.
 Tech log, then **Monthly PDF**: choose the month and tap **Download PDF**. You
 get an A4 landscape page set laid out like the paper log, with the header
 (group, registration, type, month), one row per flight, and page numbers.
-Voided entries are printed struck through with their reason. It prints only
-the fields a pilot enters; the calculated columns and the lower defects section
-are not on it yet.
+Voided entries are printed struck through with their reason. Columns: the
+fields a pilot enters, then block and flight time in decimal hours, the
+airframe total after each flight and the hours left to the next check
+(against the check limit that applied when the flight was logged). Every page
+has a signature line (signed, name, date). The totals are blank if the
+airframe hours are not set up yet on the Aircraft page. The lower defects
+section of the paper sheet is not printed.
 
 ### Set up (or correct) the airframe hours
 

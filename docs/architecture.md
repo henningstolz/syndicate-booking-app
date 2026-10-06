@@ -128,7 +128,7 @@ is scoped to a group.
 | `group_members` | Who belongs to which group, role (`admin` or `member`), display name, and `removed_at` | Links to Supabase's `auth.users`. A removed member keeps their row (so history keeps their name and colour) but `removed_at` is set and the access rules treat them as outside the group. |
 | `bookings` | Start, end, note, status (`confirmed` or `cancelled`), who booked | A database rule makes overlapping confirmed bookings in one group impossible. Cancelling only changes the status; nothing is deleted. A multi-day booking is one row. |
 | `squawks` | The chat's messages: author, message, time | The table keeps its original name; only the screens say "Chat". |
-| `flight_entries` | The flight log: date, from/to, category (PV/TG/PT), captain, fuel in each tank, oil, the four clock times, defects, who entered it | **Never edited or deleted** (like paper): an admin *voids* a wrong entry with a reason, and it stops counting. Block and flight minutes and their decimal hours are generated columns, so every screen agrees. A database rule makes overlapping flights impossible. |
+| `flight_entries` | The flight log: date, from/to, category (PV/TG/PT), captain, fuel in each tank, oil, the four clock times, defects, who entered it | **Never edited or deleted** (like paper): an admin *voids* a wrong entry with a reason, and it stops counting. Block and flight minutes and their decimal hours are generated columns, so every screen agrees. Each entry also remembers the check limit that applied when it was logged (`check_limit_hours`), so "hours to check" stays right after a check resets the limit. A database rule makes overlapping flights impossible. |
 | `invites` | Invite links: group, role, a name label, who made it, expiry (14 days), cancelled-at, who used it and when | One use per link. Not tied to an email address: whoever holds the link can use it once. |
 
 Postgres functions marked `SECURITY DEFINER` run with the table owner's
@@ -163,7 +163,7 @@ every migration to a throwaway in-memory Postgres; the pure helpers in
 `npm test` runs both. Run them after changing a migration or those helpers.
 
 The database change history is the numbered files in `supabase/migrations/`
-(0001 to 0011).
+(0001 to 0012).
 
 ## Code map
 
@@ -183,6 +183,7 @@ src/
     datetime.ts               all UK-time handling (see below)
     flight-times.ts           flight/block time and decimal-hour maths (also used live in the form), month helpers
     flight-log-pdf.ts         the monthly PDF, drawn like the paper log (self-contained, takes ready-made text)
+    flight-totals.ts          running airframe totals and hours to check, used by the PDF (pure, tested)
     member-colors.ts          the colour palette for members
     booking-durations.ts, slugify.ts
 public/video/                 the hero film and its poster (fingerprinted file names)
@@ -270,7 +271,7 @@ something to keep working.
 
 - Hours and costs (Hobbs, fuel, a monthly split per member).
 - Structured defects (open/resolved, rectification, engineer sign-off): defects are free text on a flight entry for now.
-- More on the PDF: the calculated columns (flight/block hours, airframe totals), the lower defects/rectification section and signatures. It currently prints only the fields a pilot enters.
+- On the PDF: the lower defects/rectification/engineer section of the paper sheet (not printed).
 - Cost sharing from block time.
 - Email notifications for bookings, cancellations and tech log posts.
 - Self-service account deletion (done by hand in Supabase today). Members can

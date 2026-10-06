@@ -36,3 +36,16 @@ body {
   background: var(--background);
   color: var(--foreground);
 }
+
+/*
+ * Tailwind 4 resets buttons to the plain arrow cursor, so clickable things
+ * stop looking clickable. Restore the pointing hand for enabled buttons and
+ * for the clickable headings of <details> menus.
+ */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  summary {
+    cursor: pointer;
+  }
+}

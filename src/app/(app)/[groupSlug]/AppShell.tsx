@@ -91,7 +91,7 @@ export function AppShell({
         <form action={signOutAction}>
           <button
             type="submit"
-            className="text-sm text-zinc-500 underline underline-offset-4"
+            className="flex min-h-9 items-center rounded-full border border-zinc-300 px-3.5 text-sm text-zinc-700 transition-colors hover:bg-zinc-100 hover:text-zinc-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
           >
             Sign out
           </button>

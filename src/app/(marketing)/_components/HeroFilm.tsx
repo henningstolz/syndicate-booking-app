@@ -5,6 +5,12 @@ import { useState, useSyncExternalStore } from "react";
 import { canAutoplayFilm } from "./film-policy";
 import { HERO_POSTER, HERO_VIDEO } from "./hero-media";
 
+// How the wide film is cropped to fit the hero. On a tall phone screen only
+// the middle ~30% of the picture shows, so nudge the crop towards the right,
+// where the aircraft is. Desktop shows (nearly) the whole frame.
+// Footage-specific: revisit this when the footage changes.
+const FRAMING = "object-cover object-[85%_center] md:object-center";
+
 const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
 // Not shipped in browsers yet, harmless to ask for.
 const REDUCED_DATA = "(prefers-reduced-data: reduce)";
@@ -56,7 +62,7 @@ export function HeroFilm() {
         fill
         preload
         sizes="100vw"
-        className="object-cover"
+        className={FRAMING}
       />
       {mayPlay && (
         <video
@@ -69,7 +75,7 @@ export function HeroFilm() {
               // Autoplay refused (e.g. low-power mode): poster stays.
             });
           }}
-          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ${
+          className={`absolute inset-0 h-full w-full ${FRAMING} transition-opacity duration-700 ${
             playing ? "opacity-100" : "opacity-0"
           }`}
           autoPlay

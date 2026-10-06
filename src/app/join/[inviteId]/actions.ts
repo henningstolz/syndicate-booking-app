@@ -37,6 +37,10 @@ export async function joinSignUp(
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
 
+  if (password.length < 8) {
+    return { error: "Please use a password of at least 8 characters." };
+  }
+
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signUp({
     email,

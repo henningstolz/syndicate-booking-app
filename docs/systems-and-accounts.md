@@ -144,6 +144,16 @@ handles user data, or new personal information.
 4. Add `http://localhost:3000/**` to the new project's Authentication, then
    URL Configuration, redirect URLs.
 
+### Someone forgot their password
+
+They use "Forgot your password?" on the sign-in page. The email comes from
+`noreply@mail.blocktime.group` and must be opened in the **same browser** that
+requested it (that is how Supabase keeps the link safe). If it fails, the
+person sees "That reset link has expired" and can ask again. For the link to
+work, `https://blocktime.group/**` must be in Supabase, Authentication, URL
+Configuration, Redirect URLs. Signed-in members can change their password
+from Settings. Passwords must be at least 8 characters.
+
 ### Something is down
 
 1. **Site shows an error or is blank:** check Vercel, then Deployments, for a

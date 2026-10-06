@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getGroupBySlug } from "@/lib/groups";
 import { LONDON_TZ } from "@/lib/datetime";
@@ -181,6 +182,16 @@ export default async function SettingsPage({
             Save name
           </button>
         </form>
+
+        <p className="text-sm text-zinc-600">
+          Signed in as {user?.email}.{" "}
+          <Link
+            href="/reset-password"
+            className="text-zinc-900 underline underline-offset-4"
+          >
+            Change password
+          </Link>
+        </p>
 
         <details className="max-w-md text-sm text-zinc-600">
           <summary className="w-fit cursor-pointer text-zinc-500 underline underline-offset-4">

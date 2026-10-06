@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { homePathFor } from "@/lib/user-home";
 
 export type AuthActionState = { error?: string; message?: string };
 
@@ -9,28 +10,7 @@ async function redirectToUsersGroup(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
 ) {
-  const { data: membership } = await supabase
-    .from("group_members")
-    .select("group_id")
-    .eq("user_id", userId)
-    .limit(1)
-    .maybeSingle();
-
-  if (!membership) {
-    redirect("/pending");
-  }
-
-  const { data: group } = await supabase
-    .from("groups")
-    .select("slug")
-    .eq("id", membership.group_id)
-    .single();
-
-  if (!group) {
-    redirect("/pending");
-  }
-
-  redirect(`/${group.slug}`);
+  redirect(await homePathFor(supabase, userId));
 }
 
 export async function signIn(
@@ -60,6 +40,10 @@ export async function signUp(
 ): Promise<AuthActionState> {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
+
+  if (password.length < 8) {
+    return { error: "Please use a password of at least 8 characters." };
+  }
 
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signUp({

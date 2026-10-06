@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useState } from "react";
 import { signIn, signUp, type AuthActionState } from "./actions";
 
@@ -44,11 +45,15 @@ export default function LoginPage() {
             type="password"
             name="password"
             required
-            minLength={6}
+            minLength={isSignIn ? undefined : 8}
             autoComplete={isSignIn ? "current-password" : "new-password"}
             className="rounded-lg border border-zinc-300 px-3 py-2 text-base text-zinc-900"
           />
         </label>
+
+        {!isSignIn && (
+          <p className="-mt-2 text-xs text-zinc-500">At least 8 characters.</p>
+        )}
 
         {state.error && <p className="text-sm text-red-600">{state.error}</p>}
         {state.message && (
@@ -63,6 +68,15 @@ export default function LoginPage() {
           {pending ? "Please wait…" : isSignIn ? "Sign in" : "Sign up"}
         </button>
       </form>
+
+      {isSignIn && (
+        <Link
+          href="/forgot-password"
+          className="-mt-2 text-sm text-zinc-500 underline underline-offset-4"
+        >
+          Forgot your password?
+        </Link>
+      )}
 
       <button
         type="button"

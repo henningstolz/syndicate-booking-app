@@ -88,7 +88,9 @@ with no group lands on `/pending`, which offers "Create a group".
 | `/` | Public homepage (hero film, board illustration, features, privacy teaser, footer) |
 | `/privacy` | Privacy page |
 | `/login` | Sign in / sign up (email and password) |
-| `/auth/callback` | Receives the `?code=` from the confirmation email and turns it into a session |
+| `/auth/callback` | Receives the `?code=` from a confirmation or password-reset email and turns it into a session. Only follows a plain site path in `?next=` (see `src/lib/safe-next-path.ts`) |
+| `/forgot-password` | Asks for an email and sends a reset link. Always answers the same, whether or not the address has an account |
+| `/reset-password` | Choose a new password. Reached from the reset email, or from "Change password" in Settings. Signs out every other device |
 | `/pending` | Signed in but not in any group yet |
 | `/groups/new` | Create a group (you become its admin) |
 | `/join/<inviteId>` | Accept an invitation link |
@@ -216,7 +218,7 @@ runbook).
 
 | Direction | Path |
 | --- | --- |
-| App → member (sign-up confirmation) | Supabase Auth → Resend SMTP → `noreply@mail.blocktime.group` |
+| App → member (sign-up confirmation, password reset) | Supabase Auth → Resend SMTP → `noreply@mail.blocktime.group` |
 | Public → you | `hello@blocktime.group` → ImprovMX forwards → your personal inbox |
 | You → public | Gmail "Send mail as" `hello@blocktime.group` → `smtp.resend.com`, using a separate sending-only key |
 
@@ -245,7 +247,6 @@ something to keep working.
 - Email notifications for bookings, cancellations and tech log posts.
 - Self-service account deletion (done by hand in Supabase today). Members can
   leave a group, but their login stays.
-- Password reset and change-password.
 - A group switcher: someone in two groups can only reach the first by sign-in.
 - Separate development and production databases.
 - An installable (PWA) version for phones.

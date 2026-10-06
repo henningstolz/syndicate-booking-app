@@ -121,11 +121,18 @@ on the privacy page, and ask me to prepare the exact SQL first.
 
 ### Change the hero film
 
-Run `scripts/encode-hero-video.sh <input-file> [poster-second]`. It needs
-`ffmpeg`, which is not installed on your Mac (you can fetch a temporary copy
-with `npm i ffmpeg-static` and pass its path as `FFMPEG=`). It writes
-`public/video/hero.mp4` and `hero-poster.jpg`; commit and push them. Keep the
-file near 3 MB.
+Put the new footage in `design/` (raw `design/film*.mov` files are not
+tracked by Git, so they never get uploaded) and run
+`scripts/encode-hero-video.sh design/<file>.mov`. It needs `ffmpeg`, which is
+not installed on your Mac (you can fetch a temporary copy with
+`npm i ffmpeg-static` and pass its path as `FFMPEG=`). The script re-encodes
+iPhone HDR footage correctly, writes `public/video/hero.<fingerprint>.mp4` and
+a matching poster, deletes the previous footage's files, and updates
+`_components/hero-media.ts` with the new names. The fingerprint in the name is
+what makes visitors see the new film at once instead of a cached old one.
+Commit all of it and push. Keep the video near 3 MB. Because bright sky behind
+the headline can hurt readability, check the contrast (the dark overlay in
+`Hero.tsx` is currently 62%).
 
 ### Change the contact address or privacy page
 

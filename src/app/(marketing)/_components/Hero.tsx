@@ -9,7 +9,7 @@ export function Hero() {
       <HeroFilm />
       {/* Darkening layer keeps the words readable over any footage. */}
       <div
-        className="absolute inset-0 bg-[rgba(15,26,33,0.55)]"
+        className="absolute inset-0 bg-[rgba(15,26,33,0.62)]"
         aria-hidden="true"
       />
 

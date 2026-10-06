@@ -42,4 +42,4 @@ yarn-error.log*
 next-env.d.ts
 
 # raw source footage for the homepage film (39 MB); the compressed copy lives in public/video
-/design/film.mov
+/design/film*.mov

@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState, useSyncExternalStore } from "react";
 import { canAutoplayFilm } from "./film-policy";
+import { HERO_POSTER, HERO_VIDEO } from "./hero-media";
 
 const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
 // Not shipped in browsers yet, harmless to ask for.
@@ -50,7 +51,7 @@ export function HeroFilm() {
           page's largest image), and stays put for anyone who doesn't get
           the video, or if the browser refuses to autoplay. */}
       <Image
-        src="/video/hero-poster.jpg"
+        src={HERO_POSTER}
         alt=""
         fill
         preload
@@ -79,7 +80,7 @@ export function HeroFilm() {
           tabIndex={-1}
           onPlaying={() => setPlaying(true)}
         >
-          <source src="/video/hero.mp4" type="video/mp4" />
+          <source src={HERO_VIDEO} type="video/mp4" />
         </video>
       )}
     </div>

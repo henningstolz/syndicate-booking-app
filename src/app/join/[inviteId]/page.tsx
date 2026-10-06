@@ -10,6 +10,15 @@ type InviteInfo = {
   group_name: string;
   role: string;
   is_valid: boolean;
+  label: string | null;
+  status: "valid" | "used" | "revoked" | "expired";
+};
+
+const NOT_VALID_TEXT: Record<InviteInfo["status"], string> = {
+  valid: "",
+  used: "This invite link has already been used.",
+  revoked: "This invite link was cancelled.",
+  expired: "This invite link has expired.",
 };
 
 export default async function JoinPage({
@@ -32,8 +41,8 @@ export default async function JoinPage({
           Invite not valid
         </h1>
         <p className="max-w-xs text-sm text-zinc-600">
-          This invite link has already been used or doesn&apos;t exist. Ask
-          whoever sent it for a new one.
+          {info ? NOT_VALID_TEXT[info.status] : "This invite link doesn't exist."}{" "}
+          Ask whoever sent it for a new one.
         </p>
       </main>
     );
@@ -49,7 +58,7 @@ export default async function JoinPage({
         Join {info.group_name}
       </h1>
       <p className="text-sm text-zinc-600">
-        You&apos;ve been invited as{" "}
+        {info.label ? `${info.label}, you've` : "You've"} been invited as{" "}
         {info.role === "admin" ? "an admin" : "a member"}.
       </p>
 

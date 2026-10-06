@@ -17,6 +17,7 @@ type MemberRow = {
   user_id: string;
   display_name: string | null;
   role: string;
+  removed_at: string | null;
 };
 
 type BookingRow = {
@@ -99,7 +100,7 @@ export default async function CalendarPage({
   const [{ data: members }, { data: bookings }] = await Promise.all([
     supabase
       .from("group_members")
-      .select("user_id, display_name, role")
+      .select("user_id, display_name, role, removed_at")
       .eq("group_id", group.id)
       .order("created_at")
       .returns<MemberRow[]>(),
@@ -136,17 +137,21 @@ export default async function CalendarPage({
     <main className="flex flex-1 flex-col gap-6 px-4 py-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <section className="flex flex-wrap gap-x-4 gap-y-2">
-          {memberList.map((member, i) => (
-            <div
-              key={member.user_id}
-              className="flex items-center gap-1.5 text-sm text-zinc-600"
-            >
-              <span
-                className={`h-2.5 w-2.5 rounded-full ${memberColor(i).dot}`}
-              />
-              {member.display_name ?? "Member"}
-            </div>
-          ))}
+          {/* Removed members stay in memberList so past bookings keep their
+              name and colour, but they are not offered in the legend. */}
+          {memberList.map((member, i) =>
+            member.removed_at ? null : (
+              <div
+                key={member.user_id}
+                className="flex items-center gap-1.5 text-sm text-zinc-600"
+              >
+                <span
+                  className={`h-2.5 w-2.5 rounded-full ${memberColor(i).dot}`}
+                />
+                {member.display_name ?? "Member"}
+              </div>
+            ),
+          )}
         </section>
 
         <div className="flex gap-2">

@@ -27,14 +27,22 @@ paste a file's contents, run it — in order, once each.
 9. `0009_add_equipment_due_dates.sql` — life raft, life vests and fire
    extinguisher due dates on `groups` (the Aircraft page; adding a further
    field is one entry in `src/lib/aircraft-status.ts` plus a column)
+10. `0010_member_management.sql` — group and user management: members can
+    be *removed* without losing history (`group_members.removed_at`), roles
+    can be changed, anyone can leave, and a group can never end up without an
+    admin (all enforced in SECURITY DEFINER functions). Invites gain a name
+    label, a 14-day expiry and can be cancelled; joining through an invite is
+    now one atomic `accept_invite()` call. Backwards compatible: run it
+    *before* pushing the matching code. Tested by `npm run test:db`.
 
 ## Adding members to a group
 
 Two ways now:
 
 - **The app itself**: any signed-up user with no group can create one at
-  `/groups/new` (becomes its admin), and admins can generate invite links
-  from a group's **Members** page — no SQL needed for either.
+  `/groups/new` (becomes its admin), and admins can create invite links,
+  change roles and remove members from a group's **Settings** page — no SQL
+  needed for any of it.
 - **Manually, via SQL** (still useful for one-off fixes): swap in the real
   UID and name (find the UID at Dashboard → **Authentication → Users**):
 

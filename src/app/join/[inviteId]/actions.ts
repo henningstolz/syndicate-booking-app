@@ -6,14 +6,6 @@ import { createClient } from "@/lib/supabase/server";
 export type JoinAuthState = { error?: string; message?: string };
 export type AcceptInviteState = { error?: string };
 
-type InviteInfo = {
-  group_id: string;
-  group_slug: string;
-  group_name: string;
-  role: string;
-  is_valid: boolean;
-};
-
 export async function joinSignIn(
   _prevState: JoinAuthState,
   formData: FormData,
@@ -68,6 +60,15 @@ export async function joinSignUp(
   redirect(`/join/${inviteId}`);
 }
 
+const ACCEPT_ERRORS: Record<string, string> = {
+  name_required: "Please enter your name.",
+  name_too_long: "That name is too long. Please use 60 characters or fewer.",
+  invalid: "This invite doesn't exist. Ask whoever sent it for a new one.",
+  used: "This invite has already been used. Ask for a new one.",
+  revoked: "This invite was cancelled. Ask for a new one.",
+  expired: "This invite has expired. Ask for a new one.",
+};
+
 export async function acceptInvite(
   _prevState: AcceptInviteState,
   formData: FormData,
@@ -76,7 +77,7 @@ export async function acceptInvite(
   const displayName = (formData.get("displayName") as string)?.trim();
 
   if (!displayName) {
-    return { error: "Please enter your name." };
+    return { error: ACCEPT_ERRORS.name_required };
   }
 
   const supabase = await createClient();
@@ -87,37 +88,26 @@ export async function acceptInvite(
     redirect("/login");
   }
 
-  const { data: info } = await supabase
-    .rpc("get_invite_info", { invite_id: inviteId })
-    .returns<InviteInfo[]>()
-    .maybeSingle();
-
-  if (!info || !info.is_valid) {
-    return { error: "This invite is no longer valid." };
-  }
-
-  const { error: memberError } = await supabase.from("group_members").insert({
-    group_id: info.group_id,
-    user_id: user.id,
-    role: info.role,
-    display_name: displayName,
-  });
-
-  if (memberError) {
-    return { error: "Could not join — the invite may have just been used." };
-  }
-
-  // Best-effort: mark it used so it can't be reused. If this fails
-  // after the insert above already succeeded, the user has still
-  // joined — worst case the invite stays claimable, which the group's
-  // admin can just ignore.
-  const { error: markUsedError } = await supabase.rpc("mark_invite_used", {
+  // One database function validates the invite, adds (or re-adds) the
+  // member and marks the invite used, all in one step.
+  const { data, error } = await supabase.rpc("accept_invite", {
     p_invite_id: inviteId,
+    p_display_name: displayName,
   });
 
-  if (markUsedError) {
-    console.error("Failed to mark invite as used:", markUsedError);
+  if (error || !data) {
+    return { error: "Could not join. Please try again." };
   }
 
-  redirect(`/${info.group_slug}`);
+  const { result, group_slug: groupSlug } = data as {
+    result: string;
+    group_slug?: string;
+  };
+
+  // Already a member: no harm done, just take them to the group.
+  if ((result === "ok" || result === "already_member") && groupSlug) {
+    redirect(`/${groupSlug}`);
+  }
+
+  return { error: ACCEPT_ERRORS[result] ?? "Could not join. Please try again." };
 }

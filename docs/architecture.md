@@ -105,7 +105,7 @@ your groups, or to `/pending` if you have none.
 | `/join/<inviteId>` | Accept an invitation link |
 | `/<group>` | Dashboard: aircraft info, next booking, warning banner if something is due |
 | `/<group>/calendar` | Booking calendar: List and Month views, block-booking presets |
-| `/<group>/tech-log` | Shared message board for the aircraft (old URL `/squawks` redirects here) |
+| `/<group>/tech-log` | Two tabs. **Flight log** (default): one entry per flight added with "+ Entry", with calculated flight/block time and running airframe hours. **Notes** (`?view=notes`): the shared message board. Old URL `/squawks` redirects here |
 | `/<group>/reports` | Upcoming bookings, and "Bookings per member" donut chart |
 | `/<group>/aircraft` | Renewal and check due dates; admins can edit |
 | `/<group>/members` | Read-only member list |
@@ -124,7 +124,8 @@ is scoped to a group.
 | `groups` | One row per flying group: slug, name, registration, type, base, plus the aircraft due dates | Due-date columns are listed once in `STATUS_FIELDS` (`src/lib/aircraft-status.ts`). |
 | `group_members` | Who belongs to which group, role (`admin` or `member`), display name, and `removed_at` | Links to Supabase's `auth.users`. A removed member keeps their row (so history keeps their name and colour) but `removed_at` is set and the access rules treat them as outside the group. |
 | `bookings` | Start, end, note, status (`confirmed` or `cancelled`), who booked | A database rule makes overlapping confirmed bookings in one group impossible. Cancelling only changes the status; nothing is deleted. A multi-day booking is one row. |
-| `squawks` | The tech log messages: author, message, time | The table keeps its old name; the app calls it "Tech log". |
+| `squawks` | The Notes tab (message board): author, message, time | The table keeps its old name from when this was the whole "tech log". |
+| `flight_entries` | The flight log: date, from/to, category (PV/TG/PT), captain, fuel in each tank, oil, the four clock times, defects, who entered it | **Never edited or deleted** (like paper): an admin *voids* a wrong entry with a reason, and it stops counting. Block and flight minutes and their decimal hours are generated columns, so every screen agrees. A database rule makes overlapping flights impossible. |
 | `invites` | Invite links: group, role, a name label, who made it, expiry (14 days), cancelled-at, who used it and when | One use per link. Not tied to an email address: whoever holds the link can use it once. |
 
 Postgres functions marked `SECURITY DEFINER` run with the table owner's
@@ -143,12 +144,23 @@ the traps described below.
   database refuses to demote, remove or let leave the last one. Removing or
   leaving also cancels that person's *future* bookings.
 
-These rules are tested in `supabase/tests/membership.test.mjs` (`npm run
-test:db`), which applies every migration to a throwaway in-memory Postgres.
-Run it after changing any migration.
+- Flight log: `add_flight_entry` (validates everything and returns a result
+  such as `ok`, `overlap`, `times_order`), `void_flight_entry` (admin),
+  `set_airframe_hours` (admin: "the total is X right now, the next check is at
+  Y"), `minutes_to_deci` (the paper table's rounding), and the internal
+  `recalc_airframe_hours`. **Airframe total hours = baseline + the flight time
+  of every non-voided entry**; the group keeps a cached total and the hours to
+  the next check (= check limit minus total), recalculated on every change.
+  Flight time (airborne to landed) drives the airframe hours; block time
+  (brakes off to brakes on) is stored for the cost sharing to come.
+
+These rules are tested in `supabase/tests/` (`npm run test:db`), which applies
+every migration to a throwaway in-memory Postgres; the pure helpers in
+`src/lib` (time maths, redirects) are tested by `npm run test:unit`;
+`npm test` runs both. Run them after changing a migration or those helpers.
 
 The database change history is the numbered files in `supabase/migrations/`
-(0001 to 0010).
+(0001 to 0011).
 
 ## Code map
 
@@ -166,6 +178,7 @@ src/
     groups.ts                 getGroupBySlug (select list built from STATUS_FIELDS)
     aircraft-status.ts        the due-date fields and their overdue/due-soon logic
     datetime.ts               all UK-time handling (see below)
+    flight-times.ts           flight/block time and decimal-hour maths (also used live in the form)
     member-colors.ts          the colour palette for members
     booking-durations.ts, slugify.ts
 public/video/                 the hero film and its poster (fingerprinted file names)
@@ -252,7 +265,9 @@ something to keep working.
 ## Not built yet
 
 - Hours and costs (Hobbs, fuel, a monthly split per member).
-- Structured tech log status (open/resolved per entry).
+- Structured defects (open/resolved, rectification, engineer sign-off): defects are free text on a flight entry for now.
+- A monthly PDF of the flight log, to print for the paper folder.
+- Cost sharing from block time.
 - Email notifications for bookings, cancellations and tech log posts.
 - Self-service account deletion (done by hand in Supabase today). Members can
   leave a group, but their login stays.

@@ -163,6 +163,23 @@ work, `https://blocktime.group/**` must be in Supabase, Authentication, URL
 Configuration, Redirect URLs. Signed-in members can change their password
 from Settings. Passwords must be at least 8 characters.
 
+### Log a flight
+
+Tech log, then **+ Entry**: date, from and to, flight category (PV, TG or PT),
+the captain, fuel in each tank, oil, and the four times (brakes off, airborne,
+landed, brakes on), plus any defect. Flight time, block time and the new
+airframe total are calculated. Entries can't be edited. If one is wrong, an
+admin opens it, chooses **Void this entry** and gives a reason, and the pilot
+enters it again correctly.
+
+### Set up (or correct) the airframe hours
+
+Aircraft page, **Edit** (admins): enter "Airframe total hours (right now)" and
+"Next check at (airframe hours)", for example 5870.4 and 5892.9 from the paper
+sheet. From then on every flight updates the total and the hours to the next
+check. Entering the total again later (for example after reconciling with the
+paper log) re-calibrates it without losing logged flights.
+
 ### Something is down
 
 1. **Site shows an error or is blank:** check Vercel, then Deployments, for a

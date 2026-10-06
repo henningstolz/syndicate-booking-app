@@ -105,11 +105,36 @@ export default async function AircraftPage({
         })}
       </div>
 
+      <div className="flex flex-col gap-2">
+        <StatusRow
+          label="Airframe Total Hours"
+          value={
+            group.airframe_total_hours === null
+              ? "Not stated"
+              : group.airframe_total_hours.toFixed(1)
+          }
+          status="unset"
+        />
+        <StatusRow
+          label="Next Check At (hours)"
+          value={
+            group.next_check_at_hours === null
+              ? "Not stated"
+              : group.next_check_at_hours.toFixed(1)
+          }
+          status="unset"
+        />
+      </div>
+
       {isAdmin && (
         <AircraftForm
           groupId={group.id}
           groupSlug={groupSlug}
           initial={group}
+          hours={{
+            total: group.airframe_total_hours,
+            checkAt: group.next_check_at_hours,
+          }}
         />
       )}
     </main>

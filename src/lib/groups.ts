@@ -3,6 +3,10 @@ import { STATUS_FIELDS, type AircraftStatusFields } from "@/lib/aircraft-status"
 
 export type GroupRow = AircraftStatusFields & {
   id: string;
+  // Hours bookkeeping kept by the flight log (see migration 0011).
+  airframe_total_hours: number | null;
+  airframe_hours_baseline: number | null;
+  next_check_at_hours: number | null;
   name: string;
   aircraft_registration: string;
   aircraft_type: string | null;
@@ -15,6 +19,9 @@ const COLUMNS = [
   "aircraft_registration",
   "aircraft_type",
   "home_base",
+  "airframe_total_hours",
+  "airframe_hours_baseline",
+  "next_check_at_hours",
   ...STATUS_FIELDS.map((field) => field.column),
 ].join(", ");
 

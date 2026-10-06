@@ -93,3 +93,22 @@ export function bookingDayKeys(startsAt: string, endsAt: string): string[] {
   }
   return keys;
 }
+
+// The flight log's four times are typed as plain UK clock times on the
+// flight's date, plus how many days after that date each one falls (from
+// dayOffsets in flight-times.ts, which handles flights past midnight). This
+// turns them into the exact instants to store, safely across the GMT/BST
+// switch.
+export function wallTimesToUtcIso(
+  date: string,
+  times: string[],
+  offsets: number[],
+): string[] {
+  const noon = londonWallTimeToUtc(date, "12:00");
+  return times.map((time, i) =>
+    londonWallTimeToUtc(
+      londonDateKey(addLondonCalendarDays(noon, offsets[i])),
+      time,
+    ).toISOString(),
+  );
+}

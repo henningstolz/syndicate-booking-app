@@ -3,74 +3,24 @@
 // "a group always keeps an admin" guard. Run with: npm run test:db
 // It stands in for Supabase's auth.users and auth.uid(); it never touches the
 // real database.
-import { PGlite } from "@electric-sql/pglite";
-import { btree_gist } from "@electric-sql/pglite/contrib/btree_gist";
-import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
-import { readFileSync, readdirSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { createHarness } from "./harness.mjs";
 
-const MIG = fileURLToPath(new URL("../migrations", import.meta.url));
-const db = new PGlite({ extensions: { btree_gist, pgcrypto } });
+const h = createHarness();
+const { db, U, as, rpc, q, check, result } = h;
 
-// Minimal stand-ins for what Supabase provides.
-await db.exec(`
-  create role anon nologin; create role authenticated nologin;
-  create schema auth;
-  create table auth.users (id uuid primary key default gen_random_uuid());
-  create function auth.uid() returns uuid language sql stable as
-    $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
-  grant usage on schema auth to anon, authenticated;
-  grant usage on schema public to anon, authenticated;
-`);
+await h.setup();
+// Apply everything before 0010 first, to prove 0010 upgrades an existing database.
+await h.migrate({ before: "0010" });
 
-const files = readdirSync(MIG).filter((f) => f.endsWith(".sql")).sort();
-// Apply every migration up to and including 0009 first, to prove 0010 upgrades an existing database.
-for (const f of files.filter((f) => f < "0010")) {
-  try { await db.exec(readFileSync(`${MIG}/${f}`, "utf8")); }
-  catch (e) { console.log("MIGRATION FAILED", f, e.message); process.exit(1); }
-}
-await db.exec(`grant select, insert, update, delete on all tables in schema public to authenticated;
-               grant all on all sequences in schema public to authenticated;`);
-
-// Real-looking state before 0010: an old used invite and an old unused one.
-const U = {};
-for (const n of ["alice", "bob", "cara", "dan"]) {
-  U[n] = (await db.query("insert into auth.users default values returning id")).rows[0].id;
-}
+// Real-looking state before 0010: an old unused invite.
+await h.addUsers("alice", "bob", "cara", "dan");
 await db.exec(`insert into public.groups (id, slug, name, aircraft_registration) values ('11111111-1111-1111-1111-111111111111','t','Test','G-TEST') on conflict do nothing;`);
 const G = (await db.query("select id from public.groups where slug='t'")).rows[0].id;
 await db.query("insert into public.group_members (group_id,user_id,role,display_name) values ($1,$2,'admin','Alice'),($1,$3,'member','Bob'),($1,$4,'admin','Cara')", [G, U.alice, U.bob, U.cara]);
 const oldInvite = (await db.query("insert into public.invites (group_id, role, created_by) values ($1,'member',$2) returning id", [G, U.alice])).rows[0].id;
 
-await db.exec(readFileSync(`${MIG}/0010_member_management.sql`, "utf8"));
-await db.exec(`grant select, insert, update, delete on all tables in schema public to authenticated;`);
+await h.migrate({ only: "0010" });
 console.log("migrations 0001-0010 applied");
-
-let pass = 0, fail = 0;
-const as = async (user) => {
-  await db.exec("reset role");
-  if (user) {
-    await db.query("select set_config('request.jwt.claim.sub', $1, false)", [U[user]]);
-    await db.exec("set role authenticated");
-  } else {
-    await db.query("select set_config('request.jwt.claim.sub', '', false)");
-    await db.exec("set role anon");
-  }
-};
-const rpc = async (user, fn, ...args) => {
-  await as(user);
-  const ph = args.map((_, i) => `$${i + 1}`).join(",");
-  try { return (await db.query(`select public.${fn}(${ph}) as r`, args)).rows[0].r; }
-  catch (e) { return { thrown: e.message }; }
-};
-const check = (name, got, want) => {
-  const ok = JSON.stringify(got) === JSON.stringify(want);
-  if (ok) pass++;
-  else fail++;
-  console.log(`${ok ? "PASS" : "FAIL"}  ${name}${ok ? "" : `\n      got  ${JSON.stringify(got)}\n      want ${JSON.stringify(want)}`}`);
-};
-const q = async (user, sql, params = []) => { await as(user); try { return (await db.query(sql, params)).rows; } catch (e) { return { thrown: e.message }; } };
-const result = (r) => r?.result ?? r;
 
 // --- roles -------------------------------------------------------------
 check("member cannot promote anyone", result(await rpc("bob", "set_member_role", G, U.bob, "admin")), "not_allowed");
@@ -173,5 +123,4 @@ check("member cannot UPDATE own role directly", (await q("bob", "update public.g
 check("member cannot DELETE members directly", (await q("bob", "delete from public.group_members where user_id=$1 returning id", [U.cara])).length, 0);
 check("cannot self-insert into an existing group as admin", (await q("dan", "insert into public.group_members (group_id,user_id,role) values ($1,$2,'admin')", [G, U.dan])).thrown?.includes("row-level security") ?? false, true);
 
-console.log(`\n${pass} passed, ${fail} failed`);
-process.exit(fail ? 1 : 0);
+h.finish();

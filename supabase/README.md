@@ -35,6 +35,14 @@ paste a file's contents, run it — in order, once each.
     now one atomic `accept_invite()` call. Backwards compatible: run it
     *before* pushing the matching code. Tested by `npm run test:db`.
 
+11. `0011_flight_log.sql` — the digital flight log: `flight_entries` (one row per
+    flight; block/flight time and decimal hours are calculated by the database
+    itself), airframe total hours and the next-check limit on `groups`, and
+    functions to add an entry, void one (admin) and set the airframe hours
+    (admin). Entries are never edited or deleted. Backwards compatible: run it
+    *before* pushing the matching code, because every group page now selects
+    the new `groups` columns.
+
 ## Adding members to a group
 
 Two ways now:

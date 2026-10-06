@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:db": "node supabase/tests/membership.test.mjs"
+    "test:db": "node supabase/tests/membership.test.mjs && node supabase/tests/flights.test.mjs",
+    "test:unit": "node --no-warnings src/lib/unit.test.mjs",
+    "test": "npm run test:unit && npm run test:db"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

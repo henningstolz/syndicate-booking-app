@@ -95,12 +95,23 @@ the previous version stays live.
 
 ### Add someone to a group
 
-An admin opens the group's Members page, creates an invite link and sends it
-to the person. They sign up (or sign in) and enter their name. No SQL needed.
+An admin opens the group's **Settings** page, types who the invite is for,
+picks Member or Admin, and creates the link. They send the link to the person.
+The person signs up (or signs in) and enters their name; they set their own
+password. The link works once and expires after 14 days; an unused one can be
+cancelled from the same page.
 
-### Remove a member, or delete someone's data
+### Change someone's role, or remove them
 
-There is no button yet, and it is not a one-click job. Deleting a user in
+Settings, then Members: "Make admin" / "Make member", or "Remove". Removing
+someone cancels their upcoming bookings but keeps past bookings and tech log
+entries under their name. They can be invited again later. A group always
+keeps at least one admin; the app will say so if you try otherwise.
+
+### Delete someone's account and data
+
+Removing a member from a group is a button (above). Deleting the *account*
+itself is not, and it is not a one-click job. Deleting a user in
 Supabase (Authentication, then Users) removes their group membership
 automatically, but **the database refuses the deletion while that user still
 has bookings or tech log posts**, because those rows point at them. You would
@@ -127,7 +138,7 @@ handles user data, or new personal information.
 ### Separate testing from live data (recommended before inviting the others)
 
 1. Create a second Supabase project for development.
-2. Run all nine migrations in it, in order.
+2. Run all the migrations in it, in order.
 3. Point `.env.local` on your Mac at the new project, and keep Vercel pointing
    at the real one.
 4. Add `http://localhost:3000/**` to the new project's Authentication, then
@@ -154,6 +165,7 @@ npm install        # once
 npm run dev        # starts http://localhost:3000
 npm run lint
 npx tsc --noEmit
+npm run test:db    # checks the database rules in a throwaway Postgres
 ```
 
 You need a `.env.local` with the three variables listed in

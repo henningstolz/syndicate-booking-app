@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { path: "/reports", label: "Reports" },
   { path: "/aircraft", label: "Aircraft" },
   { path: "/members", label: "Members" },
+  { path: "/settings", label: "Settings" },
 ];
 
 function NavLinks({

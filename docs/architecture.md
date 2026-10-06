@@ -97,7 +97,8 @@ with no group lands on `/pending`, which offers "Create a group".
 | `/<group>/tech-log` | Shared message board for the aircraft (old URL `/squawks` redirects here) |
 | `/<group>/reports` | Upcoming bookings, and "Bookings per member" donut chart |
 | `/<group>/aircraft` | Renewal and check due dates; admins can edit |
-| `/<group>/members` | Member list; admins create invite links |
+| `/<group>/members` | Read-only member list |
+| `/<group>/settings` | Your name and "leave group" (everyone). Admins also: change roles, remove members, create and cancel invite links, edit the group's details |
 
 The signed-in routes sit in the `(app)/[groupSlug]` folder; the public ones in
 `(marketing)`. Folder names in parentheses don't appear in URLs.
@@ -110,19 +111,33 @@ is scoped to a group.
 | Table | Holds | Notes |
 | --- | --- | --- |
 | `groups` | One row per flying group: slug, name, registration, type, base, plus the aircraft due dates | Due-date columns are listed once in `STATUS_FIELDS` (`src/lib/aircraft-status.ts`). |
-| `group_members` | Who belongs to which group, role (`admin` or `member`), display name | Links to Supabase's `auth.users`. |
+| `group_members` | Who belongs to which group, role (`admin` or `member`), display name, and `removed_at` | Links to Supabase's `auth.users`. A removed member keeps their row (so history keeps their name and colour) but `removed_at` is set and the access rules treat them as outside the group. |
 | `bookings` | Start, end, note, status (`confirmed` or `cancelled`), who booked | A database rule makes overlapping confirmed bookings in one group impossible. Cancelling only changes the status; nothing is deleted. A multi-day booking is one row. |
 | `squawks` | The tech log messages: author, message, time | The table keeps its old name; the app calls it "Tech log". |
-| `invites` | Invite links: group, role, who made it, who used it and when | One use per link. |
+| `invites` | Invite links: group, role, a name label, who made it, expiry (14 days), cancelled-at, who used it and when | One use per link. Not tied to an email address: whoever holds the link can use it once. |
 
 Postgres functions marked `SECURITY DEFINER` run with the table owner's
 rights, so a policy can look at rows the user can't see. They exist to avoid
-the traps described below: `is_group_member`, `is_group_admin`,
-`has_valid_invite`, `group_has_no_members`, `get_invite_info`,
-`mark_invite_used`.
+the traps described below.
+
+- Access checks: `is_group_member`, `is_group_admin` (both ignore removed
+  members), `has_valid_invite`, `group_has_no_members`.
+- Invites: `get_invite_info` (public, so the join page can show the group's
+  name), `accept_invite` (validate, add or re-add the member, mark used, all
+  in one step), `revoke_invite`. `mark_invite_used` is the old two-step
+  helper, no longer called.
+- Membership changes: `set_member_role`, `remove_member`, `leave_group`,
+  `set_my_display_name`. They return a result such as `ok` or `last_admin`
+  instead of failing. **A group can never be left without an admin**: the
+  database refuses to demote, remove or let leave the last one. Removing or
+  leaving also cancels that person's *future* bookings.
+
+These rules are tested in `supabase/tests/membership.test.mjs` (`npm run
+test:db`), which applies every migration to a throwaway in-memory Postgres.
+Run it after changing any migration.
 
 The database change history is the numbered files in `supabase/migrations/`
-(0001 to 0009).
+(0001 to 0010).
 
 ## Code map
 
@@ -228,8 +243,10 @@ something to keep working.
 - Hours and costs (Hobbs, fuel, a monthly split per member).
 - Structured tech log status (open/resolved per entry).
 - Email notifications for bookings, cancellations and tech log posts.
-- Member removal and role changes (the Members page is view and invite only).
-- Self-service account deletion (done by hand in Supabase today).
+- Self-service account deletion (done by hand in Supabase today). Members can
+  leave a group, but their login stays.
+- Password reset and change-password.
+- A group switcher: someone in two groups can only reach the first by sign-in.
 - Separate development and production databases.
 - An installable (PWA) version for phones.
 - Colour palette retune for red-green colour blindness (rose and lime are too

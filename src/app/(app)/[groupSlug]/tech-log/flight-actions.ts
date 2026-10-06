@@ -113,7 +113,7 @@ export async function addFlightEntry(
 export async function voidFlightEntry(formData: FormData) {
   const groupSlug = text(formData, "groupSlug");
   const back = (notice: string) =>
-    redirect(`/${groupSlug}/tech-log?view=flights&notice=${notice}`);
+    redirect(`/${groupSlug}/tech-log?notice=${notice}`);
 
   const supabase = await createClient();
   const {

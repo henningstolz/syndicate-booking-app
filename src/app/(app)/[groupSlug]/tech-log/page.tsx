@@ -4,7 +4,6 @@ import { getGroupBySlug } from "@/lib/groups";
 import { memberColor } from "@/lib/member-colors";
 import { LONDON_TZ, londonDateKey } from "@/lib/datetime";
 import { hoursStatus } from "@/lib/aircraft-status";
-import { PostForm } from "./PostForm";
 import { FlightEntryCard, type FlightRow } from "./FlightEntryCard";
 import { FlightForm } from "./FlightForm";
 
@@ -13,13 +12,6 @@ type MemberRow = {
   display_name: string | null;
   role: string;
   removed_at: string | null;
-};
-
-type SquawkRow = {
-  id: string;
-  author_id: string;
-  message: string;
-  created_at: string;
 };
 
 const PAGE_SIZE = 40;
@@ -33,15 +25,6 @@ const VOID_NOTICES: Record<string, { ok: boolean; text: string }> = {
   not_found: { ok: false, text: "That entry no longer exists." },
   error: { ok: false, text: "Something went wrong. Please try again." },
 };
-
-const timestampFormat = new Intl.DateTimeFormat("en-GB", {
-  timeZone: LONDON_TZ,
-  day: "numeric",
-  month: "short",
-  hour: "2-digit",
-  minute: "2-digit",
-  hour12: false,
-});
 
 const monthFormat = new Intl.DateTimeFormat("en-GB", {
   timeZone: LONDON_TZ,
@@ -70,10 +53,10 @@ export default async function TechLogPage({
   searchParams,
 }: {
   params: Promise<{ groupSlug: string }>;
-  searchParams: Promise<{ view?: string; n?: string; notice?: string }>;
+  searchParams: Promise<{ n?: string; notice?: string }>;
 }) {
   const { groupSlug } = await params;
-  const { view, n, notice: noticeCode } = await searchParams;
+  const { n, notice: noticeCode } = await searchParams;
   const supabase = await createClient();
 
   const group = await getGroupBySlug(supabase, groupSlug);
@@ -82,7 +65,6 @@ export default async function TechLogPage({
     return null;
   }
 
-  const showNotes = view === "notes";
   const limit = Math.min(
     Math.max(Number.parseInt(n ?? "", 10) || PAGE_SIZE, PAGE_SIZE),
     1000,
@@ -106,72 +88,6 @@ export default async function TechLogPage({
   const activeMembers = memberList.filter((m) => !m.removed_at);
   const me = activeMembers.find((m) => m.user_id === user?.id);
   const isAdmin = me?.role === "admin";
-
-  const tabClass = (active: boolean) =>
-    `rounded-full px-4 py-1.5 text-sm font-medium ${
-      active
-        ? "bg-zinc-900 text-white"
-        : "border border-zinc-300 text-zinc-600 hover:bg-zinc-100"
-    }`;
-
-  const tabs = (
-    <div className="flex gap-2">
-      <Link href={`/${groupSlug}/tech-log`} className={tabClass(!showNotes)}>
-        Flight log
-      </Link>
-      <Link
-        href={`/${groupSlug}/tech-log?view=notes`}
-        className={tabClass(showNotes)}
-      >
-        Notes
-      </Link>
-    </div>
-  );
-
-  // ------------------------------------------------------------- notes
-  if (showNotes) {
-    const { data: squawks } = await supabase
-      .from("squawks")
-      .select("id, author_id, message, created_at")
-      .eq("group_id", group.id)
-      .order("created_at", { ascending: false })
-      .returns<SquawkRow[]>();
-
-    return (
-      <main className="flex flex-1 flex-col gap-4 px-4 py-6">
-        {tabs}
-        <PostForm groupId={group.id} groupSlug={groupSlug} />
-
-        <div className="flex flex-col gap-2">
-          {!squawks || squawks.length === 0 ? (
-            <p className="text-sm text-zinc-500">Nothing posted yet.</p>
-          ) : (
-            squawks.map((squawk) => {
-              const colorIndex = memberIndex.get(squawk.author_id) ?? 0;
-              return (
-                <div
-                  key={squawk.id}
-                  className={`flex flex-col gap-1 rounded-lg border-l-4 bg-white px-3 py-2 shadow-sm ${memberColor(colorIndex).border}`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-medium text-zinc-900">
-                      {memberName(squawk.author_id)}
-                    </span>
-                    <span className="font-mono text-xs text-zinc-400">
-                      {timestampFormat.format(new Date(squawk.created_at))}
-                    </span>
-                  </div>
-                  <p className="text-sm whitespace-pre-wrap text-zinc-700">
-                    {squawk.message}
-                  </p>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </main>
-    );
-  }
 
   // ------------------------------------------------------- flight log
   const { data: flights } = await supabase
@@ -219,8 +135,6 @@ export default async function TechLogPage({
 
   return (
     <main className="flex flex-1 flex-col gap-4 px-4 py-6">
-      {tabs}
-
       {notice && (
         <p
           role="status"

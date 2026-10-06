@@ -4,12 +4,15 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
-export type SquawkActionState = { error?: string; success?: boolean };
+// The board's messages live in the `squawks` table (its original name; the
+// table keeps it, only the screens say "Board").
 
-export async function postSquawk(
-  _prevState: SquawkActionState,
+export type BoardActionState = { error?: string; success?: boolean };
+
+export async function postBoardMessage(
+  _prevState: BoardActionState,
   formData: FormData,
-): Promise<SquawkActionState> {
+): Promise<BoardActionState> {
   const groupId = formData.get("groupId") as string;
   const groupSlug = formData.get("groupSlug") as string;
   const message = (formData.get("message") as string)?.trim();
@@ -36,6 +39,6 @@ export async function postSquawk(
     return { error: error.message };
   }
 
-  revalidatePath(`/${groupSlug}/tech-log`);
+  revalidatePath(`/${groupSlug}/board`);
   return { success: true };
 }

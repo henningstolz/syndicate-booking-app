@@ -105,7 +105,8 @@ your groups, or to `/pending` if you have none.
 | `/join/<inviteId>` | Accept an invitation link |
 | `/<group>` | Dashboard: aircraft info, next booking, warning banner if something is due |
 | `/<group>/calendar` | Booking calendar: List and Month views, block-booking presets |
-| `/<group>/tech-log` | Two tabs. **Flight log** (default): one entry per flight added with "+ Entry", with calculated flight/block time and running airframe hours. **Notes** (`?view=notes`): the shared message board. Old URL `/squawks` redirects here |
+| `/<group>/board` | The group's message board: anyone posts to everyone (not only defects). Old URLs `/squawks` and `/tech-log?view=notes` redirect here |
+| `/<group>/tech-log` | The flight log: one entry per flight added with "+ Entry", with calculated flight/block time and running airframe hours |
 | `/<group>/reports` | Upcoming bookings, and "Bookings per member" donut chart |
 | `/<group>/aircraft` | Renewal and check due dates; admins can edit |
 | `/<group>/members` | Read-only member list |
@@ -124,7 +125,7 @@ is scoped to a group.
 | `groups` | One row per flying group: slug, name, registration, type, base, plus the aircraft due dates | Due-date columns are listed once in `STATUS_FIELDS` (`src/lib/aircraft-status.ts`). |
 | `group_members` | Who belongs to which group, role (`admin` or `member`), display name, and `removed_at` | Links to Supabase's `auth.users`. A removed member keeps their row (so history keeps their name and colour) but `removed_at` is set and the access rules treat them as outside the group. |
 | `bookings` | Start, end, note, status (`confirmed` or `cancelled`), who booked | A database rule makes overlapping confirmed bookings in one group impossible. Cancelling only changes the status; nothing is deleted. A multi-day booking is one row. |
-| `squawks` | The Notes tab (message board): author, message, time | The table keeps its old name from when this was the whole "tech log". |
+| `squawks` | The board's messages: author, message, time | The table keeps its original name; only the screens say "Board". |
 | `flight_entries` | The flight log: date, from/to, category (PV/TG/PT), captain, fuel in each tank, oil, the four clock times, defects, who entered it | **Never edited or deleted** (like paper): an admin *voids* a wrong entry with a reason, and it stops counting. Block and flight minutes and their decimal hours are generated columns, so every screen agrees. A database rule makes overlapping flights impossible. |
 | `invites` | Invite links: group, role, a name label, who made it, expiry (14 days), cancelled-at, who used it and when | One use per link. Not tied to an email address: whoever holds the link can use it once. |
 
@@ -213,7 +214,7 @@ These each cost a debugging round once.
    pushing the code**, because every group page selects those columns and
    would otherwise fail to load.
 5. **Names.** The feature is "Tech log" everywhere you can see it. The table,
-   the `postSquawk` action and some type names still say "squawk". That is
+   the table is still called `squawks`. That is
    deliberate; renaming them would need a migration and gains nothing.
 6. **SVG `<title>`** in React 19 must be one string (use a template literal).
 7. **Charts** are server-rendered SVG with no chart library.

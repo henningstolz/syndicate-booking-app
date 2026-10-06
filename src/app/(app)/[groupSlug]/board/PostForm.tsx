@@ -1,9 +1,9 @@
 "use client";
 
 import { useActionState, useEffect, useRef } from "react";
-import { postSquawk, type SquawkActionState } from "./actions";
+import { postBoardMessage, type BoardActionState } from "./actions";
 
-const initialState: SquawkActionState = {};
+const initialState: BoardActionState = {};
 
 export function PostForm({
   groupId,
@@ -12,7 +12,7 @@ export function PostForm({
   groupId: string;
   groupSlug: string;
 }) {
-  const [state, action, pending] = useActionState(postSquawk, initialState);
+  const [state, action, pending] = useActionState(postBoardMessage, initialState);
   const formRef = useRef<HTMLFormElement>(null);
 
   // Refs are a DOM escape hatch, not render state — clearing the

@@ -60,7 +60,7 @@ export default function PrivacyPage() {
           track you around the web.
         </p>
         <p className="mt-4 font-mono text-[13px] text-bt-muted">
-          Last updated 5 October 2026
+          Last updated 6 October 2026
         </p>
 
         <Section title="Who is responsible">
@@ -89,12 +89,15 @@ export default function PrivacyPage() {
             <li>
               <strong>Your name in the group:</strong> the display name you
               enter when you join a group. Other members of that group see it
-              on bookings and tech log entries.
+              on bookings, flight log entries and board posts.
             </li>
             <li>
               <strong>What your group records:</strong> the aircraft details
-              and due dates, bookings (times, notes and who made them), tech
-              log entries, and the invitations an admin has created.
+              and due dates, bookings (times, notes and who made them), the
+              flight log (for each flight: the captain&apos;s name, where it
+              went, times, fuel, oil and any defect noted, and who entered
+              it), messages on the group&apos;s board, and the invitations an
+              admin has created.
             </li>
             <li>
               <strong>Technical data:</strong> like any website, the hosting
@@ -113,7 +116,8 @@ export default function PrivacyPage() {
           <ul>
             <li>
               <strong>Your group:</strong> every member of a group can see that
-              group&apos;s aircraft, bookings, tech log and member names.
+              group&apos;s aircraft, bookings, flight log, board and member
+              names.
               Group admins can also create invitations. Other groups cannot see
               any of it; this is enforced in the database itself, not just in
               the pages you see.

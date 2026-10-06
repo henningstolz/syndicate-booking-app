@@ -29,15 +29,21 @@ mkdir -p "$OUT_DIR"
 # Scale to cover 1920x1080, then centre-crop the overflow.
 FIT="scale=1920:1080:force_original_aspect_ratio=increase:flags=lanczos,crop=1920:1080"
 
+# The house look: a gentle warm grade (a little more red, a little less blue,
+# slightly richer colour) so grey phone footage sits comfortably next to the
+# warm paper tones of the page. Set GRADE= (empty) for the footage as shot.
+GRADE="${GRADE-colorbalance=rs=0.05:bs=-0.065:rm=0.08:bm=-0.09:rh=0.065:bh=-0.09,eq=saturation=1.10}"
+GRADE_STEP="${GRADE:+,$GRADE,format=yuv420p}"
+
 # iPhone-style HDR footage (HLG/PQ) looks washed out if it's just
 # squeezed into 8-bit SDR, so tone-map it first. Dropping to 30 fps
 # first keeps the expensive steps cheap.
 INFO="$("$FFMPEG" -hide_banner -i "$INPUT" 2>&1 || true)"
 if grep -qE "arib-std-b67|smpte2084" <<<"$INFO"; then
   echo "HDR source detected: tone-mapping to SDR"
-  VF="fps=30,zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv,format=yuv420p,$FIT"
+  VF="fps=30,zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv,format=yuv420p,$FIT$GRADE_STEP"
 else
-  VF="fps=30,format=yuv420p,$FIT"
+  VF="fps=30,format=yuv420p,$FIT$GRADE_STEP"
 fi
 
 "$FFMPEG" -hide_banner -loglevel error -y -i "$INPUT" \

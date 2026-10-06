@@ -132,7 +132,9 @@ a matching poster, deletes the previous footage's files, and updates
 what makes visitors see the new film at once instead of a cached old one.
 Commit all of it and push. Keep the video near 3 MB. Because bright sky behind
 the headline can hurt readability, check the contrast (the dark overlay in
-`Hero.tsx` is currently 62%).
+`Hero.tsx` is currently the page's near-black at 66%). The script also applies a
+gentle warm colour grade (the `GRADE` setting at the top of the script;
+`GRADE=` switches it off).
 
 ### Change the contact address or privacy page
 

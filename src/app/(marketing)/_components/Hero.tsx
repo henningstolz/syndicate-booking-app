@@ -7,9 +7,11 @@ export function Hero() {
   return (
     <section className="relative overflow-hidden bg-bt-night text-bt-paper">
       <HeroFilm />
-      {/* Darkening layer keeps the words readable over any footage. */}
+      {/* Darkening layer keeps the words readable over any footage. It uses the
+          page's own near-black (the same as the band at the bottom), so the
+          film and the rest of the page belong together. */}
       <div
-        className="absolute inset-0 bg-[rgba(15,26,33,0.62)]"
+        className="absolute inset-0 bg-bt-ink/66"
         aria-hidden="true"
       />
 

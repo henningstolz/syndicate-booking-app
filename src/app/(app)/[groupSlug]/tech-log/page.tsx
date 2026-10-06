@@ -4,6 +4,7 @@ import { getGroupBySlug } from "@/lib/groups";
 import { memberColor } from "@/lib/member-colors";
 import { LONDON_TZ, londonDateKey } from "@/lib/datetime";
 import { hoursStatus } from "@/lib/aircraft-status";
+import { formatMonthKey, monthKeysDescending } from "@/lib/flight-times";
 import { FlightEntryCard, type FlightRow } from "./FlightEntryCard";
 import { FlightForm } from "./FlightForm";
 
@@ -101,6 +102,20 @@ export default async function TechLogPage({
     .returns<FlightRow[]>();
 
   const entries = flights ?? [];
+
+  // Months to offer for the PDF: from the first flight's month to this one.
+  const { data: firstFlight } = await supabase
+    .from("flight_entries")
+    .select("flight_date")
+    .eq("group_id", group.id)
+    .order("flight_date", { ascending: true })
+    .limit(1)
+    .maybeSingle<{ flight_date: string }>();
+  const thisMonth = londonDateKey(new Date()).slice(0, 7);
+  const pdfMonths = monthKeysDescending(
+    firstFlight?.flight_date.slice(0, 7) ?? thisMonth,
+    thisMonth,
+  );
   const notice = noticeCode ? VOID_NOTICES[noticeCode] : undefined;
 
   // The airframe total after each flight, worked backwards from today's
@@ -201,6 +216,41 @@ export default async function TechLogPage({
           myUserId={user.id}
         />
       )}
+
+      <details className="text-sm text-zinc-600">
+        <summary className="w-fit text-zinc-500 underline underline-offset-4">
+          Monthly PDF
+        </summary>
+        <form
+          method="get"
+          action={`/${groupSlug}/tech-log/pdf`}
+          className="mt-2 flex flex-wrap items-end gap-2"
+        >
+          <label className="flex flex-col gap-1 text-xs text-zinc-600">
+            Month
+            <select
+              name="month"
+              defaultValue={thisMonth}
+              className="rounded-md border border-zinc-300 px-2 py-1.5 text-base text-zinc-900"
+            >
+              {pdfMonths.map((key) => (
+                <option key={key} value={key}>
+                  {formatMonthKey(key)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="submit"
+            className="rounded-full border border-zinc-300 px-4 py-1.5 text-sm text-zinc-700 hover:bg-zinc-100"
+          >
+            Download PDF
+          </button>
+          <p className="basis-full text-xs text-zinc-500">
+            A4 landscape, laid out like the paper log, to print for the folder.
+          </p>
+        </form>
+      </details>
 
       {entries.length === 0 ? (
         <p className="text-sm text-zinc-500">No flights logged yet.</p>

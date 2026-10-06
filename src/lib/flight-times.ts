@@ -77,3 +77,32 @@ export function formatDuration(minutes: number): string {
 export function formatDeci(value: number): string {
   return value.toFixed(1);
 }
+
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+// "2026-10" -> "October 2026"
+export function formatMonthKey(key: string): string {
+  const [year, month] = key.split("-").map(Number);
+  return `${MONTH_NAMES[month - 1]} ${year}`;
+}
+
+// Every month from the first flight's month to the current one, newest first,
+// as "YYYY-MM" keys (for the monthly PDF picker). Capped so a bad date cannot
+// produce an endless list.
+export function monthKeysDescending(first: string, last: string, cap = 120): string[] {
+  const keys: string[] = [];
+  let [year, month] = last.split("-").map(Number);
+  const [firstYear, firstMonth] = first.split("-").map(Number);
+  while (keys.length < cap && (year > firstYear || (year === firstYear && month >= firstMonth))) {
+    keys.push(`${year}-${String(month).padStart(2, "0")}`);
+    month -= 1;
+    if (month === 0) {
+      month = 12;
+      year -= 1;
+    }
+  }
+  return keys.length > 0 ? keys : [last];
+}

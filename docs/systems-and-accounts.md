@@ -172,6 +172,15 @@ airframe total are calculated. Entries can't be edited. If one is wrong, an
 admin opens it, chooses **Void this entry** and gives a reason, and the pilot
 enters it again correctly.
 
+### Print a month of the flight log
+
+Tech log, then **Monthly PDF**: choose the month and tap **Download PDF**. You
+get an A4 landscape page set laid out like the paper log, with the header
+(group, registration, type, month), one row per flight, and page numbers.
+Voided entries are printed struck through with their reason. It prints only
+the fields a pilot enters; the calculated columns and the lower defects section
+are not on it yet.
+
 ### Set up (or correct) the airframe hours
 
 Aircraft page, **Edit** (admins): enter "Airframe total hours (right now)" and

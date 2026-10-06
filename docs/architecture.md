@@ -61,6 +61,7 @@ form actions that talk to Supabase.
 | Hosting | Vercel | Auto-deploys from GitHub `main`. |
 | Email out | Resend over SMTP | Used by Supabase for sign-up emails, and by Gmail for "send as". |
 | Email in | ImprovMX | Forwarding only, no mailbox. |
+| PDF | `pdf-lib` (npm) | Pure JavaScript, so it runs on Vercel with no font files. Uses the standard PDF fonts, so characters outside Western European text print as "?". |
 
 ## How a page request works
 
@@ -106,7 +107,8 @@ your groups, or to `/pending` if you have none.
 | `/<group>` | Dashboard: aircraft info, next booking, warning banner if something is due |
 | `/<group>/calendar` | Booking calendar: List and Month views, block-booking presets |
 | `/<group>/chat` | The group chat: a shared message feed where anyone posts to everyone (not only defects). Old URLs `/squawks`, `/board` and `/tech-log?view=notes` redirect here |
-| `/<group>/tech-log` | The flight log: one entry per flight added with "+ Entry", with calculated flight/block time and running airframe hours |
+| `/<group>/tech-log` | The flight log: one entry per flight added with "+ Entry", with calculated flight/block time and running airframe hours. "Monthly PDF" picks a month and downloads it |
+| `/<group>/tech-log/pdf?month=YYYY-MM` | The monthly flight log as an A4 landscape PDF (route handler, members only). Built by `src/lib/flight-log-pdf.ts` with the `pdf-lib` library |
 | `/<group>/reports` | Upcoming bookings, and "Bookings per member" donut chart |
 | `/<group>/aircraft` | Renewal and check due dates; admins can edit |
 | `/<group>/members` | Read-only member list |
@@ -179,7 +181,8 @@ src/
     groups.ts                 getGroupBySlug (select list built from STATUS_FIELDS)
     aircraft-status.ts        the due-date fields and their overdue/due-soon logic
     datetime.ts               all UK-time handling (see below)
-    flight-times.ts           flight/block time and decimal-hour maths (also used live in the form)
+    flight-times.ts           flight/block time and decimal-hour maths (also used live in the form), month helpers
+    flight-log-pdf.ts         the monthly PDF, drawn like the paper log (self-contained, takes ready-made text)
     member-colors.ts          the colour palette for members
     booking-durations.ts, slugify.ts
 public/video/                 the hero film and its poster (fingerprinted file names)
@@ -267,7 +270,7 @@ something to keep working.
 
 - Hours and costs (Hobbs, fuel, a monthly split per member).
 - Structured defects (open/resolved, rectification, engineer sign-off): defects are free text on a flight entry for now.
-- A monthly PDF of the flight log, to print for the paper folder.
+- More on the PDF: the calculated columns (flight/block hours, airframe totals), the lower defects/rectification section and signatures. It currently prints only the fields a pilot enters.
 - Cost sharing from block time.
 - Email notifications for bookings, cancellations and tech log posts.
 - Self-service account deletion (done by hand in Supabase today). Members can

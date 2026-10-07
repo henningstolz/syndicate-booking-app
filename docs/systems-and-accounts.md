@@ -206,20 +206,20 @@ done (and the database change 0013 has been run).
 1. **A sending key from Resend.** Resend, then API Keys, then Create API Key.
    Name it "Blocktime notifications", permission **Sending access**, domain
    `mail.blocktime.group`. Copy the key (starts with `re_`).
-2. **A secret for the sender.** In a terminal on your Mac run this; it prints
-   two lines (keep the screen private):
+2. **The secrets for the sender.** In a terminal on your Mac run this; it
+   prints the two secrets for Vercel and one line for Supabase (keep the
+   screen private):
 
    ```bash
-   TOKEN=$(openssl rand -hex 32); echo "NOTIFY_TOKEN=$TOKEN"; echo "insert into public.notification_worker (token_hash) values ('$(printf '%s' "$TOKEN" | shasum -a 256 | cut -d' ' -f1)');"
+   TOKEN=$(openssl rand -hex 32); echo "NOTIFY_TOKEN=$TOKEN"; echo "CRON_SECRET=$(openssl rand -hex 24)"; echo "insert into public.notification_worker (token_hash) values ('$(printf '%s' "$TOKEN" | shasum -a 256 | cut -d' ' -f1)');"
    ```
 
 3. **Tell the database the secret's fingerprint.** Supabase, SQL Editor, paste
    the `insert into ...` line (only a fingerprint, not the secret) and run it.
 4. **Give the server the keys.** Vercel, your project, Settings, Environment
    Variables. Add these for Production and Preview: `RESEND_API_KEY` (step 1),
-   `NOTIFY_TOKEN` (the value printed in step 2) and `CRON_SECRET` (any long
-   random text, for example the output of `openssl rand -hex 24`). Leave
-   `SITE_URL` as it is.
+   `NOTIFY_TOKEN` and `CRON_SECRET` (both printed in step 2). Leave `SITE_URL`
+   as it is.
 5. **Redeploy.** Vercel, Deployments, the latest one, Redeploy (new settings
    only apply to a new deployment).
 6. **Test it.** Settings, Notifications, **Send me a test email**. It should

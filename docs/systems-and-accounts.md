@@ -217,9 +217,11 @@ done (and the database change 0013 has been run).
 3. **Tell the database the secret's fingerprint.** Supabase, SQL Editor, paste
    the `insert into ...` line (only a fingerprint, not the secret) and run it.
 4. **Give the server the keys.** Vercel, your project, Settings, Environment
-   Variables. Add these for Production and Preview: `RESEND_API_KEY` (step 1),
-   `NOTIFY_TOKEN` and `CRON_SECRET` (both printed in step 2). Leave `SITE_URL`
-   as it is.
+   Variables, then **Add New** for each of `RESEND_API_KEY` (step 1),
+   `NOTIFY_TOKEN` and `CRON_SECRET` (both printed in step 2). Paste only the
+   value (nothing before the `=`, no quotes, no spaces), tick **Production**
+   only (not Preview or Development), and switch **Sensitive** on. Leave
+   `SITE_URL` and the Supabase settings as they are.
 5. **Redeploy.** Vercel, Deployments, the latest one, Redeploy (new settings
    only apply to a new deployment).
 6. **Test it.** Settings, Notifications, **Send me a test email**. It should

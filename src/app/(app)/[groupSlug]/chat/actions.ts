@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { flushSoon } from "@/lib/notify/flush";
 
 // The chat's messages live in the `squawks` table (its original name; the
 // table keeps it, only the screens say "Chat").
@@ -40,5 +41,6 @@ export async function postChatMessage(
   }
 
   revalidatePath(`/${groupSlug}/chat`);
+  await flushSoon();
   return { success: true };
 }

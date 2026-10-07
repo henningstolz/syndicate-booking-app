@@ -59,7 +59,7 @@ form actions that talk to Supabase.
 | Fonts | Inter (app), Hanken Grotesk (homepage only), IBM Plex Mono (shared) | Fonts are scoped to the element they are applied to. |
 | Database and sign-in | Supabase (Postgres + Auth) via `@supabase/ssr` | Region: London. |
 | Hosting | Vercel | Auto-deploys from GitHub `main`. |
-| Email out | Resend over SMTP | Used by Supabase for sign-up emails, and by Gmail for "send as". |
+| Email out | Resend (SMTP for Supabase's sign-up emails and Gmail's "send as"; its web API for notification emails) | |
 | Email in | ImprovMX | Forwarding only, no mailbox. |
 | PDF | `pdf-lib` (npm) | Pure JavaScript, so it runs on Vercel with no font files. Uses the standard PDF fonts, so characters outside Western European text print as "?". |
 
@@ -113,7 +113,8 @@ your groups, or to `/pending` if you have none.
 | `/<group>/reports` | Upcoming bookings, and "Bookings per member" donut chart |
 | `/<group>/aircraft` | Renewal and check due dates; admins can edit |
 | `/<group>/members` | Read-only member list |
-| `/<group>/settings` | Your name and "leave group" (everyone). Admins also: change roles, remove members, create and cancel invite links, edit the group's details |
+| `/<group>/settings` | **General** tab: your name and "leave group" (everyone); admins also change roles, remove members, create and cancel invite links, edit the group's details. **Notifications** tab (`?tab=notifications`): choose which events email you, and send yourself a test email |
+| `/api/cron/notify` | Called once a day by Vercel (needs the `CRON_SECRET` setting) to send any email left in the queue |
 
 The signed-in routes sit in the `(app)/[groupSlug]` folder; the public ones in
 `(marketing)`. Folder names in parentheses don't appear in URLs.
@@ -130,6 +131,9 @@ is scoped to a group.
 | `bookings` | Start, end, note, status (`confirmed` or `cancelled`), who booked | A database rule makes overlapping confirmed bookings in one group impossible. Cancelling only changes the status; nothing is deleted. A multi-day booking is one row. |
 | `squawks` | The chat's messages: author, message, time | The table keeps its original name; only the screens say "Chat". |
 | `flight_entries` | The flight log: date, from/to, category (PV/TG/PT), captain, fuel in each tank, oil, the four clock times, defects, who entered it | **Never edited or deleted** (like paper): an admin *voids* a wrong entry with a reason, and it stops counting. Block and flight minutes and their decimal hours are generated columns, so every screen agrees. Each entry also remembers the check limit that applied when it was logged (`check_limit_hours`), so "hours to check" stays right after a check resets the limit. A database rule makes overlapping flights impossible. |
+| `notification_preferences` | Which events a member wants emailed, per group (only explicit choices; the rest follow the defaults in `notification_default()`) | Defaults: bookings, cancellations, chat and defects on; flights logged off. The app's list (`src/lib/notifications.ts`) is checked against the database's in the tests. |
+| `notification_outbox` | The queue of emails to send: recipient, event, details, attempts, sent time | Not readable through the API at all. Sent rows are deleted after 30 days, unsent after a week. |
+| `notification_worker` | The hash of the sender's secret | Not readable through the API. |
 | `invites` | Invite links: group, role, a name label, who made it, expiry (14 days), cancelled-at, who used it and when | One use per link. Not tied to an email address: whoever holds the link can use it once. |
 
 Postgres functions marked `SECURITY DEFINER` run with the table owner's
@@ -148,6 +152,7 @@ the traps described below.
   database refuses to demote, remove or let leave the last one. Removing or
   leaving also cancels that person's *future* bookings.
 
+- Notifications: triggers on bookings, chat messages and flights queue one email per member who wants it (never the person who did it, never a removed member, at most 20 an hour per person; a failure to queue never blocks the booking, post or flight). `set_notification_preferences` saves a member's choices. `claim_notifications`, `mark_notification_sent` and `mark_notification_failed` are how the server works through the queue; they only answer to the sender's secret.
 - Flight log: `add_flight_entry` (validates everything and returns a result
   such as `ok`, `overlap`, `times_order`), `void_flight_entry` (admin),
   `set_airframe_hours` (admin: "the total is X right now, the next check is at
@@ -164,7 +169,7 @@ every migration to a throwaway in-memory Postgres; the pure helpers in
 `npm test` runs both. `npm run test:demo` crawls every demo page on a running dev server. Run them after changing a migration or those helpers.
 
 The database change history is the numbered files in `supabase/migrations/`
-(0001 to 0012).
+(0001 to 0013).
 
 ## Code map
 
@@ -184,6 +189,8 @@ src/
     datetime.ts               all UK-time handling (see below)
     flight-times.ts           flight/block time and decimal-hour maths (also used live in the form), month helpers
     flight-log-pdf.ts         the monthly PDF, drawn like the paper log (self-contained, takes ready-made text)
+    notifications.ts          the events a member can be emailed about, with the defaults (shared with the tests)
+    notify/                   the notification emails: wording (email.ts), the send loop (send-core.ts), Resend and the queue (send.ts), send-after-the-reply (flush.ts)
     flight-totals.ts          running airframe totals and hours to check, used by the PDF (pure, tested)
     demo/                     the demo group: invented data, stand-in database client, the visitor's cookie (see "The demo")
     member-colors.ts          the colour palette for members
@@ -234,7 +241,11 @@ secrets are committed to Git.
 | --- | --- | --- |
 | `NEXT_PUBLIC_SUPABASE_URL` | Address of the Supabase project | `.env.local` (your Mac) and Vercel |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase's public "publishable" key. Safe to expose; RLS protects the data | `.env.local` and Vercel |
-| `SITE_URL` | The site's own address, used in sign-up email links | `.env.local` and Vercel (Production and Preview) |
+| `SITE_URL` | The site's own address, used in sign-up email links and notification emails | `.env.local` and Vercel (Production and Preview) |
+| `RESEND_API_KEY` | A Resend key that may only send, for the notification emails | Vercel only (not on your Mac) |
+| `NOTIFY_TOKEN` | The long random secret the server uses to claim queued emails; its hash is in `notification_worker` | Vercel only |
+| `CRON_SECRET` | Lets Vercel's daily job call `/api/cron/notify` | Vercel only |
+| `NOTIFY_FROM` | Optional sender, default `Blocktime <notifications@mail.blocktime.group>` | Vercel only |
 
 `.env.local.example` shows the shape without values.
 
@@ -253,6 +264,31 @@ runbook).
 
 Group invitations are **not emailed**: an admin copies a link and sends it
 themselves.
+
+## Email notifications
+
+How an email gets from an action to an inbox:
+
+1. Someone books, cancels, posts in the chat or logs a flight. A database
+   trigger writes one row per member who wants that event into
+   `notification_outbox` (in the same step as the action itself).
+2. The server action finishes and replies, then (using Next.js `after`) calls
+   `flushNotifications()` (`src/lib/notify/send.ts`). It claims waiting rows
+   from the database with the sender's secret, writes each email
+   (`src/lib/notify/email.ts`; everything a member typed is escaped), sends it
+   through Resend, and reports sent or failed.
+3. A failed email stays queued and is tried again by the next action and by the
+   daily job (`vercel.json` calls `/api/cron/notify`). It is tried at most five
+   times and never after a day.
+
+Why the sender needs a secret rather than a database master key: reading other
+members' email addresses is something the app deliberately cannot do as a
+normal user. The secret opens only the queue (claim and mark), so if it ever
+leaked, the worst case is someone reading or suppressing queued emails, not
+reaching the data. The demo never queues or sends anything.
+
+Sending email needs Resend's web API: the free plan allows about 100 emails a
+day and 3,000 a month (check your plan), shared with the sign-up emails.
 
 ## DNS (all records are managed in Vercel)
 
@@ -317,6 +353,7 @@ either work in the demo (see `engine.ts`) or are blocked there the way
 - On the PDF: the lower defects/rectification/engineer section of the paper sheet (not printed).
 - Cost sharing from block time.
 - Email notifications for bookings, cancellations and tech log posts.
+- Scheduled emails: a reminder the evening before your booking, warnings when a check or renewal is coming up, and a daily summary instead of one email per event. The daily job is in place to build them on.
 - Self-service account deletion (done by hand in Supabase today). Members can
   leave a group, but their login stays.
 - Separate development and production databases.

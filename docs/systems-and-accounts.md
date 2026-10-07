@@ -17,7 +17,7 @@ where each one is stored.
 | 1 | **GitHub** (`henningstolz/syndicate-booking-app`) | Holds the code and its history. A push to `main` starts a deploy. | github.com | Your Mac pushes with an SSH key. |
 | 2 | **Vercel** (project `syndicate-booking-app-ukds`) | Builds and hosts the website. Also hosts the DNS for `blocktime.group`. | vercel.com | Environment variables are stored in the project's Settings. |
 | 3 | **Supabase** (project ref `trdtqhkbxssujcwmvham`, London) | The database, sign-in, and the SQL editor where migrations are run. | supabase.com/dashboard | Project keys are under Settings, then API. |
-| 4 | **Resend** (EU region) | Sends email: sign-up confirmations, and mail you send as `hello@`. | resend.com | API keys: one inside Supabase's SMTP settings, one in Gmail's "send as". |
+| 4 | **Resend** (EU region) | Sends email: sign-up confirmations, the notification emails members choose, and mail you send as `hello@`. | resend.com | API keys: one inside Supabase's SMTP settings, one in Gmail's "send as", one in Vercel for notifications. |
 | 5 | **ImprovMX** | Forwards `hello@blocktime.group` to your personal inbox. | improvmx.com | Account login only. |
 | 6 | **Gmail** (your personal account) | Receives `hello@` mail and sends as it. | gmail.com | Holds the "send as" Resend key. |
 | 7 | **Domain registrar for `blocktime.group`** | Owns the domain name and renews it every year. | _Write down where you registered it_ | Account login only. |
@@ -27,15 +27,17 @@ of first): which email address each account is registered under, which
 registrar holds the domain and when it renews, and which plan each service is
 on.
 
-### The two Resend keys
+### The three Resend keys
 
-You have two separate keys on purpose, so one can be revoked without breaking
-the other.
+You have three separate keys on purpose, so one can be revoked without breaking
+the others.
 
 - **Supabase's SMTP key.** Has access to all domains. Used by Supabase to send
   sign-up emails. Lives in Supabase, then Authentication, then SMTP Settings.
 - **Gmail's "send as" key.** Sending-only, limited to `blocktime.group`. Lives
   in Gmail's Send mail as settings.
+- **The notifications key.** Sending-only, limited to `mail.blocktime.group`.
+  Lives in Vercel's environment variables as `RESEND_API_KEY`.
 
 If Resend reports an invalid or restricted key, check its permission and
 domain access first.
@@ -66,6 +68,7 @@ These depend on the plan you chose, which I can't see. Check each.
 - **Resend's free plan has daily and monthly sending limits.** Plenty for
   sign-up emails at this size.
 - **Domain renewal.** Turn on auto-renew at your registrar.
+- **Resend's free plan** allows about 100 emails a day and 3,000 a month, shared by sign-up emails and notifications. Fine for a few pilots; a busy group with every option on could approach it.
 - **The demo does not use Supabase,** so it stays up even when the database is paused or over its limits.
 
 ## How-tos
@@ -194,6 +197,48 @@ sheet. From then on every flight updates the total and the hours to the next
 check. Entering the total again later (for example after reconciling with the
 paper log) re-calibrates it without losing logged flights.
 
+### Set up email notifications
+
+One-time setup so the app can send the emails members choose in Settings,
+then Notifications. The code is live but sends nothing until these steps are
+done (and the database change 0013 has been run).
+
+1. **A sending key from Resend.** Resend, then API Keys, then Create API Key.
+   Name it "Blocktime notifications", permission **Sending access**, domain
+   `mail.blocktime.group`. Copy the key (starts with `re_`).
+2. **A secret for the sender.** In a terminal on your Mac run this; it prints
+   two lines (keep the screen private):
+
+   ```bash
+   TOKEN=$(openssl rand -hex 32); echo "NOTIFY_TOKEN=$TOKEN"; echo "insert into public.notification_worker (token_hash) values ('$(printf '%s' "$TOKEN" | shasum -a 256 | cut -d' ' -f1)');"
+   ```
+
+3. **Tell the database the secret's fingerprint.** Supabase, SQL Editor, paste
+   the `insert into ...` line (only a fingerprint, not the secret) and run it.
+4. **Give the server the keys.** Vercel, your project, Settings, Environment
+   Variables. Add these for Production and Preview: `RESEND_API_KEY` (step 1),
+   `NOTIFY_TOKEN` (the value printed in step 2) and `CRON_SECRET` (any long
+   random text, for example the output of `openssl rand -hex 24`). Leave
+   `SITE_URL` as it is.
+5. **Redeploy.** Vercel, Deployments, the latest one, Redeploy (new settings
+   only apply to a new deployment).
+6. **Test it.** Settings, Notifications, **Send me a test email**. It should
+   arrive within a minute.
+7. **Try the real thing.** Invite a second address of yours (a Gmail `+test`
+   alias), join with it, then post in the chat as yourself: the alias's inbox
+   should get an email (you never get emails about your own actions).
+
+Do **not** put these keys on your Mac (`.env.local`): your local copy shares the
+live database, so sending from there would email real members.
+
+### Change what members are emailed about
+
+Members choose for themselves under Settings, then Notifications. To change
+which events exist or the defaults, edit `src/lib/notifications.ts` and the
+matching `notification_default()` in a new migration; the tests check the two
+agree. To see what is waiting or stuck, look at `notification_outbox` in
+Supabase's Table Editor (the `last_error` column says why an email failed).
+
 ### Show the demo
 
 Share `blocktime.group/demo`, or use "Try the demo" on the homepage. Visitors
@@ -210,6 +255,18 @@ relative to today, so it never goes stale. After changing a page or a database
 query in the real app, run `npm run dev` and, in another terminal,
 `npm run test:demo`: if the demo can no longer answer a page's questions, it
 fails there with the page's name.
+
+### Notification emails are not arriving
+
+1. Settings, Notifications, **Send me a test email**. If that fails, the
+   server settings (step 4 above) are wrong or missing, or Resend refused.
+2. If the test works but real emails don't: check the person has the event
+   switched on, and remember nobody is emailed about their own action.
+3. Supabase, Table Editor, `notification_outbox`: rows with a `last_error`
+   show what Resend said; rows with `attempts` of 5 gave up; rows with no
+   `sent_at` and a recent `created_at` are waiting for the next send.
+4. Resend's free plan limits (about 100 a day, 3,000 a month) apply: its
+   dashboard shows what was sent and any refusals.
 
 ### Something is down
 

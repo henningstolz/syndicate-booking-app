@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { wallTimesToUtcIso } from "@/lib/datetime";
+import { flushSoon } from "@/lib/notify/flush";
 import { dayOffsets } from "@/lib/flight-times";
 
 export type FlightActionState = { error?: string; success?: boolean };
@@ -105,6 +106,7 @@ export async function addFlightEntry(
   revalidatePath(`/${groupSlug}/tech-log`);
   revalidatePath(`/${groupSlug}/aircraft`);
   revalidatePath(`/${groupSlug}`);
+  await flushSoon();
   return { success: true };
 }
 

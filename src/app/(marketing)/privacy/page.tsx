@@ -100,6 +100,11 @@ export default function PrivacyPage() {
               admin has created.
             </li>
             <li>
+              <strong>Your email choices:</strong> which emails you want from
+              each group (for example about new bookings), and a queue of the
+              emails still to be sent to you.
+            </li>
+            <li>
               <strong>Technical data:</strong> like any website, the hosting
               provider sees your IP address and browser type when you load a
               page, and keeps short-lived server logs to keep the service
@@ -147,8 +152,9 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong>Resend</strong> sends the sign-up confirmation and
-              invitation emails, so it sees the recipient&apos;s email address
-              and the message.
+              password-reset emails, and the notification emails you choose
+              in Settings, so it sees the recipient&apos;s email address and
+              the message.
             </li>
             <li>
               <strong>ImprovMX</strong> forwards mail sent to
@@ -187,6 +193,12 @@ export default function PrivacyPage() {
             your account removed, write to the address above and it will be
             deleted or anonymised, except where a group&apos;s records need to
             stay readable for the other members.
+          </p>
+          <p>
+            Notification emails are removed from the sending queue after at
+            most a month (unsent ones after a week). You choose which emails
+            you get under Settings, then Notifications, and every email links
+            back there.
           </p>
         </Section>
 

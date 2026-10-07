@@ -50,6 +50,16 @@ paste a file's contents, run it — in order, once each.
     entries get the current limit. Backwards compatible: run it *before*
     pushing the matching code.
 
+13. `0013_email_notifications.sql` — email notifications: members' choices
+    (`notification_preferences`), a queue of emails to send (`notification_outbox`),
+    triggers that queue an email when a booking is made or cancelled, a chat
+    message is posted or a flight is logged, and the functions the server uses
+    to claim and report on queued emails with a secret whose hash lives in
+    `notification_worker`. Removing a member or leaving a group no longer emails
+    once per cancelled booking. Backwards compatible: run it *before* pushing
+    the matching code. After it, the secret must be added (see
+    docs/systems-and-accounts.md, "Set up email notifications").
+
 ## Adding members to a group
 
 Two ways now:

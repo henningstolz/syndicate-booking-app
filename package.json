@@ -7,8 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:db": "node supabase/tests/membership.test.mjs && node supabase/tests/flights.test.mjs",
-    "test:unit": "node --no-warnings src/lib/unit.test.mjs && node --no-warnings src/lib/demo/demo.test.mjs",
+    "test:db": "node supabase/tests/membership.test.mjs && node supabase/tests/flights.test.mjs && node --no-warnings supabase/tests/notifications.test.mjs && node --no-warnings supabase/tests/notification-emails.test.mjs",
+    "test:unit": "node --no-warnings src/lib/unit.test.mjs && node --no-warnings src/lib/demo/demo.test.mjs && node --no-warnings src/lib/notify/notify.test.mjs",
     "test": "npm run test:unit && npm run test:db",
     "test:demo": "node scripts/demo-smoke.mjs"
   },

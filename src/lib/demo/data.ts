@@ -31,6 +31,7 @@ export type DemoDb = {
   squawks: Row[];
   flight_entries: Row[];
   invites: Row[];
+  notification_preferences: Row[];
 };
 
 // Columns of each table, so a query that asks for one that does not exist
@@ -56,6 +57,7 @@ export const TABLE_COLUMNS: Record<keyof DemoDb, string[]> = {
     "created_at", "voided_at", "voided_by", "void_reason",
   ],
   invites: ["id", "group_id", "role", "label", "created_by", "created_at", "expires_at", "revoked_at", "used_by", "used_at"],
+  notification_preferences: ["group_id", "user_id", "event", "enabled", "updated_at"],
 };
 
 const MIN = 60_000;
@@ -454,5 +456,7 @@ export function buildDb(now: Date, overlay: DemoOverlay): DemoDb {
     squawks: messages,
     flight_entries: flights,
     invites: [],
+    // No explicit choices: the demo shows the defaults.
+    notification_preferences: [],
   };
 }

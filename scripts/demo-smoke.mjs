@@ -21,6 +21,7 @@ const pages = [
   "/demo/aircraft",
   "/demo/members",
   "/demo/settings",
+  "/demo/settings?tab=notifications",
 ];
 
 let failed = 0;

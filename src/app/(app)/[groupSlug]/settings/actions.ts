@@ -1,9 +1,13 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { homePathFor } from "@/lib/user-home";
 import { isDemoRequest } from "@/lib/demo/mode";
+import { NOTIFICATION_EVENTS } from "@/lib/notifications";
+import { renderTestEmail } from "@/lib/notify/email";
+import { notifyConfigured, sendEmail, siteUrl } from "@/lib/notify/send";
 
 // Every action ends by redirecting back to the Settings page with a short
 // code in the URL (?notice=...). The page turns the code into a message, so
@@ -16,8 +20,8 @@ function settingsUrl(groupSlug: string, notice: string, extra = "") {
 }
 
 // In the demo group nothing here is saved: say so instead of failing.
-async function blockInDemo(groupSlug: string) {
-  if (await isDemoRequest()) redirect(settingsUrl(groupSlug, "demo"));
+async function blockInDemo(groupSlug: string, extra = "") {
+  if (await isDemoRequest()) redirect(settingsUrl(groupSlug, "demo", extra));
 }
 
 async function signedInClient() {
@@ -188,4 +192,67 @@ export async function updateGroupDetails(formData: FormData) {
   if (error) redirect(settingsUrl(groupSlug, "error"));
   if (!data || data.length === 0) redirect(settingsUrl(groupSlug, "not_allowed"));
   redirect(settingsUrl(groupSlug, "details_saved"));
+}
+
+// ---------------------------------------------------------------- notifications
+
+const NOTIFICATIONS_TAB = "&tab=notifications";
+
+// Save which events this member wants emailed, for this group.
+export async function saveNotificationPreferences(formData: FormData) {
+  const groupId = text(formData, "groupId");
+  const groupSlug = text(formData, "groupSlug");
+  await blockInDemo(groupSlug, NOTIFICATIONS_TAB);
+
+  // An unticked box is simply absent from the form, so every known event is
+  // saved explicitly: ticked = on, absent = off.
+  const prefs = Object.fromEntries(
+    NOTIFICATION_EVENTS.map((event) => [event.key, formData.get(event.key) === "on"]),
+  );
+
+  const supabase = await signedInClient();
+  const { data, error } = await supabase.rpc("set_notification_preferences", {
+    p_group_id: groupId,
+    p_prefs: prefs,
+  });
+  const result = (data as RpcResult | null)?.result;
+
+  if (error || !result) redirect(settingsUrl(groupSlug, "error", NOTIFICATIONS_TAB));
+  if (result === "ok") redirect(settingsUrl(groupSlug, "notifications_saved", NOTIFICATIONS_TAB));
+  redirect(settingsUrl(groupSlug, result, NOTIFICATIONS_TAB));
+}
+
+// Send the member a sample email, to check that notifications reach them.
+// Limited to one every 30 seconds.
+export async function sendTestEmail(formData: FormData) {
+  const groupId = text(formData, "groupId");
+  const groupSlug = text(formData, "groupSlug");
+  await blockInDemo(groupSlug, NOTIFICATIONS_TAB);
+
+  const back = (notice: string) => redirect(settingsUrl(groupSlug, notice, NOTIFICATIONS_TAB));
+  if (!notifyConfigured()) back("not_configured");
+
+  const store = await cookies();
+  if (store.get("bt_test_email")) back("test_wait");
+
+  const supabase = await signedInClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data: group } = await supabase
+    .from("groups")
+    .select("name")
+    .eq("id", groupId)
+    .maybeSingle<{ name: string }>();
+  if (!user?.email || !group) back("error");
+
+  store.set("bt_test_email", "1", { maxAge: 30, path: "/", httpOnly: true, sameSite: "lax" });
+
+  const rendered = renderTestEmail(group!.name, siteUrl());
+  const outcome = await sendEmail({
+    ...rendered,
+    to: user!.email as string,
+    unsubscribeUrl: `${siteUrl()}/${encodeURIComponent(groupSlug)}/settings?tab=notifications`,
+  });
+  back(outcome.ok ? "test_sent" : "test_failed");
 }

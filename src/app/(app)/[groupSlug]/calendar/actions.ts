@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { flushSoon } from "@/lib/notify/flush";
 import { londonWallTimeToUtc } from "@/lib/datetime";
 import {
   FULL_DAY_START,
@@ -114,6 +115,8 @@ export async function createBooking(
   }
 
   revalidateGroupPaths(groupSlug);
+  // The database has queued emails for the others; send them after replying.
+  await flushSoon();
   return { success: true };
 }
 
@@ -141,4 +144,5 @@ export async function cancelBooking(formData: FormData) {
     .eq("id", bookingId);
 
   revalidateGroupPaths(groupSlug);
+  await flushSoon();
 }

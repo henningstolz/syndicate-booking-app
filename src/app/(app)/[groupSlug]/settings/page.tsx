@@ -3,12 +3,16 @@ import { createClient } from "@/lib/supabase/server";
 import { isDemoRequest } from "@/lib/demo/mode";
 import { getGroupBySlug } from "@/lib/groups";
 import { LONDON_TZ } from "@/lib/datetime";
+import { NOTIFICATION_EVENTS, NOTIFICATION_NOTE } from "@/lib/notifications";
+import { notifyConfigured } from "@/lib/notify/send";
 import { memberColor } from "@/lib/member-colors";
 import {
   createInvite,
   leaveGroup,
   removeMember,
   revokeInvite,
+  saveNotificationPreferences,
+  sendTestEmail,
   setMemberRole,
   updateDisplayName,
   updateGroupDetails,
@@ -36,6 +40,17 @@ const NOTICES: Record<string, { ok: boolean; text: string }> = {
     text: "This is a demo, so changes in Settings aren't saved. Create your own group to use them.",
   },
   name_saved: { ok: true, text: "Your name was updated." },
+  notifications_saved: { ok: true, text: "Your email choices were saved." },
+  test_sent: {
+    ok: true,
+    text: "Test email sent. It should arrive within a minute; check your spam folder if not.",
+  },
+  test_failed: {
+    ok: false,
+    text: "The test email could not be sent. Ask an admin to check the email settings.",
+  },
+  not_configured: { ok: false, text: "Email sending isn't switched on for this site yet." },
+  test_wait: { ok: false, text: "Please wait half a minute before sending another test email." },
   role_changed: { ok: true, text: "Role updated." },
   invite_created: {
     ok: true,
@@ -94,10 +109,10 @@ export default async function SettingsPage({
   searchParams,
 }: {
   params: Promise<{ groupSlug: string }>;
-  searchParams: Promise<{ notice?: string; n?: string }>;
+  searchParams: Promise<{ notice?: string; n?: string; tab?: string }>;
 }) {
   const { groupSlug } = await params;
-  const { notice: noticeCode, n } = await searchParams;
+  const { notice: noticeCode, n, tab } = await searchParams;
   const supabase = await createClient();
 
   const group = await getGroupBySlug(supabase, groupSlug);
@@ -153,20 +168,130 @@ export default async function SettingsPage({
     </>
   );
 
+  const noticeBlock = notice && (
+    <p
+      role="status"
+      className={`rounded-lg border px-3 py-2 text-sm ${
+        notice.ok
+          ? "border-green-200 bg-green-50 text-green-800"
+          : "border-red-200 bg-red-50 text-red-800"
+      }`}
+    >
+      {notice.text}
+    </p>
+  );
+
+  const onNotifications = tab === "notifications";
+  const tabClass = (active: boolean) =>
+    `rounded-full px-4 py-1.5 text-sm font-medium ${
+      active
+        ? "bg-zinc-900 text-white"
+        : "border border-zinc-300 text-zinc-600 hover:bg-zinc-100"
+    }`;
+  const tabs = (
+    <nav aria-label="Settings sections" className="flex gap-2">
+      <Link href={`/${groupSlug}/settings`} className={tabClass(!onNotifications)}>
+        General
+      </Link>
+      <Link
+        href={`/${groupSlug}/settings?tab=notifications`}
+        className={tabClass(onNotifications)}
+      >
+        Notifications
+      </Link>
+    </nav>
+  );
+
+  // ------------------------------------------------------------ notifications
+  if (onNotifications) {
+    const { data: saved } = await supabase
+      .from("notification_preferences")
+      .select("event, enabled")
+      .eq("group_id", group.id)
+      .eq("user_id", user?.id ?? "")
+      .returns<{ event: string; enabled: boolean }[]>();
+    const chosen = new Map((saved ?? []).map((row) => [row.event, row.enabled]));
+    const sections = ["Calendar", "Chat", "Tech log"] as const;
+
+    return (
+      <div className="flex flex-1 flex-col gap-6 px-4 py-6">
+        {noticeBlock}
+        {tabs}
+
+        <section className="flex max-w-xl flex-col gap-4">
+          <div>
+            <h2 className={sectionTitle}>Email me when…</h2>
+            <p className="mt-1 text-sm text-zinc-600">
+              Emails about {group.name} go to{" "}
+              <span className="font-medium text-zinc-900">{user?.email}</span>.{" "}
+              {NOTIFICATION_NOTE}
+            </p>
+          </div>
+
+          <form action={saveNotificationPreferences} className="flex flex-col gap-4">
+            {hidden}
+            {sections.map((section) => (
+              <fieldset key={section} className="flex flex-col gap-2">
+                <legend className="mb-1 text-xs font-medium text-zinc-500 uppercase">
+                  {section}
+                </legend>
+                {NOTIFICATION_EVENTS.filter((event) => event.section === section).map((event) => (
+                  <label
+                    key={event.key}
+                    className="flex items-start gap-3 rounded-lg border border-zinc-200 bg-white px-3 py-2.5"
+                  >
+                    <input
+                      type="checkbox"
+                      name={event.key}
+                      defaultChecked={chosen.get(event.key) ?? event.defaultOn}
+                      className="mt-1 h-4 w-4 shrink-0"
+                    />
+                    <span>
+                      <span className="block text-sm font-medium text-zinc-900">
+                        {event.label}
+                      </span>
+                      <span className="block text-xs text-zinc-500">{event.description}</span>
+                    </span>
+                  </label>
+                ))}
+              </fieldset>
+            ))}
+            <button type="submit" className={`${primaryButton} self-start`}>
+              Save choices
+            </button>
+          </form>
+        </section>
+
+        <section className="flex max-w-xl flex-col gap-2">
+          <h2 className={sectionTitle}>Check it works</h2>
+          <form action={sendTestEmail} className="flex flex-col items-start gap-2">
+            {hidden}
+            <button type="submit" className={smallButton}>
+              Send me a test email
+            </button>
+            <p className="text-xs text-zinc-500">
+              Sends a sample message to {user?.email} so you can see what the emails look
+              like and that they arrive.
+            </p>
+          </form>
+        </section>
+
+        {isAdmin && !demo && !notifyConfigured() && (
+          <p className="max-w-xl rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            Admin note: sending isn&apos;t set up on this server yet, so no emails go out. The
+            setup steps are in <span className="font-mono">docs/systems-and-accounts.md</span>{" "}
+            (&ldquo;Set up email notifications&rdquo;).
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  // -------------------------------------------------------------------- general
   return (
     <div className="flex flex-1 flex-col gap-8 px-4 py-6">
-      {notice && (
-        <p
-          role="status"
-          className={`rounded-lg border px-3 py-2 text-sm ${
-            notice.ok
-              ? "border-green-200 bg-green-50 text-green-800"
-              : "border-red-200 bg-red-50 text-red-800"
-          }`}
-        >
-          {notice.text}
-        </p>
-      )}
+      {noticeBlock}
+      {tabs}
 
       {/* ------------------------------------------------------------ you */}
       <section className="flex flex-col gap-3">

@@ -20,7 +20,10 @@ await db.query("insert into public.group_members (group_id,user_id,role,display_
 const oldInvite = (await db.query("insert into public.invites (group_id, role, created_by) values ($1,'member',$2) returning id", [G, U.alice])).rows[0].id;
 
 await h.migrate({ only: "0010" });
-console.log("migrations 0001-0010 applied");
+// Then everything after it, so the checks below also cover the later versions
+// of the functions that migrations replaced (for example remove_member).
+await h.migrate({ after: "0010" });
+console.log("all migrations applied");
 
 // --- roles -------------------------------------------------------------
 check("member cannot promote anyone", result(await rpc("bob", "set_member_role", G, U.bob, "admin")), "not_allowed");

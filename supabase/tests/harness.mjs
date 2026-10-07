@@ -26,7 +26,7 @@ export function createHarness() {
       await db.exec(`
         create role anon nologin; create role authenticated nologin;
         create schema auth;
-        create table auth.users (id uuid primary key default gen_random_uuid());
+        create table auth.users (id uuid primary key default gen_random_uuid(), email text);
         create function auth.uid() returns uuid language sql stable as
           $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
         grant usage on schema auth to anon, authenticated;
@@ -34,12 +34,13 @@ export function createHarness() {
       `);
     },
 
-    // Apply migrations: all of them, only those before a number, or just one.
-    async migrate({ before, only } = {}) {
+    // Apply migrations: all of them, only those before a number, only those after one, or just one.
+    async migrate({ before, only, after } = {}) {
       for (const f of files()) {
         const n = f.slice(0, 4);
         if (before && !(n < before)) continue;
         if (only && n !== only) continue;
+        if (after && !(n > after)) continue;
         try {
           await db.exec(readFileSync(`${MIG}/${f}`, "utf8"));
         } catch (e) {
@@ -54,7 +55,7 @@ export function createHarness() {
 
     async addUsers(...names) {
       for (const n of names) {
-        U[n] = (await db.query("insert into auth.users default values returning id")).rows[0].id;
+        U[n] = (await db.query("insert into auth.users (email) values ($1) returning id", [`${n}@example.test`])).rows[0].id;
       }
     },
 

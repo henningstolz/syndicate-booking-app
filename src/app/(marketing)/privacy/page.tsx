@@ -152,7 +152,7 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong>Resend</strong> sends the sign-up confirmation and
-              password-reset emails, and the notification emails you choose
+              password-reset emails, and the notification and reminder emails you choose
               in Settings, so it sees the recipient&apos;s email address and
               the message.
             </li>

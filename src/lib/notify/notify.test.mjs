@@ -56,6 +56,35 @@ yes(!renderNotification(item("chat_message", { who: "A", message: "m" }), "https
 const test = renderTestEmail("Demo Flying Group", SITE);
 yes(test.text.includes("This is a test email"), "the test email says so");
 
+// ---------------------------------------------------------------- reminders
+const reminder = renderNotification(item("booking_reminder", { starts_at: "2026-10-10T07:00:00Z", ends_at: "2026-10-10T11:00:00Z", note: "Fly-out lunch" }), SITE);
+eq(reminder.subject, "Reminder: you're booked tomorrow, Sat 10 Oct, 08:00–12:00", "booking reminder subject");
+yes(reminder.text.includes("You're booked tomorrow") && reminder.text.includes("Note: Fly-out lunch") && reminder.text.includes("/demo/calendar?view=list&start=2026-10-10"), "booking reminder text, note and link");
+
+const aircraft = (items, extra = {}) => renderNotification(item("aircraft_reminder", { registration: "G-DEMO", items, ...extra }), SITE);
+const dateItem = (days, name = "Insurance renewal", due = "2026-10-17") => ({ item: name, kind: "date", due, days, stage: "7" });
+const one = aircraft([dateItem(7)]);
+eq(one.subject, "Aircraft reminder: Insurance renewal due in 7 days", "one date item: subject");
+yes(one.text.includes("G-DEMO: 1 item needs attention") && one.text.includes("Insurance renewal: due in 7 days (Sat 17 Oct 2026)") && one.text.includes("/demo/aircraft"), "one date item: headline, line and link");
+eq(aircraft([dateItem(1)]).subject, "Aircraft reminder: Insurance renewal due in 1 day", "singular day");
+eq(aircraft([dateItem(0)]).subject, "Aircraft reminder: Insurance renewal due today", "due today");
+yes(aircraft([dateItem(-3)]).text.includes("overdue by 3 days (Sat 17 Oct 2026)"), "overdue by days");
+eq(aircraft([dateItem(-1)]).subject, "Aircraft reminder: Insurance renewal overdue by 1 day", "overdue by one day");
+const hours = aircraft([{ item: "Hours to next check", kind: "hours", hours: 8.6, limit: 2429.7, stage: "10" }]);
+eq(hours.subject, "Aircraft reminder: 8.6 hours to the next check", "hours: subject");
+yes(hours.text.includes("Hours to next check: 8.6 hours left (check at 2429.7 h)"), "hours: line");
+yes(aircraft([{ item: "Hours to next check", kind: "hours", hours: -0.4, limit: 2429.7, stage: "overdue" }]).text.includes("limit reached (the check was due at 2429.7 h)"), "hours: limit reached");
+yes(aircraft([{ item: "Hours to next check", kind: "hours", hours: 4, limit: null, stage: "5" }]).text.includes("4.0 hours left") && !aircraft([{ item: "Hours to next check", kind: "hours", hours: 4, limit: null, stage: "5" }]).text.includes("check at"), "hours without a known limit");
+const many = aircraft([dateItem(7), dateItem(20, "Life raft", "2026-10-30"), { item: "Hours to next check", kind: "hours", hours: 4, limit: 100, stage: "5" }]);
+eq(many.subject, "Aircraft reminder: 3 items need attention", "several items: subject");
+yes(many.text.includes("G-DEMO: 3 items need attention") && many.text.includes("Insurance renewal: due in 7 days") && many.text.includes("Life raft: due in 20 days") && many.text.includes("4.0 hours left"), "several items: all listed");
+yes(aircraft([dateItem(7)]).html.includes("Open the aircraft page"), "the html has the button");
+eq(aircraft([]).subject, "Update from Demo Flying Group", "no usable items: a sensible fallback email");
+eq(aircraft([{ nonsense: true }, null, "text"]).subject, "Update from Demo Flying Group", "garbage items are ignored, not crashed on");
+eq(aircraft([{ item: "x", kind: "date", due: "2026-10-17", days: 3, stage: "7" }, { nonsense: true }]).subject, "Aircraft reminder: x due in 3 days", "bad items are dropped, good ones kept");
+const hostileReminder = aircraft([dateItem(7, "<img src=x onerror=1>")], { registration: "<b>G</b>" });
+yes(!hostileReminder.html.includes("<img src=x") && !hostileReminder.html.includes("<b>G</b>") && hostileReminder.html.includes("&lt;img"), "item names and registration are escaped in reminders too");
+
 // ---------------------------------------------------------------- escaping
 const hostile = renderNotification(item("chat_message", {
   who: "<img src=x onerror=alert(1)>",

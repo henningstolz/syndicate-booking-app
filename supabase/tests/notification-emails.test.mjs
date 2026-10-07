@@ -82,6 +82,25 @@ run = await runSender();
 check("it sends one defect email, not two", [run.posted.length, run.posted[0].subject], [1, "Defect reported: EGLM → EGTK"]);
 check("the defect text is quoted and escaped", [run.posted[0].text.includes("Defect: Left brake <spongy>"), run.posted[0].html.includes("Left brake &lt;spongy&gt;")], [true, true]);
 
+// -------------------------------------------------------------- reminders
+await wipe();
+await rpc("cara", "set_notification_preferences", G, { booking_reminder: true, aircraft_reminder: true });
+await rpc("alice", "set_notification_preferences", G, { booking_reminder: false, aircraft_reminder: false });
+await rpc("bob", "set_notification_preferences", G, { booking_reminder: false, aircraft_reminder: false });
+await db.exec("reset role");
+await db.exec("delete from public.reminder_log; delete from public.bookings");
+await db.query("insert into public.bookings (group_id, member_id, starts_at, ends_at, note, created_at) values ($1,$2,'2030-05-11T07:00:00Z','2030-05-11T11:00:00Z','Early start','2030-05-01T00:00:00Z')", [G, U.cara]);
+await db.query("update public.groups set next_check_due = '2030-05-17', hours_to_next_check = 8.6, next_check_at_hours = 2429.7 where id = $1", [G]);
+const queuedReminders = await rpc(null, "queue_reminders", TOKEN, null, "2030-05-10T16:00:00Z");
+check("the reminder job queues the booking reminder and one aircraft email", [queuedReminders.booking_reminders, queuedReminders.aircraft_reminders], [1, 1]);
+run = await runSender();
+const subjects = run.posted.map((m) => m.subject).sort();
+check("the real queued data reads correctly in both emails (BST: 07:00 UTC is 08:00 UK)", subjects, ["Aircraft reminder: 2 items need attention", "Reminder: you're booked tomorrow, Sat 11 May, 08:00–12:00"]);
+const aircraftMail = run.posted.find((m) => m.subject.startsWith("Aircraft"));
+check("the aircraft email lists the date and the hours, with numbers intact", [aircraftMail.text.includes("Next check: due in 7 days (Fri 17 May 2030)"), aircraftMail.text.includes("Hours to next check: 8.6 hours left (check at 2429.7 h)"), aircraftMail.to], [true, true, "cara@example.test"]);
+run = await runSender();
+check("and nothing more is sent on a second run", [(await rpc(null, "queue_reminders", TOKEN, null, "2030-05-10T16:00:00Z")).booking_reminders, run.result], [0, { sent: 0, failed: 0 }]);
+
 // ---------------------------------------------------- failure and retry
 await wipe();
 await q("bob", "insert into public.squawks (group_id, author_id, message) values ($1,$2,'will fail first')", [G, U.bob]);

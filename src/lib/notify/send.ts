@@ -52,6 +52,35 @@ export async function sendEmail(
   }
 }
 
+// Ask the database to queue whatever reminders are due now: bookings tomorrow,
+// aircraft dates and hours. For every group, or just one. Each reminder is
+// queued only once, so calling this again changes nothing.
+export async function queueReminders(
+  groupId?: string,
+): Promise<{ ok: boolean; bookingReminders: number; aircraftReminders: number; error?: string }> {
+  if (!notifyConfigured()) {
+    return { ok: false, bookingReminders: 0, aircraftReminders: 0, error: "not configured" };
+  }
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL as string,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string,
+    { auth: { persistSession: false, autoRefreshToken: false } },
+  );
+  const { data, error } = await supabase.rpc("queue_reminders", {
+    p_token: process.env.NOTIFY_TOKEN as string,
+    p_group_id: groupId ?? null,
+  });
+  const result = data as { result?: string; booking_reminders?: number; aircraft_reminders?: number } | null;
+  if (error || result?.result !== "ok") {
+    return { ok: false, bookingReminders: 0, aircraftReminders: 0, error: error?.message ?? "refused" };
+  }
+  return {
+    ok: true,
+    bookingReminders: result.booking_reminders ?? 0,
+    aircraftReminders: result.aircraft_reminders ?? 0,
+  };
+}
+
 // Send what is waiting in the queue. Safe to call at any time and from
 // several places: the database hands each email to one caller at a time.
 export async function flushNotifications(): Promise<{ sent: number; failed: number; skipped?: string }> {

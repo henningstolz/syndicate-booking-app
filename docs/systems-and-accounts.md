@@ -258,6 +258,23 @@ query in the real app, run `npm run dev` and, in another terminal,
 `npm run test:demo`: if the demo can no longer answer a page's questions, it
 fails there with the page's name.
 
+### Reminders
+
+Members get a booking reminder the evening before each of their bookings, and
+everyone gets aircraft reminders when a check, renewal or other due date is 30 or
+7 days away or overdue, and when the hours to the next check reach 10 and 5 (and
+the limit). Each reminder is sent once. They go out every evening around 17:00
+to 18:00 UK time (Vercel's free plan runs a job once a day at a fixed time).
+
+- **To send them straight away** (to test, or after fixing a date): Settings,
+  Notifications, **Send due reminders now** (admins). Pressing it again changes
+  nothing, because each reminder is only sent once.
+- **A reminder did not come:** the booking must start tomorrow (UK date), be
+  confirmed and have been made more than three hours earlier; the member must
+  have "Booking reminders" switched on. For aircraft reminders check the date or
+  hours on the Aircraft page: the countdown only starts within 30 days (or 10
+  hours). Supabase, Table Editor, `reminder_log` shows what was already sent.
+
 ### Notification emails are not arriving
 
 1. Settings, Notifications, **Send me a test email**. If that fails, the

@@ -39,6 +39,55 @@ export function describeWhen(startsAt: string, endsAt: string): string {
   return `${startDay} ${formatTime(startsAt)} – ${formatDayHeading(end)} ${formatTime(endsAt)}`;
 }
 
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+const dateOnly = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "UTC", // a plain calendar date with no time of day
+  weekday: "short",
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+});
+
+// "Sat 17 Oct 2026", in the same style as the rest of the app (no comma).
+function formatDateOnly(iso: string): string {
+  const parts = Object.fromEntries(
+    dateOnly.formatToParts(new Date(`${iso}T00:00:00Z`)).map((part) => [part.type, part.value]),
+  );
+  return `${parts.weekday} ${parts.day} ${parts.month} ${parts.year}`;
+}
+
+// One line of an aircraft reminder. `short` is for the subject line when it
+// is the only item.
+function describeReminderItem(raw: unknown): { line: string; short: string } | null {
+  if (typeof raw !== "object" || raw === null) return null;
+  const item = raw as Record<string, unknown>;
+  const name = str(item.item);
+  if (!name) return null;
+
+  if (item.kind === "date" && typeof item.days === "number" && typeof item.due === "string") {
+    const days = item.days;
+    const date = formatDateOnly(item.due);
+    const phrase =
+      days < 0 ? `overdue by ${plural(-days, "day")}` : days === 0 ? "due today" : `due in ${plural(days, "day")}`;
+    return { line: `${name}: ${phrase} (${date})`, short: `${name} ${phrase}` };
+  }
+  if (item.kind === "hours" && typeof item.hours === "number") {
+    const limit = typeof item.limit === "number" ? item.limit.toFixed(1) : null;
+    if (item.hours <= 0) {
+      return {
+        line: `${name}: limit reached${limit ? ` (the check was due at ${limit} h)` : ""}`,
+        short: "Next check: hours limit reached",
+      };
+    }
+    return {
+      line: `${name}: ${item.hours.toFixed(1)} hours left${limit ? ` (check at ${limit} h)` : ""}`,
+      short: `${item.hours.toFixed(1)} hours to the next check`,
+    };
+  }
+  return null;
+}
+
 type Content = {
   subject: string;
   headline: string;
@@ -117,14 +166,44 @@ function content(n: QueuedNotification): Content {
         link: { label: "Open the tech log", path: `/${slug}/tech-log` },
       };
     }
-    default:
+    case "booking_reminder": {
       return {
-        subject: `Update from ${n.group_name}`,
-        headline: `Something happened in ${n.group_name}`,
-        lines: [],
-        link: { label: "Open Blocktime", path: `/${slug}` },
+        subject: `Reminder: you're booked tomorrow, ${when}`,
+        headline: "You're booked tomorrow",
+        lines: [when],
+        quote: note ? { label: "Note", text: note } : undefined,
+        link: { label: "Open the calendar", path: calendar },
       };
+    }
+    case "aircraft_reminder": {
+      const described = (Array.isArray(p.items) ? p.items : [])
+        .map(describeReminderItem)
+        .filter((x): x is { line: string; short: string } => x !== null);
+      if (described.length > 0) {
+        const registration = str(p.registration, n.group_name);
+        const count = described.length;
+        return {
+          subject:
+            count === 1
+              ? `Aircraft reminder: ${described[0].short}`
+              : `Aircraft reminder: ${count} items need attention`,
+          headline: `${registration}: ${count === 1 ? "1 item needs" : `${count} items need`} attention`,
+          lines: described.map((x) => x.line),
+          link: { label: "Open the aircraft page", path: `/${slug}/aircraft` },
+        };
+      }
+      break;
+    }
+    default:
+      break;
   }
+  // An unknown event, or one with nothing usable in it.
+  return {
+    subject: `Update from ${n.group_name}`,
+    headline: `Something happened in ${n.group_name}`,
+    lines: [],
+    link: { label: "Open Blocktime", path: `/${slug}` },
+  };
 }
 
 export function renderNotification(n: QueuedNotification, siteUrl: string): RenderedEmail {

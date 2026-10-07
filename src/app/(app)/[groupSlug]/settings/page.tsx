@@ -12,6 +12,7 @@ import {
   removeMember,
   revokeInvite,
   saveNotificationPreferences,
+  sendRemindersNow,
   sendTestEmail,
   setMemberRole,
   updateDisplayName,
@@ -91,6 +92,16 @@ const dateFormat = new Intl.DateTimeFormat("en-GB", {
 
 function noticeMessage(code: string | undefined, count: string | undefined) {
   if (!code) return null;
+  if (code === "reminders_queued") {
+    const queued = Number(count) || 0;
+    return {
+      ok: true,
+      text:
+        queued > 0
+          ? `${queued} reminder email${queued === 1 ? "" : "s"} queued and being sent.`
+          : "Nothing is due right now, so no reminders were queued.",
+    };
+  }
   if (code === "removed") {
     const cancelled = Number(count) || 0;
     return {
@@ -211,7 +222,7 @@ export default async function SettingsPage({
       .eq("user_id", user?.id ?? "")
       .returns<{ event: string; enabled: boolean }[]>();
     const chosen = new Map((saved ?? []).map((row) => [row.event, row.enabled]));
-    const sections = ["Calendar", "Chat", "Tech log"] as const;
+    const sections = ["Calendar", "Chat", "Tech log", "Reminders"] as const;
 
     return (
       <div className="flex flex-1 flex-col gap-6 px-4 py-6">
@@ -275,6 +286,23 @@ export default async function SettingsPage({
             </p>
           </form>
         </section>
+
+        {isAdmin && !demo && notifyConfigured() && (
+          <section className="flex max-w-xl flex-col gap-2">
+            <h2 className={sectionTitle}>Admin</h2>
+            <form action={sendRemindersNow} className="flex flex-col items-start gap-2">
+              {hidden}
+              <button type="submit" className={smallButton}>
+                Send due reminders now
+              </button>
+              <p className="text-xs text-zinc-500">
+                Reminders go out by themselves every evening. This looks for bookings tomorrow and
+                aircraft dates or hours that are due, and emails them now. Each reminder is sent only
+                once, so pressing it again does nothing new.
+              </p>
+            </form>
+          </section>
+        )}
 
         {isAdmin && !demo && !notifyConfigured() && (
           <p className="max-w-xl rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">

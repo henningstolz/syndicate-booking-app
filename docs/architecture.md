@@ -114,7 +114,8 @@ your groups, or to `/pending` if you have none.
 | `/<group>/aircraft` | Renewal and check due dates; admins can edit |
 | `/<group>/members` | Read-only member list |
 | `/<group>/settings` | **General** tab: your name and "leave group" (everyone); admins also change roles, remove members, create and cancel invite links, edit the group's details. **Notifications** tab (`?tab=notifications`): choose which events email you, and send yourself a test email |
-| `/api/cron/notify` | Called once a day by Vercel (needs the `CRON_SECRET` setting) to send any email left in the queue |
+| `/api/cron/notify` | Called each morning by Vercel (needs the `CRON_SECRET` setting) to send any email left in the queue |
+| `/api/cron/reminders` | Called each evening by Vercel (about 17:00-18:00 UK): queues the reminders that are due and sends them |
 
 The signed-in routes sit in the `(app)/[groupSlug]` folder; the public ones in
 `(marketing)`. Folder names in parentheses don't appear in URLs.
@@ -133,6 +134,7 @@ is scoped to a group.
 | `flight_entries` | The flight log: date, from/to, category (PV/TG/PT), captain, fuel in each tank, oil, the four clock times, defects, who entered it | **Never edited or deleted** (like paper): an admin *voids* a wrong entry with a reason, and it stops counting. Block and flight minutes and their decimal hours are generated columns, so every screen agrees. Each entry also remembers the check limit that applied when it was logged (`check_limit_hours`), so "hours to check" stays right after a check resets the limit. A database rule makes overlapping flights impossible. |
 | `notification_preferences` | Which events a member wants emailed, per group (only explicit choices; the rest follow the defaults in `notification_default()`) | Defaults: bookings, cancellations, chat and defects on; flights logged off. The app's list (`src/lib/notifications.ts`) is checked against the database's in the tests. |
 | `notification_outbox` | The queue of emails to send: recipient, event, details, attempts, sent time | Not readable through the API at all. Sent rows are deleted after 30 days, unsent after a week. |
+| `reminder_log` | Which reminders have already been sent (`booking:<id>`, `aircraft:<item>:<due date>:<stage>`) | Not readable through the API. Booking entries are cleared after 30 days; aircraft ones are kept, which is what stops a reminder repeating. |
 | `notification_worker` | The hash of the sender's secret | Not readable through the API. |
 | `invites` | Invite links: group, role, a name label, who made it, expiry (14 days), cancelled-at, who used it and when | One use per link. Not tied to an email address: whoever holds the link can use it once. |
 
@@ -169,7 +171,7 @@ every migration to a throwaway in-memory Postgres; the pure helpers in
 `npm test` runs both. `npm run test:demo` crawls every demo page on a running dev server. Run them after changing a migration or those helpers.
 
 The database change history is the numbered files in `supabase/migrations/`
-(0001 to 0013).
+(0001 to 0014).
 
 ## Code map
 
@@ -281,6 +283,26 @@ How an email gets from an action to an inbox:
    daily job (`vercel.json` calls `/api/cron/notify`). It is tried at most five
    times and never after a day.
 
+**Reminders** work the same way but start from a timer. Each evening
+`/api/cron/reminders` calls `queue_reminders()` in the database (with the
+sender's secret), which queues:
+
+- a **booking reminder** to the person who made each booking that starts
+  tomorrow (UK date, so the clocks changing cannot move it; not for bookings
+  made in the last three hours, cancelled ones, or removed members);
+- an **aircraft reminder** to every member who wants it, when a due date
+  (annual, insurance, next check, life raft, life vests, fire extinguisher)
+  reaches 30 days, 7 days or is overdue, or the hours to the next check reach
+  10, 5 or the limit. Items that fall due the same day share one email.
+
+`reminder_log` makes each reminder fire once; the aircraft entries include the
+due date (or the check's hours limit), so a renewal or a completed check starts
+a fresh countdown. Admins also have "Send due reminders now" on the
+Notifications tab, which runs the same job for their group. Vercel's free plan
+runs a daily job once a day at a fixed time, so the "evening before" is one time
+for everyone, and the plan allows two daily jobs (the morning retry and the
+evening reminders use both).
+
 Why the sender needs a secret rather than a database master key: reading other
 members' email addresses is something the app deliberately cannot do as a
 normal user. The secret opens only the queue (claim and mark), so if it ever
@@ -353,7 +375,8 @@ either work in the demo (see `engine.ts`) or are blocked there the way
 - On the PDF: the lower defects/rectification/engineer section of the paper sheet (not printed).
 - Cost sharing from block time.
 - Email notifications for bookings, cancellations and tech log posts.
-- Scheduled emails: a reminder the evening before your booking, warnings when a check or renewal is coming up, and a daily summary instead of one email per event. The daily job is in place to build them on.
+- A daily summary email instead of one email per event.
+- Pilots' personal currency reminders (rating, medical, licence, 90-day currency): needs each pilot's own dates stored.
 - Self-service account deletion (done by hand in Supabase today). Members can
   leave a group, but their login stays.
 - Separate development and production databases.

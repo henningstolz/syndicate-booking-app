@@ -60,6 +60,14 @@ paste a file's contents, run it — in order, once each.
     the matching code. After it, the secret must be added (see
     docs/systems-and-accounts.md, "Set up email notifications").
 
+14. `0014_reminders.sql` — reminders sent by a timer: a booking reminder the
+    evening before, and aircraft reminders for due dates (30 days, 7 days,
+    overdue) and for the hours to the next check (10, 5, limit reached). Two
+    more events members can switch (`booking_reminder`, `aircraft_reminder`),
+    a `reminder_log` so each reminder is sent once, and `queue_reminders()`,
+    which the daily job calls with the sender's secret. Backwards compatible:
+    run it *before* pushing the matching code.
+
 ## Adding members to a group
 
 Two ways now:

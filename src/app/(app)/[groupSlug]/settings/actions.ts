@@ -7,7 +7,13 @@ import { homePathFor } from "@/lib/user-home";
 import { isDemoRequest } from "@/lib/demo/mode";
 import { NOTIFICATION_EVENTS } from "@/lib/notifications";
 import { renderTestEmail } from "@/lib/notify/email";
-import { notifyConfigured, sendEmail, siteUrl } from "@/lib/notify/send";
+import {
+  flushNotifications,
+  notifyConfigured,
+  queueReminders,
+  sendEmail,
+  siteUrl,
+} from "@/lib/notify/send";
 
 // Every action ends by redirecting back to the Settings page with a short
 // code in the URL (?notice=...). The page turns the code into a message, so
@@ -255,4 +261,35 @@ export async function sendTestEmail(formData: FormData) {
     unsubscribeUrl: `${siteUrl()}/${encodeURIComponent(groupSlug)}/settings?tab=notifications`,
   });
   back(outcome.ok ? "test_sent" : "test_failed");
+}
+
+// Admin: look for reminders that are due now (bookings tomorrow, aircraft dates
+// and hours) and send them straight away, for this group only. Each reminder is
+// only ever sent once, so pressing it again does nothing new.
+export async function sendRemindersNow(formData: FormData) {
+  const groupId = text(formData, "groupId");
+  const groupSlug = text(formData, "groupSlug");
+  await blockInDemo(groupSlug, NOTIFICATIONS_TAB);
+
+  const back = (notice: string, extra = "") =>
+    redirect(settingsUrl(groupSlug, notice, `${NOTIFICATIONS_TAB}${extra}`));
+  if (!notifyConfigured()) back("not_configured");
+
+  const supabase = await signedInClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data: me } = await supabase
+    .from("group_members")
+    .select("role")
+    .eq("group_id", groupId)
+    .eq("user_id", user?.id ?? "")
+    .is("removed_at", null)
+    .maybeSingle<{ role: string }>();
+  if (me?.role !== "admin") back("not_allowed");
+
+  const queued = await queueReminders(groupId);
+  if (!queued.ok) back("error");
+  await flushNotifications();
+  back("reminders_queued", `&n=${queued.bookingReminders + queued.aircraftReminders}`);
 }

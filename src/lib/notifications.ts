@@ -7,11 +7,13 @@ export type NotificationEvent =
   | "booking_cancelled"
   | "chat_message"
   | "flight_logged"
-  | "defect_reported";
+  | "defect_reported"
+  | "booking_reminder"
+  | "aircraft_reminder";
 
 export type NotificationEventInfo = {
   key: NotificationEvent;
-  section: "Calendar" | "Chat" | "Tech log";
+  section: "Calendar" | "Chat" | "Tech log" | "Reminders";
   label: string;
   description: string;
   // What applies until a member makes their own choice.
@@ -54,6 +56,21 @@ export const NOTIFICATION_EVENTS: NotificationEventInfo[] = [
     label: "Defects reported",
     description:
       "A logged flight includes a defect. If you also want flights logged, you get this one instead of the routine email for that flight.",
+    defaultOn: true,
+  },
+  {
+    key: "booking_reminder",
+    section: "Reminders",
+    label: "Booking reminders",
+    description: "An email the evening before each of your bookings.",
+    defaultOn: true,
+  },
+  {
+    key: "aircraft_reminder",
+    section: "Reminders",
+    label: "Aircraft reminders",
+    description:
+      "When a check, renewal or other due date is 30 or 7 days away or has passed, and when the hours to the next check run low (10 and 5 hours left). Each one is sent once.",
     defaultOn: true,
   },
 ];

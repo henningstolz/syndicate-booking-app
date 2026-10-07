@@ -371,7 +371,7 @@ class Engine {
   }
 
   // The month's statement for the visitor (Alex, the admin), worked out by the
-  // same calculation the database uses (src/lib/costs.ts; migration 0015).
+  // same calculation the database uses (src/lib/costs.ts; migration 0016).
   private costStatement(a: Record<string, unknown>) {
     const match = /^(\d{4})-(\d{2})/.exec(String(a.p_month ?? ""));
     if (!match || Number(match[1]) < 2000 || Number(match[1]) > 2100 || Number(match[2]) < 1 || Number(match[2]) > 12) {
@@ -382,9 +382,12 @@ class Engine {
     const start = `${match[1]}-${match[2]}-01`;
     const next = month === 12 ? `${year + 1}-01-01` : `${match[1]}-${String(month + 1).padStart(2, "0")}-01`;
 
-    const rate = this.db.cost_rates
-      .filter((r) => (r.effective_month as string) <= start)
-      .sort((x, y) => String(y.effective_month).localeCompare(String(x.effective_month)) || String(y.created_at).localeCompare(String(x.created_at)))[0];
+    // The latest row starting on or before the month, optionally for one member.
+    const latest = (userId: string | null) =>
+      this.db.cost_rates
+        .filter((r) => (r.user_id ?? null) === userId && (r.effective_month as string) <= start)
+        .sort((x, y) => String(y.effective_month).localeCompare(String(x.effective_month)) || String(y.created_at).localeCompare(String(x.created_at)))[0];
+    const rate = latest(null);
 
     const nameOf = (userId: string) =>
       (this.db.group_members.find((m) => m.user_id === userId)?.display_name as string | null) ?? "Member";
@@ -412,18 +415,33 @@ class Engine {
         };
       });
 
-    const fuelPence = this.db.cost_items
+    const expenses = this.db.cost_expenses
       .filter((c) => !c.voided_at && (c.incurred_on as string) >= start && (c.incurred_on as string) < next)
-      .reduce((sum, c) => sum + (c.amount_pence as number), 0);
+      .map((c) => ({
+        id: c.id as string,
+        date: c.incurred_on as string,
+        description: c.description as string,
+        paidBy: c.paid_by as string,
+        paidByName: nameOf(c.paid_by as string),
+        pence: c.amount_pence as number,
+      }));
+
+    const ownRates = DEMO_MEMBERS.flatMap((m) => {
+      const own = latest(m.id);
+      return own
+        ? [{ userId: m.id as string, feePence: own.monthly_fee_pence as number | null, hourlyPence: own.hourly_rate_pence as number | null }]
+        : [];
+    });
 
     return computeStatement({
       month: start,
       rates: rate
         ? { feePence: rate.monthly_fee_pence as number, hourlyPence: rate.hourly_rate_pence as number, missing: false }
         : { feePence: 0, hourlyPence: 0, missing: true },
-      fuelPence,
+      ownRates,
       members,
       flights,
+      expenses,
       viewer: { userId: DEMO_USER.id, isAdmin: true },
     });
   }

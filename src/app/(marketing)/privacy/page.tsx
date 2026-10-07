@@ -101,8 +101,10 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong>Costs:</strong> the group&apos;s monthly share and hourly
-              rate, the shared costs (such as fuel) that admins enter, and each
-              member&apos;s monthly statement, worked out from the flight log.
+              rate, any individual rates an admin sets for a member, expenses a
+              member paid for the group (such as fuel bought away from home)
+              that admins enter, and each member&apos;s monthly statement,
+              worked out from the flight log.
             </li>
             <li>
               <strong>Your email choices:</strong> which emails you want from

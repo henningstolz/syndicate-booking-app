@@ -1,14 +1,16 @@
 // Money helpers and the monthly cost statement.
 //
 // computeStatement() is an exact twin of the database function cost_statement()
-// (migration 0015). The database is the real thing; this copy lets the demo
+// (migration 0016). The database is the real thing; this copy lets the demo
 // show believable statements, and a test compares the two on hundreds of random
 // months so they cannot drift apart. No imports, so tests can load it in plain
 // Node.
 //
-// The rule: each member pays a FIXED monthly share, plus the HOURLY rate for the
-// block hours charged to them, plus a share of the month's FUEL (and other
-// shared costs) in proportion to those hours. All money is whole pence.
+// The rule: each member pays a FIXED monthly share plus the HOURLY rate for the
+// block hours charged to them, minus any EXPENSES they paid for the group out of
+// their own pocket. The group sets default rates; a member can have their own
+// fixed share and/or hourly rate (a part left empty follows the group's). All
+// money is whole pence.
 
 // ---------------------------------------------------------------- money
 
@@ -62,9 +64,13 @@ export type StatementMember = {
   is_member: boolean;
   flights: number;
   hours_tenths: number;
+  fee_pence: number; // the fixed share that applies to this person
+  hourly_rate_pence: number; // the hourly rate that applies to this person
+  custom_rates: boolean; // true if they have rates of their own
   fixed_pence: number;
   hourly_pence: number;
-  fuel_pence: number;
+  credit_pence: number; // expenses they paid, taken off their total
+  fuel_pence: number; // always 0; only there for the transition from fuel pooling
   total_pence: number;
 };
 
@@ -78,21 +84,33 @@ export type StatementFlight = {
   pence: number;
 };
 
+export type StatementExpense = {
+  id: string;
+  date: string;
+  description: string;
+  user_id: string;
+  pence: number;
+};
+
 export type CostStatement = {
   result: "ok";
   month: string;
   is_admin: boolean;
   rates: { fee_pence: number; hourly_pence: number; missing: boolean };
-  fuel_pence: number;
   hours_tenths: number;
+  credits_pence: number;
+  fuel_pence: number; // always 0; see above
   members: StatementMember[];
   flights: StatementFlight[];
+  expenses: StatementExpense[];
 };
 
 export type StatementInput = {
   month: string; // "2026-10-01"
+  // The group's rates for the month.
   rates: { feePence: number; hourlyPence: number; missing: boolean };
-  fuelPence: number;
+  // Members' own rates in force for the month (null = follow the group's).
+  ownRates: { userId: string; feePence: number | null; hourlyPence: number | null }[];
   // Everyone in the group at any point in the month.
   members: { userId: string; name: string }[];
   // The month's flights (not voided), each already charged to a member: the
@@ -107,66 +125,73 @@ export type StatementInput = {
     tenths: number; // block time in tenths of an hour
     order: string; // anything sortable (the flight's start time)
   }[];
+  // The month's expenses (not voided), each with the member who paid.
+  expenses: {
+    id: string;
+    date: string;
+    description: string;
+    paidBy: string;
+    paidByName: string;
+    pence: number;
+  }[];
   viewer: { userId: string; isAdmin: boolean };
 };
 
 const compareText = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
 export function computeStatement(input: StatementInput): CostStatement {
-  const { rates, fuelPence } = input;
+  const { rates } = input;
+  const own = new Map(input.ownRates.map((r) => [r.userId, r]));
 
-  // A flight's hourly charge is whole pence per flight, rounded half up.
+  // Members of the month, plus anyone a flight was charged to or an expense was
+  // paid by who is not one.
+  const people = new Map<string, { name: string; isMember: boolean }>();
+  for (const m of input.members) people.set(m.userId, { name: m.name, isMember: true });
+  for (const f of input.flights) {
+    if (!people.has(f.chargedTo)) people.set(f.chargedTo, { name: f.chargedName, isMember: false });
+  }
+  for (const e of input.expenses) {
+    if (!people.has(e.paidBy)) people.set(e.paidBy, { name: e.paidByName, isMember: false });
+  }
+
+  const rateOf = (userId: string) => {
+    const o = own.get(userId);
+    return {
+      fee: o?.feePence ?? rates.feePence,
+      hourly: o?.hourlyPence ?? rates.hourlyPence,
+      custom: o !== undefined && (o.feePence !== null || o.hourlyPence !== null),
+    };
+  };
+
+  // A flight's hourly charge is whole pence per flight at the charged person's
+  // rate, rounded half up.
   const flights = input.flights.map((f) => ({
     ...f,
-    pence: Math.floor((f.tenths * rates.hourlyPence + 5) / 10),
+    pence: Math.floor((f.tenths * rateOf(f.chargedTo).hourly + 5) / 10),
   }));
   const totalTenths = flights.reduce((sum, f) => sum + f.tenths, 0);
 
-  // Members of the month, plus anyone a flight was charged to who is not one.
-  const people = new Map<string, { name: string; isMember: boolean }>();
-  for (const m of input.members) people.set(m.userId, { name: m.name, isMember: true });
-  for (const f of flights) {
-    if (!people.has(f.chargedTo)) people.set(f.chargedTo, { name: f.chargedName, isMember: false });
-  }
-
-  const rows = [...people.entries()].map(([userId, p]) => {
-    const mine = flights.filter((f) => f.chargedTo === userId);
-    return {
-      userId,
-      name: p.name,
-      isMember: p.isMember,
-      flights: mine.length,
-      tenths: mine.reduce((sum, f) => sum + f.tenths, 0),
-      hourly: mine.reduce((sum, f) => sum + f.pence, 0),
-    };
-  });
-
-  // Fuel by hours flown, or equally if nobody flew; the largest-remainder
-  // method hands out the leftover pence so the shares add up exactly.
-  const denominator = totalTenths > 0 ? totalTenths : rows.length;
-  const shares = rows.map((r) => {
-    const numerator = totalTenths > 0 ? fuelPence * r.tenths : fuelPence;
-    return { userId: r.userId, base: Math.floor(numerator / denominator), rest: numerator % denominator };
-  });
-  const leftover = fuelPence - shares.reduce((sum, s) => sum + s.base, 0);
-  const byRest = [...shares].sort((a, b) => b.rest - a.rest || compareText(a.userId, b.userId));
-  const bonus = new Set(byRest.slice(0, leftover).map((s) => s.userId));
-  const fuelOf = new Map(shares.map((s) => [s.userId, s.base + (bonus.has(s.userId) ? 1 : 0)]));
-
-  const everyone: StatementMember[] = rows
-    .map((r) => {
-      const fixed = r.isMember ? rates.feePence : 0;
-      const fuel = fuelOf.get(r.userId) ?? 0;
+  const everyone: StatementMember[] = [...people.entries()]
+    .map(([userId, p]) => {
+      const mine = flights.filter((f) => f.chargedTo === userId);
+      const r = rateOf(userId);
+      const fixed = p.isMember ? r.fee : 0;
+      const hourly = mine.reduce((sum, f) => sum + f.pence, 0);
+      const credit = input.expenses.filter((e) => e.paidBy === userId).reduce((sum, e) => sum + e.pence, 0);
       return {
-        user_id: r.userId,
-        name: r.name,
-        is_member: r.isMember,
-        flights: r.flights,
-        hours_tenths: r.tenths,
+        user_id: userId,
+        name: p.name,
+        is_member: p.isMember,
+        flights: mine.length,
+        hours_tenths: mine.reduce((sum, f) => sum + f.tenths, 0),
+        fee_pence: r.fee,
+        hourly_rate_pence: r.hourly,
+        custom_rates: r.custom,
         fixed_pence: fixed,
-        hourly_pence: r.hourly,
-        fuel_pence: fuel,
-        total_pence: fixed + r.hourly + fuel,
+        hourly_pence: hourly,
+        credit_pence: credit,
+        fuel_pence: 0,
+        total_pence: fixed + hourly - credit,
       };
     })
     .sort((a, b) => compareText(a.name, b.name) || compareText(a.user_id, b.user_id));
@@ -177,8 +202,9 @@ export function computeStatement(input: StatementInput): CostStatement {
     month: input.month,
     is_admin: input.viewer.isAdmin,
     rates: { fee_pence: rates.feePence, hourly_pence: rates.hourlyPence, missing: rates.missing },
-    fuel_pence: fuelPence,
     hours_tenths: totalTenths,
+    credits_pence: input.expenses.reduce((sum, e) => sum + e.pence, 0),
+    fuel_pence: 0,
     members: everyone.filter((m) => visible(m.user_id)),
     flights: flights
       .filter((f) => visible(f.chargedTo))
@@ -192,5 +218,9 @@ export function computeStatement(input: StatementInput): CostStatement {
         hours_tenths: f.tenths,
         pence: f.pence,
       })),
+    expenses: input.expenses
+      .filter((e) => visible(e.paidBy))
+      .sort((a, b) => compareText(a.date, b.date) || compareText(a.id, b.id))
+      .map((e) => ({ id: e.id, date: e.date, description: e.description, user_id: e.paidBy, pence: e.pence })),
   };
 }

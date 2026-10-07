@@ -183,20 +183,24 @@ for (const now of [NOW, new Date("2026-01-15T12:00:00Z"), new Date("2026-07-15T1
 {
   const { engine } = engineAt();
   const stmt = async (month) => (await engine.rpc("cost_statement", { p_group_id: "demo-group", p_month: month })).data;
-  const identity = (s) => s.members.reduce((t, m) => t + m.total_pence, 0) === s.members.length * s.rates.fee_pence + s.members.reduce((t, m) => t + m.hourly_pence, 0) + s.fuel_pence;
+  const identity = (s) => s.members.every((m) => m.total_pence === m.fixed_pence + m.hourly_pence - m.credit_pence) && s.members.reduce((t, m) => t + m.credit_pence, 0) === s.credits_pence;
 
   const oct = await stmt("2026-10-01");
   eq([oct.result, oct.is_admin, oct.members.map((m) => m.name)], ["ok", true, ["Alex", "Jordan", "Sam", "Taylor"]], "the demo statement covers the four members, shown to the admin");
   eq([oct.rates.fee_pence, oct.rates.hourly_pence, oct.rates.missing], [12000, 6500, false], "October uses the later demo rates");
-  yes(identity(oct), "the totals add up: fixed shares + flying + all the fuel");
-  eq(oct.members.reduce((t, m) => t + m.fuel_pence, 0), oct.fuel_pence, "fuel shares add up to the fuel bill, to the penny");
+  yes(identity(oct), "every total is fixed share + flying - expenses paid");
+  const taylor = oct.members.find((m) => m.name === "Taylor");
+  eq([taylor.custom_rates, taylor.fixed_pence, taylor.hourly_rate_pence], [true, 0, 9000], "Taylor has rates of their own: no fixed share, a higher hourly rate");
+  eq(oct.members.find((m) => m.name === "Sam").fixed_pence, 12000, "everyone else pays the group's fixed share");
+  eq((await stmt("2026-02-01")).members.find((m) => m.name === "Taylor").custom_rates, false, "before Taylor's own rates start they follow the group's");
   eq(oct.members.reduce((t, m) => t + m.hours_tenths, 0), oct.hours_tenths, "member hours add up to the month's hours");
   eq((await stmt("2026-02-01")).rates.hourly_pence, 6000, "an earlier month uses the earlier rates");
   eq((await stmt("2024-01-01")).rates.missing, true, "before the first rates: flagged as missing");
   eq((await stmt("nonsense")).result, "month_invalid", "a bad month is refused");
   eq((await stmt("1990-01-01")).result, "month_invalid", "a silly year is refused");
   const sep = await stmt("2026-09-01");
-  yes(sep.hours_tenths > 0 && sep.fuel_pence > 0 && identity(sep), "a full month has hours, fuel and adds up");
+  yes(sep.hours_tenths > 0 && identity(sep), "a full month has hours and adds up");
+  yes((await Promise.all(["2026-10-01", "2026-09-01", "2026-08-01", "2026-07-01", "2026-06-01"].map(stmt))).some((x) => x.credits_pence > 0), "some recent month shows an expense credited to a member");
 
   // a flight the visitor logs changes their statement
   const before = (await stmt("2026-10-01")).members.find((m) => m.name === "Alex").hours_tenths;
@@ -207,9 +211,9 @@ for (const now of [NOW, new Date("2026-01-15T12:00:00Z"), new Date("2026-07-15T1
   yes(identity(after), "...and the totals still add up");
 
   // the new tables follow the same rules as the others
-  eq((await engine.from("cost_rates").select("id").eq("group_id", "demo-group")).data.length, 2, "two demo rate rows");
-  yes((await engine.from("cost_items").select("id").eq("group_id", "demo-group")).data.length >= 6, "demo shared costs exist");
-  eq((await engine.from("cost_items").insert({ group_id: "demo-group" })).error.code, "demo", "costs cannot be added in the demo");
+  eq((await engine.from("cost_rates").select("id").eq("group_id", "demo-group")).data.length, 3, "three demo rate rows (two for the group, one for Taylor)");
+  yes((await engine.from("cost_expenses").select("id").eq("group_id", "demo-group")).data.length >= 3, "demo expenses exist");
+  eq((await engine.from("cost_expenses").insert({ group_id: "demo-group" })).error.code, "demo", "costs cannot be added in the demo");
 }
 
 // ------------------------------------------------- the cookie and its limits

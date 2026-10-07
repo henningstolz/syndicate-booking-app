@@ -91,39 +91,61 @@ eq(formatHoursTenths(0), "0.0", "zero hours");
 
 // --- the monthly cost statement (the database does the real work; this is its twin)
 const flightOf = (id, who, name, tenths, order = id) => ({ id, date: "2026-10-06", from: "A", to: "B", chargedTo: who, chargedName: name, tenths, order });
+const expenseOf = (id, who, name, pence, date = "2026-10-03") => ({ id, date, description: "Fuel away", paidBy: who, paidByName: name, pence });
 const inputOf = (o = {}) => ({
   month: "2026-10-01",
   rates: { feePence: 12000, hourlyPence: 6500, missing: false },
-  fuelPence: 10001,
+  ownRates: [],
   members: [{ userId: "a", name: "Alice" }, { userId: "b", name: "Bob" }, { userId: "c", name: "Cara" }],
   flights: [flightOf("f1", "b", "Bob", 15), flightOf("f2", "c", "Cara", 17)],
+  expenses: [],
   viewer: { userId: "a", isAdmin: true },
   ...o,
 });
+const row = (s, id) => s.members.find((m) => m.user_id === id);
 {
   const s = computeStatement(inputOf());
-  eq(s.members.map((m) => [m.name, m.fixed_pence, m.hourly_pence, m.fuel_pence, m.total_pence]),
-    [["Alice", 12000, 0, 0, 12000], ["Bob", 12000, 9750, 4688, 26438], ["Cara", 12000, 11050, 5313, 28363]], "the worked example (fuel 10001p split 15:17 hours: 4688 + 5313)");
-  eq([s.fuel_pence, s.hours_tenths], [10001, 32], "month totals");
-  eq(s.members.reduce((t, m) => t + m.fuel_pence, 0), 10001, "fuel shares add up to the bill");
+  eq(s.members.map((m) => [m.name, m.fixed_pence, m.hourly_pence, m.credit_pence, m.total_pence]),
+    [["Alice", 12000, 0, 0, 12000], ["Bob", 12000, 9750, 0, 21750], ["Cara", 12000, 11050, 0, 23050]], "the worked example: fixed share + hours x group rate");
+  eq([s.hours_tenths, s.credits_pence, s.fuel_pence], [32, 0, 0], "month totals");
   eq(s.flights.map((f) => [f.user_id, f.hours_tenths, f.pence]), [["b", 15, 9750], ["c", 17, 11050]], "flights with their charge");
+  eq(s.members.map((m) => m.custom_rates), [false, false, false], "nobody has their own rates");
 }
 {
   const s = computeStatement(inputOf({ viewer: { userId: "b", isAdmin: false } }));
   eq([s.is_admin, s.members.map((m) => m.name), s.flights.map((f) => f.user_id)], [false, ["Bob"], ["b"]], "a member sees only their own statement and flights");
-  eq([s.fuel_pence, s.hours_tenths], [10001, 32], "...with the month's totals");
+  eq(s.hours_tenths, 32, "...with the month's hours");
 }
 {
-  const s = computeStatement(inputOf({ flights: [], fuelPence: 1001 }));
-  eq([s.members.map((m) => m.fuel_pence), s.members.reduce((t, m) => t + m.fuel_pence, 0)], [[334, 334, 333], 1001], "no flights: fuel split equally, extra pennies to the lowest ids");
+  // Own rates: Bob owns no share (no fixed costs) but pays more per hour; Cara only has a different fixed share.
+  const s = computeStatement(inputOf({ ownRates: [{ userId: "b", feePence: 0, hourlyPence: 9000 }, { userId: "c", feePence: 5000, hourlyPence: null }] }));
+  eq([row(s, "b").fixed_pence, row(s, "b").hourly_pence, row(s, "b").total_pence, row(s, "b").custom_rates], [0, 13500, 13500, true], "own rates: no fixed share (0), higher hourly rate");
+  eq([row(s, "c").fixed_pence, row(s, "c").hourly_pence, row(s, "c").hourly_rate_pence, row(s, "c").custom_rates], [5000, 11050, 6500, true], "an empty part follows the group's rate");
+  eq([row(s, "a").fixed_pence, row(s, "a").custom_rates], [12000, false], "everyone else on the group rate");
+  eq(s.flights.map((f) => f.pence), [13500, 11050], "flights are charged at the pilot's own rate");
+  const t = computeStatement(inputOf({ ownRates: [{ userId: "b", feePence: null, hourlyPence: null }] }));
+  eq(row(t, "b").custom_rates, false, "an own-rate row with nothing set is not custom");
 }
 {
-  const s = computeStatement(inputOf({ flights: [flightOf("f1", "x", "Visitor", 10), flightOf("f2", "b", "Bob", 10)], fuelPence: 0 }));
-  eq(s.members.map((m) => [m.name, m.is_member, m.fixed_pence]), [["Alice", true, 12000], ["Bob", true, 12000], ["Cara", true, 12000], ["Visitor", false, 0]], "someone charged who is not a member pays no fixed share");
+  // Expenses are credited to the member who paid.
+  const s = computeStatement(inputOf({ expenses: [expenseOf("e1", "b", "Bob", 8000), expenseOf("e2", "b", "Bob", 1250, "2026-10-05")] }));
+  eq([row(s, "b").credit_pence, row(s, "b").total_pence, s.credits_pence], [9250, 21750 - 9250, 9250], "expenses reduce the member's total");
+  eq(s.expenses.map((e) => e.id), ["e1", "e2"], "expenses listed by date");
+  const own = computeStatement(inputOf({ viewer: { userId: "c", isAdmin: false }, expenses: [expenseOf("e1", "b", "Bob", 8000)] }));
+  eq([own.expenses.length, own.credits_pence], [0, 8000], "a member does not see others' expenses, but the month's total counts them");
 }
 {
-  const s = computeStatement(inputOf({ rates: { feePence: 0, hourlyPence: 6505, missing: false }, flights: [flightOf("f1", "b", "Bob", 1), flightOf("f2", "b", "Bob", 2)], fuelPence: 0 }));
-  eq([s.flights.map((f) => f.pence), s.members.find((m) => m.user_id === "b").hourly_pence], [[651, 1301], 1952], "each flight rounded half up to a penny; the member's total is their sum");
+  // Expenses bigger than the bill: the total goes negative (a credit to the member).
+  const s = computeStatement(inputOf({ flights: [], expenses: [expenseOf("e1", "a", "Alice", 50000)] }));
+  eq(row(s, "a").total_pence, 12000 - 50000, "a negative total means money owed to the member");
+}
+{
+  const s = computeStatement(inputOf({ flights: [flightOf("f1", "x", "Visitor", 10), flightOf("f2", "b", "Bob", 10)], expenses: [expenseOf("e1", "y", "Gone", 500)] }));
+  eq(s.members.map((m) => [m.name, m.is_member, m.fixed_pence, m.total_pence]), [["Alice", true, 12000, 12000], ["Bob", true, 12000, 18500], ["Gone", false, 0, -500], ["Cara", true, 12000, 12000], ["Visitor", false, 0, 6500]].sort((p, q) => (p[0] < q[0] ? -1 : 1)), "someone charged or paid who is not a member pays no fixed share");
+}
+{
+  const s = computeStatement(inputOf({ rates: { feePence: 0, hourlyPence: 6505, missing: false }, flights: [flightOf("f1", "b", "Bob", 1), flightOf("f2", "b", "Bob", 2)] }));
+  eq([s.flights.map((f) => f.pence), row(s, "b").hourly_pence], [[651, 1301], 1952], "each flight rounded half up to a penny; the member's total is their sum");
 }
 eq(computeStatement(inputOf({ rates: { feePence: 0, hourlyPence: 0, missing: true } })).rates, { fee_pence: 0, hourly_pence: 0, missing: true }, "missing rates are flagged");
 

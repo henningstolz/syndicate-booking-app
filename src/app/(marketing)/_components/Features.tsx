@@ -16,7 +16,7 @@ const FEATURES: { status: Status; title: string; text: string }[] = [
   {
     status: "Live",
     title: "Hours and costs",
-    text: "Block hours from the tech log, fuel shared by hours flown, and a clear statement for every member each month.",
+    text: "Block hours from the tech log, a fixed share and hourly rate (or your own rates for individual members), expenses credited, and a clear statement for every member each month.",
   },
 ];
 

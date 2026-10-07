@@ -260,36 +260,44 @@ fails there with the page's name.
 
 ### Set up and run the costs
 
-Costs are worked out for each calendar month from three things. You enter two
-of them; the flight log supplies the third.
+Costs are worked out for each calendar month. A member's total is their
+**fixed monthly share**, plus the **hourly rate** times their block hours,
+minus any **expenses** they paid for the group. There is no shared fuel pot:
+fuel is paid by the group's fuel card, or by a member who is then credited.
 
-1. **Set the rates** (admins): Costs, then **Rates**. Choose the month they
-   apply from, the **fixed monthly share** (what every member pays each month)
-   and the **hourly rate** (per block hour flown). They apply from that month
-   until you set new ones. Earlier months keep their old rates, so raising the
-   hourly rate never changes a past statement. To correct a mistake, save the
-   rates again for the same month: the newest entry wins.
-2. **Add fuel and other shared costs** (admins): Costs, then **Fuel and shared
-   costs**. Enter each bill as it arrives, dated the day it was incurred. They
-   are shared by hours flown in that month. A cost cannot be edited: **Void this
-   cost** with a reason and enter it again.
-3. **The flights** come from the tech log. Each flight's **block time** (brakes
+1. **Set the group rates** (admins): Costs, then **Group rates**. Choose the
+   month they apply from, the **fixed monthly share** and the **hourly rate**
+   (per block hour). They apply from that month until you set new ones.
+   Earlier months keep their old rates, so raising the hourly rate never
+   changes a past statement. To correct a mistake, save the rates again for the
+   same month: the newest entry wins.
+2. **Individual rates** (admins, optional): Costs, then **Individual rates**.
+   Choose the member, the month, and their own fixed share and/or hourly rate.
+   A box left empty follows the group's rate; enter 0 for none (for example no
+   fixed share for someone who does not own a share but pays more per hour).
+   Saving with both boxes empty puts the member back on the group's rates.
+   Members only ever see their own rates.
+3. **Expenses** (admins): Costs, then **Expenses paid by members**. When a
+   member pays for the aircraft out of their own pocket (say fuel at another
+   airfield), choose who paid, the date, what it was and the amount. It is taken
+   off that member's total for the month of its date. If the expenses come to
+   more than their bill, the statement shows a **credit to them**. An expense
+   cannot be edited: **Void this expense** with a reason and enter it again.
+4. **The flights** come from the tech log. Each flight's **block time** (brakes
    off to brakes on) is charged to its captain; for a guest or instructor
    captain it is charged to the member who logged the entry.
 
 Each member sees **their own statement**: the fixed share, flying (with every
-flight listed), their share of the fuel, and the total. Admins also see
-everyone's and the total to collect. Use the month arrows to go back.
+flight listed), expenses they paid, and the total. Admins also see everyone's.
+Use the month arrows to go back.
 
 How the numbers are worked out: all amounts are whole pence. Each flight is
-charged hours times the hourly rate, rounded half up to the penny. Fuel is
-split by hours flown; the last pennies go to the members with the largest
-fractions, so the shares add up to the bill exactly. If nobody flew in a
-month, its fuel is split equally. Anyone who was in the group at any point in a
+charged hours times the hourly rate that applies to the person it is charged
+to, rounded half up to the penny. Anyone who was in the group at any point in a
 month pays that month's full fixed share.
 
 If a number looks wrong: check the flight log first (a voided or mistyped
-flight changes everyone's share), then the costs listed for that month.
+flight changes the charge), then the rates and expenses listed for that month.
 
 ### Reminders
 

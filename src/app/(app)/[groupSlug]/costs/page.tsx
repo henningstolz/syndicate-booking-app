@@ -9,19 +9,20 @@ import {
   shiftMonth,
   type CostStatement,
 } from "@/lib/costs";
-import { addCostItem, saveCostRate, voidCostItem } from "./actions";
+import { addCostExpense, saveCostRate, saveMemberCostRate, voidCostExpense } from "./actions";
 
 type RateRow = {
   id: string;
+  user_id: string | null;
   effective_month: string;
-  monthly_fee_pence: number;
-  hourly_rate_pence: number;
+  monthly_fee_pence: number | null;
+  hourly_rate_pence: number | null;
 };
 
-type ItemRow = {
+type ExpenseRow = {
   id: string;
+  paid_by: string;
   incurred_on: string;
-  category: string;
   description: string;
   amount_pence: number;
   voided_at: string | null;
@@ -32,19 +33,20 @@ const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 const NOTICES: Record<string, { ok: boolean; text: string }> = {
   rate_saved: { ok: true, text: "Rates saved from the month you chose." },
-  item_added: { ok: true, text: "Cost added." },
-  item_voided: { ok: true, text: "Cost voided. It no longer counts." },
+  member_rate_saved: { ok: true, text: "The member's own rates are saved from the month you chose." },
+  expense_added: { ok: true, text: "Expense added. It is credited to the member." },
+  expense_voided: { ok: true, text: "Expense voided. It no longer counts." },
   demo: { ok: false, text: "This is a demo, so changes to costs aren't saved." },
   amount_invalid: { ok: false, text: "Please enter an amount in pounds, such as 12.50." },
   month_invalid: { ok: false, text: "That month isn't valid." },
-  description_required: { ok: false, text: "Please describe the cost." },
+  description_required: { ok: false, text: "Please describe the expense." },
   description_too_long: { ok: false, text: "That description is too long (120 characters at most)." },
-  category_invalid: { ok: false, text: "Please choose fuel or other." },
-  date_invalid: { ok: false, text: "That date isn't valid (a cost can't be dated in the future)." },
+  member_invalid: { ok: false, text: "Please choose a current member." },
+  date_invalid: { ok: false, text: "That date isn't valid (an expense can't be dated in the future)." },
   reason_required: { ok: false, text: "Please give a reason (at least 3 characters)." },
   reason_too_long: { ok: false, text: "That reason is too long (300 characters at most)." },
-  already_voided: { ok: false, text: "That cost was already voided." },
-  not_found: { ok: false, text: "That cost no longer exists." },
+  already_voided: { ok: false, text: "That expense was already voided." },
+  not_found: { ok: false, text: "That expense no longer exists." },
   not_allowed: { ok: false, text: "Only admins can change the costs." },
   error: { ok: false, text: "Something went wrong. Please try again." },
 };
@@ -154,29 +156,34 @@ export default async function CostsPage({
 
   // ----------------------------------------------------------- admin extras
   let rates: RateRow[] = [];
-  let items: ItemRow[] = [];
+  let expenses: ExpenseRow[] = [];
   if (s.is_admin) {
     const nextMonth = shiftMonth(monthKey, 1);
-    const [ratesResult, itemsResult] = await Promise.all([
+    const [ratesResult, expensesResult] = await Promise.all([
       supabase
         .from("cost_rates")
-        .select("id, effective_month, monthly_fee_pence, hourly_rate_pence")
+        .select("id, user_id, effective_month, monthly_fee_pence, hourly_rate_pence")
         .eq("group_id", group.id)
         .order("effective_month", { ascending: false })
         .order("created_at", { ascending: false })
         .returns<RateRow[]>(),
       supabase
-        .from("cost_items")
-        .select("id, incurred_on, category, description, amount_pence, voided_at, void_reason")
+        .from("cost_expenses")
+        .select("id, paid_by, incurred_on, description, amount_pence, voided_at, void_reason")
         .eq("group_id", group.id)
         .gte("incurred_on", `${monthKey}-01`)
         .lt("incurred_on", `${nextMonth}-01`)
         .order("incurred_on", { ascending: false })
-        .returns<ItemRow[]>(),
+        .returns<ExpenseRow[]>(),
     ]);
     rates = ratesResult.data ?? [];
-    items = itemsResult.data ?? [];
+    expenses = expensesResult.data ?? [];
   }
+  const groupRates = rates.filter((rate) => rate.user_id === null);
+  const memberRates = rates.filter((rate) => rate.user_id !== null);
+  const nameOf = (userId: string) => s.members.find((member) => member.user_id === userId)?.name ?? "Member";
+  const currentMembers = s.members.filter((member) => member.is_member);
+  const myExpenses = s.expenses.filter((expense) => expense.user_id === user?.id);
 
   // The months a new rate can start from: two years back to three months ahead.
   const rateMonths = Array.from({ length: 28 }, (_, i) => shiftMonth(thisMonth, 3 - i));
@@ -215,7 +222,7 @@ export default async function CostsPage({
                 <div className="flex items-baseline justify-between gap-3 text-sm">
                   <span className="text-zinc-700">
                     Flying: {formatHoursTenths(me.hours_tenths)} block hours at{" "}
-                    {formatMoney(s.rates.hourly_pence)} an hour
+                    {formatMoney(me.hourly_rate_pence)} an hour
                   </span>
                   <span className="font-mono text-zinc-900">{formatMoney(me.hourly_pence)}</span>
                 </div>
@@ -234,30 +241,44 @@ export default async function CostsPage({
                 )}
               </div>
 
-              <div className="flex flex-col gap-0.5">
-                <div className="flex items-baseline justify-between gap-3 text-sm">
-                  <span className="text-zinc-700">Fuel and shared costs</span>
-                  <span className="font-mono text-zinc-900">{formatMoney(me.fuel_pence)}</span>
+              {me.credit_pence > 0 && (
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-baseline justify-between gap-3 text-sm">
+                    <span className="text-zinc-700">Expenses you paid</span>
+                    <span className="font-mono text-zinc-900">{formatMoney(-me.credit_pence)}</span>
+                  </div>
+                  <ul className="flex flex-col gap-0.5 border-l-2 border-zinc-200 pl-3">
+                    {myExpenses.map((expense) => (
+                      <li key={expense.id} className="flex items-baseline justify-between gap-3 text-xs text-zinc-500">
+                        <span>
+                          {shortDay(expense.date)} · {expense.description}
+                        </span>
+                        <span className="font-mono">{formatMoney(-expense.pence)}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-                <p className="text-xs text-zinc-500">
-                  {s.fuel_pence === 0
-                    ? "Nothing to share this month."
-                    : s.hours_tenths > 0
-                      ? `Your share of ${formatMoney(s.fuel_pence)}, by hours flown: ${formatHoursTenths(me.hours_tenths)} of ${formatHoursTenths(s.hours_tenths)} hours.`
-                      : `${formatMoney(s.fuel_pence)} shared equally, as nobody flew this month.`}
-                </p>
-              </div>
+              )}
 
               <div className="flex items-baseline justify-between gap-3 border-t border-zinc-200 pt-3">
-                <span className="text-sm font-semibold text-zinc-900">Total for {formatMonthKey(monthKey)}</span>
-                <span className="font-mono text-lg font-semibold text-zinc-900">{formatMoney(me.total_pence)}</span>
+                <span className="text-sm font-semibold text-zinc-900">
+                  {me.total_pence < 0 ? `Credit to you for ${formatMonthKey(monthKey)}` : `Total for ${formatMonthKey(monthKey)}`}
+                </span>
+                <span className="font-mono text-lg font-semibold text-zinc-900">
+                  {formatMoney(Math.abs(me.total_pence))}
+                </span>
               </div>
+              {me.custom_rates && (
+                <p className="text-xs text-zinc-500">
+                  Your own rates apply: {formatMoney(me.fee_pence)} a month and {formatMoney(me.hourly_rate_pence)} an hour.
+                </p>
+              )}
             </>
           )}
         </div>
         <p className="text-xs text-zinc-500">
           Block time runs from brakes off to brakes on, as in the tech log. A guest&apos;s flight is charged to
-          the member who logged it. This updates as flights and costs are entered.
+          the member who logged it. Expenses you paid for the group are taken off your total. This updates as flights and expenses are entered.
         </p>
       </section>
 
@@ -270,15 +291,15 @@ export default async function CostsPage({
             <p className="font-mono text-zinc-900">{formatHoursTenths(s.hours_tenths)}</p>
           </div>
           <div>
-            <p className="text-xs text-zinc-500">Fuel and shared costs</p>
-            <p className="font-mono text-zinc-900">{formatMoney(s.fuel_pence)}</p>
+            <p className="text-xs text-zinc-500">Expenses paid by members</p>
+            <p className="font-mono text-zinc-900">{formatMoney(s.credits_pence)}</p>
           </div>
           <div>
-            <p className="text-xs text-zinc-500">Fixed monthly share</p>
+            <p className="text-xs text-zinc-500">Group fixed monthly share</p>
             <p className="font-mono text-zinc-900">{formatMoney(s.rates.fee_pence)}</p>
           </div>
           <div>
-            <p className="text-xs text-zinc-500">Hourly rate</p>
+            <p className="text-xs text-zinc-500">Group hourly rate</p>
             <p className="font-mono text-zinc-900">{formatMoney(s.rates.hourly_pence)}</p>
           </div>
         </div>
@@ -297,7 +318,7 @@ export default async function CostsPage({
                     <th className="px-3 py-2 text-right font-medium">Hours</th>
                     <th className="px-3 py-2 text-right font-medium">Fixed</th>
                     <th className="px-3 py-2 text-right font-medium">Flying</th>
-                    <th className="px-3 py-2 text-right font-medium">Fuel</th>
+                    <th className="px-3 py-2 text-right font-medium">Expenses</th>
                     <th className="px-3 py-2 text-right font-medium">Total</th>
                   </tr>
                 </thead>
@@ -307,11 +328,12 @@ export default async function CostsPage({
                       <td className="px-3 py-2 font-sans">
                         {member.name}
                         {!member.is_member && <span className="text-xs text-zinc-400"> (not a member)</span>}
+                        {member.custom_rates && <span className="text-xs text-zinc-400"> (own rates)</span>}
                       </td>
                       <td className="px-3 py-2 text-right">{formatHoursTenths(member.hours_tenths)}</td>
                       <td className="px-3 py-2 text-right">{formatMoney(member.fixed_pence)}</td>
                       <td className="px-3 py-2 text-right">{formatMoney(member.hourly_pence)}</td>
-                      <td className="px-3 py-2 text-right">{formatMoney(member.fuel_pence)}</td>
+                      <td className="px-3 py-2 text-right">{formatMoney(-member.credit_pence)}</td>
                       <td className="px-3 py-2 text-right font-semibold">{formatMoney(member.total_pence)}</td>
                     </tr>
                   ))}
@@ -322,7 +344,7 @@ export default async function CostsPage({
                     <td className="px-3 py-2 text-right">{formatHoursTenths(sum((m) => m.hours_tenths))}</td>
                     <td className="px-3 py-2 text-right">{formatMoney(sum((m) => m.fixed_pence))}</td>
                     <td className="px-3 py-2 text-right">{formatMoney(sum((m) => m.hourly_pence))}</td>
-                    <td className="px-3 py-2 text-right">{formatMoney(sum((m) => m.fuel_pence))}</td>
+                    <td className="px-3 py-2 text-right">{formatMoney(-sum((m) => m.credit_pence))}</td>
                     <td className="px-3 py-2 text-right font-semibold">{formatMoney(sum((m) => m.total_pence))}</td>
                   </tr>
                 </tfoot>
@@ -332,7 +354,7 @@ export default async function CostsPage({
 
           {/* ------------------------------------------------------- rates */}
           <section className="flex flex-col gap-3">
-            <h2 className={sectionTitle}>Rates</h2>
+            <h2 className={sectionTitle}>Group rates</h2>
             <form action={saveCostRate} className={`${card} flex max-w-md flex-col gap-3 p-4`}>
               {hidden}
               <label className={labelClass}>
@@ -375,18 +397,18 @@ export default async function CostsPage({
                 Save rates
               </button>
               <p className="text-xs text-zinc-500">
-                They apply from the month you choose until you set new ones. Earlier months keep the rates they had,
-                so raising the rate never changes a past statement.
+                The default for every member. They apply from the month you choose until you set new ones. Earlier
+                months keep the rates they had, so raising the rate never changes a past statement.
               </p>
             </form>
 
-            {rates.length > 0 && (
+            {groupRates.length > 0 && (
               <ul className="flex max-w-md flex-col gap-1 text-xs text-zinc-600">
-                {rates.map((rate) => (
+                {groupRates.map((rate) => (
                   <li key={rate.id} className="flex items-baseline justify-between gap-3">
                     <span>From {formatMonthKey(rate.effective_month.slice(0, 7))}</span>
                     <span className="font-mono">
-                      {formatMoney(rate.monthly_fee_pence)} a month · {formatMoney(rate.hourly_rate_pence)} an hour
+                      {formatMoney(rate.monthly_fee_pence ?? 0)} a month · {formatMoney(rate.hourly_rate_pence ?? 0)} an hour
                     </span>
                   </li>
                 ))}
@@ -394,66 +416,142 @@ export default async function CostsPage({
             )}
           </section>
 
-          {/* ------------------------------------------------ shared costs */}
+          {/* ----------------------------------------------- individual rates */}
           <section className="flex flex-col gap-3">
-            <h2 className={sectionTitle}>Fuel and shared costs, {formatMonthKey(monthKey)}</h2>
-            <form action={addCostItem} className={`${card} flex max-w-md flex-col gap-3 p-4`}>
+            <h2 className={sectionTitle}>Individual rates</h2>
+            <form action={saveMemberCostRate} className={`${card} flex max-w-md flex-col gap-3 p-4`}>
               {hidden}
               <div className="grid grid-cols-2 gap-3">
+                <label className={labelClass}>
+                  Member
+                  <select name="memberId" required defaultValue="" className={inputClass}>
+                    <option value="" disabled>
+                      Choose…
+                    </option>
+                    {currentMembers.map((member) => (
+                      <option key={member.user_id} value={member.user_id}>
+                        {member.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className={labelClass}>
+                  Applies from
+                  <select name="month" defaultValue={`${monthKey}-01`} className={inputClass}>
+                    {rateMonths.map((key) => (
+                      <option key={key} value={`${key}-01`}>
+                        {formatMonthKey(key)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <label className={labelClass}>
+                  Fixed monthly share (£)
+                  <input type="text" name="fee" inputMode="decimal" placeholder="group rate" className={inputClass} />
+                </label>
+                <label className={labelClass}>
+                  Hourly rate (£ per block hour)
+                  <input type="text" name="hourly" inputMode="decimal" placeholder="group rate" className={inputClass} />
+                </label>
+              </div>
+              <button type="submit" className={`${primaryButton} self-start`}>
+                Save individual rates
+              </button>
+              <p className="text-xs text-zinc-500">
+                Leave a box empty to follow the group&apos;s rate; enter 0 for none (for example no fixed share for
+                someone who doesn&apos;t own a share). Saving with both boxes empty puts the member back on the
+                group&apos;s rates. Members only see their own rates.
+              </p>
+            </form>
+
+            {memberRates.length > 0 && (
+              <ul className="flex max-w-md flex-col gap-1 text-xs text-zinc-600">
+                {memberRates.map((rate) => (
+                  <li key={rate.id} className="flex items-baseline justify-between gap-3">
+                    <span>
+                      {nameOf(rate.user_id as string)} · from {formatMonthKey(rate.effective_month.slice(0, 7))}
+                    </span>
+                    <span className="text-right font-mono">
+                      {rate.monthly_fee_pence === null ? "group share" : `${formatMoney(rate.monthly_fee_pence)} a month`}
+                      {" · "}
+                      {rate.hourly_rate_pence === null ? "group rate" : `${formatMoney(rate.hourly_rate_pence)} an hour`}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          {/* ------------------------------------------------------ expenses */}
+          <section className="flex flex-col gap-3">
+            <h2 className={sectionTitle}>Expenses paid by members, {formatMonthKey(monthKey)}</h2>
+            <form action={addCostExpense} className={`${card} flex max-w-md flex-col gap-3 p-4`}>
+              {hidden}
+              <div className="grid grid-cols-2 gap-3">
+                <label className={labelClass}>
+                  Paid by
+                  <select name="memberId" required defaultValue="" className={inputClass}>
+                    <option value="" disabled>
+                      Choose…
+                    </option>
+                    {currentMembers.map((member) => (
+                      <option key={member.user_id} value={member.user_id}>
+                        {member.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <label className={labelClass}>
                   Date
                   <input type="date" name="date" required max={today} defaultValue={today} className={inputClass} />
                 </label>
-                <label className={labelClass}>
-                  Kind
-                  <select name="category" defaultValue="fuel" className={inputClass}>
-                    <option value="fuel">Fuel</option>
-                    <option value="other">Other (shared by hours)</option>
-                  </select>
-                </label>
               </div>
               <label className={labelClass}>
                 What it was
-                <input type="text" name="description" required maxLength={120} placeholder="Fuel, self-serve pump" className={inputClass} />
+                <input type="text" name="description" required maxLength={120} placeholder="Fuel at Sywell" className={inputClass} />
               </label>
               <label className={labelClass}>
                 Amount (£)
-                <input type="text" name="amount" required inputMode="decimal" placeholder="625.00" className={inputClass} />
+                <input type="text" name="amount" required inputMode="decimal" placeholder="184.00" className={inputClass} />
               </label>
               <button type="submit" className={`${primaryButton} self-start`}>
-                Add cost
+                Add expense
               </button>
               <p className="text-xs text-zinc-500">
-                Shared between members by the hours they flew in the month the cost is dated. A cost can&apos;t be
-                edited; if one is wrong, void it with a reason and enter it again.
+                For something a member paid for the aircraft out of their own pocket, such as fuel bought at another
+                airfield. It is taken off that member&apos;s total for the month of its date, and if it comes to more than
+                their bill, the statement shows a credit to them. An expense can&apos;t be edited; if one is wrong,
+                void it with a reason and enter it again.
               </p>
             </form>
 
-            {items.length === 0 ? (
-              <p className="text-sm text-zinc-500">No costs entered for this month.</p>
+            {expenses.length === 0 ? (
+              <p className="text-sm text-zinc-500">No expenses entered for this month.</p>
             ) : (
               <div className="flex max-w-md flex-col gap-2">
-                {items.map((item) => (
-                  <article key={item.id} className={`${card} flex flex-col gap-1 px-3 py-2 ${item.voided_at ? "opacity-60" : ""}`}>
+                {expenses.map((expense) => (
+                  <article key={expense.id} className={`${card} flex flex-col gap-1 px-3 py-2 ${expense.voided_at ? "opacity-60" : ""}`}>
                     <div className="flex items-baseline justify-between gap-3">
-                      <p className={`text-sm text-zinc-900 ${item.voided_at ? "line-through" : ""}`}>
-                        {item.description}
+                      <p className={`text-sm text-zinc-900 ${expense.voided_at ? "line-through" : ""}`}>
+                        {expense.description}
                       </p>
-                      <p className={`font-mono text-sm text-zinc-900 ${item.voided_at ? "line-through" : ""}`}>
-                        {formatMoney(item.amount_pence)}
+                      <p className={`font-mono text-sm text-zinc-900 ${expense.voided_at ? "line-through" : ""}`}>
+                        {formatMoney(expense.amount_pence)}
                       </p>
                     </div>
                     <p className="text-xs text-zinc-500">
-                      {shortDay(item.incurred_on)} · {item.category === "fuel" ? "Fuel" : "Other"}
-                      {item.voided_at && ` · Voided: ${item.void_reason}`}
+                      {shortDay(expense.incurred_on)} · paid by {nameOf(expense.paid_by)}
+                      {expense.voided_at && ` · Voided: ${expense.void_reason}`}
                     </p>
-                    {!item.voided_at && (
+                    {!expense.voided_at && (
                       <details className="text-xs text-zinc-600">
-                        <summary className="w-fit text-zinc-500 underline underline-offset-4">Void this cost</summary>
-                        <form action={voidCostItem} className="mt-2 flex flex-col gap-2">
+                        <summary className="w-fit text-zinc-500 underline underline-offset-4">Void this expense</summary>
+                        <form action={voidCostExpense} className="mt-2 flex flex-col gap-2">
                           <input type="hidden" name="groupSlug" value={groupSlug} />
                           <input type="hidden" name="view" value={monthKey} />
-                          <input type="hidden" name="itemId" value={item.id} />
+                          <input type="hidden" name="expenseId" value={expense.id} />
                           <input
                             type="text"
                             name="reason"
@@ -464,7 +562,7 @@ export default async function CostsPage({
                             className="rounded-md border border-zinc-300 px-2 py-1.5 text-base text-zinc-900"
                           />
                           <button type="submit" className={`${smallButton} w-fit`}>
-                            Void cost
+                            Void expense
                           </button>
                         </form>
                       </details>

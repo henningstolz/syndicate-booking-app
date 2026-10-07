@@ -75,6 +75,15 @@ paste a file's contents, run it — in order, once each.
     only themselves). Backwards compatible: run it *before* pushing the
     matching code.
 
+16. `0016_cost_rates_per_member_and_expenses.sql` — costs, second version: no
+    shared fuel pot any more. `cost_rates` can hold a member's own rates (a
+    `user_id`; an empty part follows the group's), `cost_expenses` holds what a
+    member paid for the group (credited on their statement, voided never
+    edited), and `cost_statement()` is replaced. Backwards compatible: the old
+    `cost_items` table and functions stay until a later clean-up, and the
+    statement still returns a `fuel_pence` of 0. Run it *before* pushing the
+    matching code.
+
 ## Adding members to a group
 
 Two ways now:

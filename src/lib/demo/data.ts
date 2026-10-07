@@ -33,7 +33,7 @@ export type DemoDb = {
   invites: Row[];
   notification_preferences: Row[];
   cost_rates: Row[];
-  cost_items: Row[];
+  cost_expenses: Row[];
 };
 
 // Columns of each table, so a query that asks for one that does not exist
@@ -60,9 +60,9 @@ export const TABLE_COLUMNS: Record<keyof DemoDb, string[]> = {
   ],
   invites: ["id", "group_id", "role", "label", "created_by", "created_at", "expires_at", "revoked_at", "used_by", "used_at"],
   notification_preferences: ["group_id", "user_id", "event", "enabled", "updated_at"],
-  cost_rates: ["id", "group_id", "effective_month", "monthly_fee_pence", "hourly_rate_pence", "created_by", "created_at"],
-  cost_items: [
-    "id", "group_id", "incurred_on", "category", "description", "amount_pence",
+  cost_rates: ["id", "group_id", "user_id", "effective_month", "monthly_fee_pence", "hourly_rate_pence", "created_by", "created_at"],
+  cost_expenses: [
+    "id", "group_id", "paid_by", "incurred_on", "description", "amount_pence",
     "created_by", "created_at", "voided_at", "voided_by", "void_reason",
   ],
 };
@@ -463,33 +463,33 @@ export function buildDb(now: Date, overlay: DemoOverlay): DemoDb {
     const index = thisYear * 12 + (thisMonth - 1) - monthsAgo;
     return `${Math.floor(index / 12)}-${String((index % 12) + 1).padStart(2, "0")}-01`;
   };
+  // The group's rates, and one member (Taylor) with rates of their own: no
+  // fixed share, a higher hourly rate.
   const costRates: Row[] = [
-    [14, 11000, 6000],
-    [4, 12000, 6500],
-  ].map(([monthsAgo, fee, hourly], index) => ({
+    [null, 14, 11000, 6000],
+    [null, 4, 12000, 6500],
+    ["demo-taylor", 4, 0, 9000],
+  ].map(([userId, monthsAgo, fee, hourly], index) => ({
     id: `demo-r-${index + 1}`,
     group_id: DEMO_GROUP_ID,
-    effective_month: monthStart(monthsAgo),
+    user_id: userId,
+    effective_month: monthStart(monthsAgo as number),
     monthly_fee_pence: fee,
     hourly_rate_pence: hourly,
     created_by: DEMO_USER.id,
-    created_at: iso(at(monthStart(monthsAgo), "09:00")),
+    created_at: iso(at(monthStart(monthsAgo as number), "09:00")),
   }));
-  const costItems: Row[] = [
-    [-2, "fuel", "Fuel, self-serve pump", 62500],
-    [-9, "fuel", "Fuel, self-serve pump", 71840],
-    [-17, "fuel", "Fuel, self-serve pump", 58900],
-    [-26, "other", "Landing fees", 8750],
-    [-33, "fuel", "Fuel, self-serve pump", 66450],
-    [-41, "fuel", "Fuel, self-serve pump", 73200],
-    [-55, "fuel", "Fuel, self-serve pump", 61100],
-    [-63, "fuel", "Fuel, self-serve pump", 69800],
-    [-71, "other", "Oil and consumables", 9500],
-  ].map(([offset, category, description, amount], index) => ({
-    id: `demo-c-${index + 1}`,
+  // Fuel a member bought away from home, credited to them.
+  const costExpenses: Row[] = [
+    [-3, "demo-sam", "Fuel at Sywell", 18400],
+    [-21, "demo-jordan", "Fuel at Shobdon", 15250],
+    [-36, "demo-sam", "Fuel at Sywell", 20100],
+    [-52, "demo-taylor", "Landing fee, Old Warden", 2500],
+  ].map(([offset, paidBy, description, amount], index) => ({
+    id: `demo-x-${index + 1}`,
     group_id: DEMO_GROUP_ID,
+    paid_by: paidBy,
     incurred_on: dayKey(offset as number),
-    category,
     description,
     amount_pence: amount,
     created_by: DEMO_USER.id,
@@ -509,6 +509,6 @@ export function buildDb(now: Date, overlay: DemoOverlay): DemoDb {
     // No explicit choices: the demo shows the defaults.
     notification_preferences: [],
     cost_rates: costRates,
-    cost_items: costItems,
+    cost_expenses: costExpenses,
   };
 }

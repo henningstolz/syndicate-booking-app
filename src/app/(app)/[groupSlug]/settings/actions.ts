@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { homePathFor } from "@/lib/user-home";
+import { isDemoRequest } from "@/lib/demo/mode";
 
 // Every action ends by redirecting back to the Settings page with a short
 // code in the URL (?notice=...). The page turns the code into a message, so
@@ -12,6 +13,11 @@ type RpcResult = { result?: string; cancelled_bookings?: number };
 
 function settingsUrl(groupSlug: string, notice: string, extra = "") {
   return `/${groupSlug}/settings?notice=${notice}${extra}`;
+}
+
+// In the demo group nothing here is saved: say so instead of failing.
+async function blockInDemo(groupSlug: string) {
+  if (await isDemoRequest()) redirect(settingsUrl(groupSlug, "demo"));
 }
 
 async function signedInClient() {
@@ -32,6 +38,7 @@ function text(formData: FormData, key: string) {
 export async function updateDisplayName(formData: FormData) {
   const groupId = text(formData, "groupId");
   const groupSlug = text(formData, "groupSlug");
+  await blockInDemo(groupSlug);
 
   const supabase = await signedInClient();
   const { data, error } = await supabase.rpc("set_my_display_name", {
@@ -48,6 +55,7 @@ export async function updateDisplayName(formData: FormData) {
 export async function leaveGroup(formData: FormData) {
   const groupId = text(formData, "groupId");
   const groupSlug = text(formData, "groupSlug");
+  await blockInDemo(groupSlug);
 
   const supabase = await signedInClient();
   const { data, error } = await supabase.rpc("leave_group", {
@@ -69,6 +77,7 @@ export async function leaveGroup(formData: FormData) {
 export async function setMemberRole(formData: FormData) {
   const groupId = text(formData, "groupId");
   const groupSlug = text(formData, "groupSlug");
+  await blockInDemo(groupSlug);
 
   const supabase = await signedInClient();
   const { data, error } = await supabase.rpc("set_member_role", {
@@ -86,6 +95,7 @@ export async function setMemberRole(formData: FormData) {
 export async function removeMember(formData: FormData) {
   const groupId = text(formData, "groupId");
   const groupSlug = text(formData, "groupSlug");
+  await blockInDemo(groupSlug);
 
   const supabase = await signedInClient();
   const { data, error } = await supabase.rpc("remove_member", {
@@ -106,6 +116,7 @@ export async function removeMember(formData: FormData) {
 export async function createInvite(formData: FormData) {
   const groupId = text(formData, "groupId");
   const groupSlug = text(formData, "groupSlug");
+  await blockInDemo(groupSlug);
   const role = text(formData, "role");
   const label = text(formData, "label");
 
@@ -135,6 +146,7 @@ export async function createInvite(formData: FormData) {
 
 export async function revokeInvite(formData: FormData) {
   const groupSlug = text(formData, "groupSlug");
+  await blockInDemo(groupSlug);
 
   const supabase = await signedInClient();
   const { data, error } = await supabase.rpc("revoke_invite", {
@@ -150,6 +162,7 @@ export async function revokeInvite(formData: FormData) {
 export async function updateGroupDetails(formData: FormData) {
   const groupId = text(formData, "groupId");
   const groupSlug = text(formData, "groupSlug");
+  await blockInDemo(groupSlug);
   const name = text(formData, "name");
   const registration = text(formData, "aircraftRegistration");
 

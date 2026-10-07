@@ -1,7 +1,9 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getGroupBySlug } from "@/lib/groups";
 import { homePathFor } from "@/lib/user-home";
+import { isDemoRequest } from "@/lib/demo/mode";
 import { signOut } from "@/app/login/actions";
 import { AppShell } from "./AppShell";
 import type { GroupOption } from "./GroupSwitcher";
@@ -12,6 +14,13 @@ import type { GroupOption } from "./GroupSwitcher";
 // calendar, reports) even right after revalidatePath() runs from a
 // different route segment's server action.
 export const dynamic = "force-dynamic";
+
+// The demo is invented content: keep it out of search engines.
+export async function generateMetadata(): Promise<Metadata> {
+  return (await isDemoRequest())
+    ? { robots: { index: false, follow: false } }
+    : {};
+}
 
 export default async function GroupLayout({
   children,
@@ -51,6 +60,7 @@ export default async function GroupLayout({
 
   return (
     <AppShell
+      demo={await isDemoRequest()}
       groupSlug={groupSlug}
       groupName={group.name}
       groups={groups ?? []}

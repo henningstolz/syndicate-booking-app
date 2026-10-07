@@ -60,7 +60,7 @@ export default function PrivacyPage() {
           track you around the web.
         </p>
         <p className="mt-4 font-mono text-[13px] text-bt-muted">
-          Last updated 6 October 2026
+          Last updated 7 October 2026
         </p>
 
         <Section title="Who is responsible">
@@ -169,6 +169,13 @@ export default function PrivacyPage() {
             are essential to the service, which is why there is no cookie
             banner. There are no advertising or analytics cookies, and no
             third-party trackers.
+          </p>
+          <p>
+            If you try the demo, one more small cookie keeps the changes you
+            make in it (a booking, a message) on your own device, so they
+            survive a page reload. It is only sent to the demo pages, it
+            expires after a day, and the demo uses made-up data and does not
+            touch our database.
           </p>
         </Section>
 

@@ -1,7 +1,18 @@
 import { createServerClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
+import { createDemoClient } from "@/lib/demo/client";
+import { isDemoRequest } from "@/lib/demo/mode";
 
-export async function createClient() {
+type ServerClient = SupabaseClient;
+
+export async function createClient(): Promise<ServerClient> {
+  // Requests under /demo run on invented data and never reach the database
+  // (see src/lib/demo).
+  if (await isDemoRequest()) {
+    return (await createDemoClient()) as unknown as ServerClient;
+  }
+
   const cookieStore = await cookies();
 
   return createServerClient(

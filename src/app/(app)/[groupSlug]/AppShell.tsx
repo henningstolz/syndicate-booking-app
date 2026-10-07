@@ -55,12 +55,15 @@ export function AppShell({
   groupName,
   groups,
   signOutAction,
+  demo = false,
   children,
 }: {
   groupSlug: string;
   groupName: string;
   groups: GroupOption[];
   signOutAction: () => void;
+  // The invented demo group: show a banner and "Exit demo" instead of "Sign out".
+  demo?: boolean;
   children: React.ReactNode;
 }) {
   const [navOpen, setNavOpen] = useState(false);
@@ -73,6 +76,25 @@ export function AppShell({
 
   return (
     <div className="flex flex-1 flex-col">
+      {demo && (
+        <div
+          role="note"
+          className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-900"
+        >
+          <p>
+            <strong className="font-semibold">Demo.</strong> Made-up data. What
+            you change here stays in your browser and isn&apos;t saved.
+          </p>
+          <p className="flex gap-4">
+            <Link href="/demo/reset" prefetch={false} className="underline underline-offset-4">
+              Reset demo
+            </Link>
+            <Link href="/login" className="font-semibold underline underline-offset-4">
+              Create your group
+            </Link>
+          </p>
+        </div>
+      )}
       <header className="flex items-center justify-between border-b border-zinc-200 px-4 py-3">
         <div className="flex items-center gap-3">
           <button
@@ -89,14 +111,23 @@ export function AppShell({
             currentName={groupName}
           />
         </div>
-        <form action={signOutAction}>
-          <button
-            type="submit"
+        {demo ? (
+          <Link
+            href="/"
             className="flex min-h-9 items-center rounded-full border border-zinc-300 px-3.5 text-sm text-zinc-700 transition-colors hover:bg-zinc-100 hover:text-zinc-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
           >
-            Sign out
-          </button>
-        </form>
+            Exit demo
+          </Link>
+        ) : (
+          <form action={signOutAction}>
+            <button
+              type="submit"
+              className="flex min-h-9 items-center rounded-full border border-zinc-300 px-3.5 text-sm text-zinc-700 transition-colors hover:bg-zinc-100 hover:text-zinc-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
+            >
+              Sign out
+            </button>
+          </form>
+        )}
       </header>
 
       <div className="flex flex-1">

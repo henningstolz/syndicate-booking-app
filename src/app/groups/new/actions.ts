@@ -3,7 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { slugify } from "@/lib/slugify";
+import { groupSlugFromName } from "@/lib/slugify";
 
 export type CreateGroupState = { error?: string };
 
@@ -44,7 +44,7 @@ export async function createGroup(
   // groups SELECT policy (is_group_member) — and at this exact
   // moment the user isn't a member of the group yet, so that would
   // fail even though the insert itself is allowed.
-  const baseSlug = slugify(name);
+  const baseSlug = groupSlugFromName(name);
   let groupId: string | null = null;
   let finalSlug = baseSlug;
 

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { STATUS_FIELDS } from "@/lib/aircraft-status";
+import { isDemoRequest } from "@/lib/demo/mode";
 
 export type StatusActionState = { error?: string; success?: boolean };
 
@@ -11,6 +12,12 @@ export async function updateAircraftStatus(
   _prevState: StatusActionState,
   formData: FormData,
 ): Promise<StatusActionState> {
+  if (await isDemoRequest()) {
+    return {
+      error: "This is a demo, so the aircraft details can't be changed. Create your own group to try it.",
+    };
+  }
+
   const groupId = formData.get("groupId") as string;
   const groupSlug = formData.get("groupSlug") as string;
 

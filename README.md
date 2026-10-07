@@ -23,5 +23,7 @@ cp .env.local.example .env.local   # then fill in the three values
 npm run dev                        # http://localhost:3000
 ```
 
+The homepage's "Try the demo" opens `/demo`, the app on invented data that never touches the database (see docs/architecture.md). Checks: `npm test` (rules and helpers), `npm run test:demo` (crawl of the demo pages, needs `npm run dev`).
+
 Until a separate development database exists, local testing writes to the
 live data. Pushing to `main` deploys to production.

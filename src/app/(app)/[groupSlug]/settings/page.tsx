@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { isDemoRequest } from "@/lib/demo/mode";
 import { getGroupBySlug } from "@/lib/groups";
 import { LONDON_TZ } from "@/lib/datetime";
 import { memberColor } from "@/lib/member-colors";
@@ -30,6 +31,10 @@ type InviteRow = {
 
 // What each ?notice= code from the actions means, and whether it is good news.
 const NOTICES: Record<string, { ok: boolean; text: string }> = {
+  demo: {
+    ok: false,
+    text: "This is a demo, so changes in Settings aren't saved. Create your own group to use them.",
+  },
   name_saved: { ok: true, text: "Your name was updated." },
   role_changed: { ok: true, text: "Role updated." },
   invite_created: {
@@ -138,6 +143,7 @@ export default async function SettingsPage({
     invites = data ?? [];
   }
 
+  const demo = await isDemoRequest();
   const siteUrl = process.env.SITE_URL ?? "";
   const notice = noticeMessage(noticeCode, n);
   const hidden = (
@@ -183,43 +189,53 @@ export default async function SettingsPage({
           </button>
         </form>
 
-        <p className="text-sm text-zinc-600">
-          Signed in as {user?.email}.{" "}
-          <Link
-            href="/reset-password"
-            className="text-zinc-900 underline underline-offset-4"
-          >
-            Change password
-          </Link>
-        </p>
-        <p className="text-sm text-zinc-600">
-          Run more than one aircraft?{" "}
-          <Link
-            href="/groups/new"
-            className="text-zinc-900 underline underline-offset-4"
-          >
-            Start another group
-          </Link>
-          . It appears in the group menu at the top.
-        </p>
+        {demo ? (
+          <p className="max-w-md rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            This is the demo group, so your account, password and leaving the
+            group aren&apos;t available here. The rest of Settings is shown as
+            an admin sees it, but changes aren&apos;t saved.
+          </p>
+        ) : (
+          <>
+          <p className="text-sm text-zinc-600">
+            Signed in as {user?.email}.{" "}
+            <Link
+              href="/reset-password"
+              className="text-zinc-900 underline underline-offset-4"
+            >
+              Change password
+            </Link>
+          </p>
+          <p className="text-sm text-zinc-600">
+            Run more than one aircraft?{" "}
+            <Link
+              href="/groups/new"
+              className="text-zinc-900 underline underline-offset-4"
+            >
+              Start another group
+            </Link>
+            . It appears in the group menu at the top.
+          </p>
 
-        <details className="max-w-md text-sm text-zinc-600">
-          <summary className="w-fit cursor-pointer text-zinc-500 underline underline-offset-4">
-            Leave this group
-          </summary>
-          <form action={leaveGroup} className="mt-3 flex flex-col gap-3">
-            {hidden}
-            <p>
-              You will lose access to {group.name} straight away, and your
-              upcoming bookings will be cancelled. Your past bookings and
-              tech log entries stay in the group&apos;s history under your
-              name. An admin can invite you back later.
-            </p>
-            <button type="submit" className={`${dangerButton} self-start`}>
-              Yes, leave {group.name}
-            </button>
-          </form>
-        </details>
+          <details className="max-w-md text-sm text-zinc-600">
+            <summary className="w-fit cursor-pointer text-zinc-500 underline underline-offset-4">
+              Leave this group
+            </summary>
+            <form action={leaveGroup} className="mt-3 flex flex-col gap-3">
+              {hidden}
+              <p>
+                You will lose access to {group.name} straight away, and your
+                upcoming bookings will be cancelled. Your past bookings and
+                tech log entries stay in the group&apos;s history under your
+                name. An admin can invite you back later.
+              </p>
+              <button type="submit" className={`${dangerButton} self-start`}>
+                Yes, leave {group.name}
+              </button>
+            </form>
+          </details>
+          </>
+        )}
       </section>
 
       {isAdmin && (
@@ -253,8 +269,11 @@ export default async function SettingsPage({
 
                     {isMe ? (
                       <p className="text-xs text-zinc-500">
-                        Use &ldquo;Leave this group&rdquo; above to step away.
+                        {demo
+                          ? "This is you, the admin of the demo group."
+                          : "Use \u201cLeave this group\u201d above to step away."}
                         {onlyAdmin &&
+                          !demo &&
                           " You are the only admin, so make someone else an admin first."}
                       </p>
                     ) : (

@@ -66,6 +66,7 @@ These depend on the plan you chose, which I can't see. Check each.
 - **Resend's free plan has daily and monthly sending limits.** Plenty for
   sign-up emails at this size.
 - **Domain renewal.** Turn on auto-renew at your registrar.
+- **The demo does not use Supabase,** so it stays up even when the database is paused or over its limits.
 
 ## How-tos
 
@@ -192,6 +193,23 @@ Aircraft page, **Edit** (admins): enter "Airframe total hours (right now)" and
 sheet. From then on every flight updates the total and the hours to the next
 check. Entering the total again later (for example after reconciling with the
 paper log) re-calibrates it without losing logged flights.
+
+### Show the demo
+
+Share `blocktime.group/demo`, or use "Try the demo" on the homepage. Visitors
+click through the whole app as "Alex", the admin of an invented group, without
+signing up. Whatever they change stays in their own browser (and "Reset demo"
+clears it); nothing reaches your database. It keeps working even if Supabase
+is paused.
+
+### Change what the demo shows
+
+The invented people, bookings, chat messages, flights and aircraft dates are
+in `src/lib/demo/data.ts` (names, notes, routes, defects). It is generated
+relative to today, so it never goes stale. After changing a page or a database
+query in the real app, run `npm run dev` and, in another terminal,
+`npm run test:demo`: if the demo can no longer answer a page's questions, it
+fails there with the page's name.
 
 ### Something is down
 

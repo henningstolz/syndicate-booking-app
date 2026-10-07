@@ -49,11 +49,11 @@ export function Hero() {
             with. Built for a phone in one hand at the airfield.
           </p>
           <div className="flex flex-wrap gap-3.5">
-            <LinkButton href="/login" variant="light" size="lg">
-              Create your group
+            <LinkButton href="/demo" variant="light" size="lg">
+              Try the demo
             </LinkButton>
             <LinkButton href="/login" variant="ghost" size="lg">
-              Sign in
+              Create your group
             </LinkButton>
           </div>
         </div>

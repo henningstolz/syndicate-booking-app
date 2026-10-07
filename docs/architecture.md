@@ -97,6 +97,7 @@ your groups, or to `/pending` if you have none.
 | --- | --- |
 | `/` | Public homepage (hero film, board illustration, features, privacy teaser, footer) |
 | `/privacy` | Privacy page |
+| `/demo` and `/demo/...` | The demo group: the real app on invented data, no sign-up, nothing saved to the database (see "The demo" below). `/demo/reset` clears a visitor's own demo changes |
 | `/login` | Sign in / sign up (email and password) |
 | `/auth/callback` | Receives the `?code=` from a confirmation or password-reset email and turns it into a session. Only follows a plain site path in `?next=` (see `src/lib/safe-next-path.ts`) |
 | `/forgot-password` | Asks for an email and sends a reset link. Always answers the same, whether or not the address has an account |
@@ -160,7 +161,7 @@ the traps described below.
 These rules are tested in `supabase/tests/` (`npm run test:db`), which applies
 every migration to a throwaway in-memory Postgres; the pure helpers in
 `src/lib` (time maths, redirects) are tested by `npm run test:unit`;
-`npm test` runs both. Run them after changing a migration or those helpers.
+`npm test` runs both. `npm run test:demo` crawls every demo page on a running dev server. Run them after changing a migration or those helpers.
 
 The database change history is the numbered files in `supabase/migrations/`
 (0001 to 0012).
@@ -184,6 +185,7 @@ src/
     flight-times.ts           flight/block time and decimal-hour maths (also used live in the form), month helpers
     flight-log-pdf.ts         the monthly PDF, drawn like the paper log (self-contained, takes ready-made text)
     flight-totals.ts          running airframe totals and hours to check, used by the PDF (pure, tested)
+    demo/                     the demo group: invented data, stand-in database client, the visitor's cookie (see "The demo")
     member-colors.ts          the colour palette for members
     booking-durations.ts, slugify.ts
 public/video/                 the hero film and its poster (fingerprinted file names)
@@ -266,6 +268,47 @@ record is in one place: Vercel → Domains → blocktime.group.
 
 Don't delete records you don't recognise. Each group above is needed for
 something to keep working.
+
+## The demo
+
+The homepage's "Try the demo" button opens `/demo`: the **real app** (same
+pages, same components) running on an invented group, "Demo Flying Group", with
+made-up members, bookings, chat messages, flights and aircraft dates. No
+sign-up, and **it never touches the database**, so it also works while
+Supabase is paused or down, and cannot be filled with junk by bots.
+
+How it works:
+
+- **Switched on by the address alone.** `src/proxy.ts` sets an internal header
+  for requests whose path starts with `/demo` (and removes any copy a visitor
+  sends), then skips the database session. `createClient()` in
+  `src/lib/supabase/server.ts` sees the header and returns a stand-in client
+  instead of the real one. A real group's address can never run on demo data
+  and vice versa. The web address `demo` (and the site's own page names) are
+  reserved, so no real group can take them (`src/lib/slugify.ts`).
+- **The stand-in client** (`src/lib/demo/engine.ts`) answers the questions the
+  pages ask (filters, ordering, paging, the one join the app uses) from the
+  invented data (`src/lib/demo/data.ts`), generated relative to today from a
+  fixed seed, so it always looks current and identical. It asks the same
+  database rules as the real one: overlapping bookings and flights are
+  refused, flights are validated, totals and hours to the next check are
+  recalculated, a voided flight stops counting.
+- **A visitor's own changes** (a booking, a chat message, a logged flight, a
+  void or cancellation) are kept in a small cookie (`bt_demo`, sent only to
+  `/demo`, expires after a day, room for about ten changes) and laid over the
+  fixed data. After that the demo says to choose "Reset demo". Settings and
+  aircraft edits are not saved; they say so.
+- **The visitor is "Alex", the demo's admin**, so every page is shown as an
+  admin sees it. A banner says it is a demo and offers Reset demo and Create
+  your group.
+
+**Rule for future work:** the demo only understands the queries the app makes
+today. If you add a page or a new kind of query, the demo stops with a clear
+error instead of guessing. Run `npm run test:demo` (with `npm run dev` going):
+it visits every demo page. New columns also need adding to
+`TABLE_COLUMNS` and the data in `src/lib/demo/data.ts`; new write actions
+either work in the demo (see `engine.ts`) or are blocked there the way
+`settings/actions.ts` does.
 
 ## Not built yet
 

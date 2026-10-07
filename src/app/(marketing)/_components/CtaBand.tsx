@@ -8,11 +8,11 @@ export function CtaBand() {
           Give your group a better calendar.
         </h2>
         <div className="flex flex-wrap gap-3.5">
-          <LinkButton href="/login" variant="light" size="lg">
-            Create your group
+          <LinkButton href="/demo" variant="light" size="lg">
+            Try the demo
           </LinkButton>
           <LinkButton href="/login" variant="outline" size="lg">
-            Sign in
+            Create your group
           </LinkButton>
         </div>
       </div>

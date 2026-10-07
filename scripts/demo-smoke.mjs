@@ -7,6 +7,7 @@
 //   npm run test:demo      (in another; optional: BASE=https://blocktime.group)
 const BASE = process.env.BASE ?? "http://localhost:3000";
 const month = new Date().toISOString().slice(0, 7);
+const lastMonth = (() => { const d = new Date(); d.setUTCMonth(d.getUTCMonth() - 1, 1); return d.toISOString().slice(0, 7); })();
 
 const pages = [
   "/demo",
@@ -22,6 +23,8 @@ const pages = [
   "/demo/members",
   "/demo/settings",
   "/demo/settings?tab=notifications",
+  "/demo/costs",
+  `/demo/costs?month=${lastMonth}`,
 ];
 
 let failed = 0;

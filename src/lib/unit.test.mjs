@@ -9,6 +9,7 @@ import {
 } from "./flight-times.ts";
 import { buildFlightLogPdf } from "./flight-log-pdf.ts";
 import { runningTotals } from "./flight-totals.ts";
+import { formatMoney, parsePounds, formatHoursTenths, computeStatement, shiftMonth } from "./costs.ts";
 import { PDFDocument } from "pdf-lib";
 
 let count = 0;
@@ -76,6 +77,55 @@ eq(runningTotals([f(1.2, { checkLimitHours: 5892.9 }), f(1.2, { checkLimitHours:
 eq(runningTotals([f(1.2, { checkLimitHours: 5871 })], 5870.4), [{ total: 5871.6, toCheck: -0.6 }], "past the limit goes negative");
 eq(runningTotals([], 5870.4), [], "empty");
 eq(runningTotals([f(0.1), f(0.1), f(0.1)], 100), [{ total: 100.1, toCheck: 5792.8 }, { total: 100.2, toCheck: 5792.7 }, { total: 100.3, toCheck: 5792.6 }], "no floating point drift");
+
+// --- money
+for (const [pence, text] of [[0, "£0.00"], [5, "£0.05"], [100, "£1.00"], [12345, "£123.45"], [100000, "£1,000.00"], [123456789, "£1,234,567.89"], [-250, "-£2.50"]])
+  eq(formatMoney(pence), text, `formatMoney(${pence})`);
+for (const [input, pence] of [["12", 1200], ["12.5", 1250], ["12.50", 1250], ["12,50", 1250], ["12,5", 1250], ["£1,234.50", 123450], ["1 234,50", 123450], ["1,234", 123400], ["0", 0], ["0.05", 5], ["  7.00 ", 700], ["£65", 6500]])
+  eq(parsePounds(input), pence, `parsePounds(${JSON.stringify(input)})`);
+for (const bad of ["", "  ", ".5", "-5", "abc", "12.345", "12.5.1", "1e3", "£", "12,50,5", "99999999999999999999", "1.2.3"])
+  eq(parsePounds(bad), null, `parsePounds(${JSON.stringify(bad)}) is refused`);
+eq([shiftMonth("2026-10", 1), shiftMonth("2026-12", 1), shiftMonth("2027-01", -1), shiftMonth("2026-10", -12), shiftMonth("2026-03", -3), shiftMonth("2026-10", 0)], ["2026-11", "2027-01", "2026-12", "2025-10", "2025-12", "2026-10"], "stepping through months, across new year");
+eq(formatHoursTenths(125), "12.5", "hours in tenths");
+eq(formatHoursTenths(0), "0.0", "zero hours");
+
+// --- the monthly cost statement (the database does the real work; this is its twin)
+const flightOf = (id, who, name, tenths, order = id) => ({ id, date: "2026-10-06", from: "A", to: "B", chargedTo: who, chargedName: name, tenths, order });
+const inputOf = (o = {}) => ({
+  month: "2026-10-01",
+  rates: { feePence: 12000, hourlyPence: 6500, missing: false },
+  fuelPence: 10001,
+  members: [{ userId: "a", name: "Alice" }, { userId: "b", name: "Bob" }, { userId: "c", name: "Cara" }],
+  flights: [flightOf("f1", "b", "Bob", 15), flightOf("f2", "c", "Cara", 17)],
+  viewer: { userId: "a", isAdmin: true },
+  ...o,
+});
+{
+  const s = computeStatement(inputOf());
+  eq(s.members.map((m) => [m.name, m.fixed_pence, m.hourly_pence, m.fuel_pence, m.total_pence]),
+    [["Alice", 12000, 0, 0, 12000], ["Bob", 12000, 9750, 4688, 26438], ["Cara", 12000, 11050, 5313, 28363]], "the worked example (fuel 10001p split 15:17 hours: 4688 + 5313)");
+  eq([s.fuel_pence, s.hours_tenths], [10001, 32], "month totals");
+  eq(s.members.reduce((t, m) => t + m.fuel_pence, 0), 10001, "fuel shares add up to the bill");
+  eq(s.flights.map((f) => [f.user_id, f.hours_tenths, f.pence]), [["b", 15, 9750], ["c", 17, 11050]], "flights with their charge");
+}
+{
+  const s = computeStatement(inputOf({ viewer: { userId: "b", isAdmin: false } }));
+  eq([s.is_admin, s.members.map((m) => m.name), s.flights.map((f) => f.user_id)], [false, ["Bob"], ["b"]], "a member sees only their own statement and flights");
+  eq([s.fuel_pence, s.hours_tenths], [10001, 32], "...with the month's totals");
+}
+{
+  const s = computeStatement(inputOf({ flights: [], fuelPence: 1001 }));
+  eq([s.members.map((m) => m.fuel_pence), s.members.reduce((t, m) => t + m.fuel_pence, 0)], [[334, 334, 333], 1001], "no flights: fuel split equally, extra pennies to the lowest ids");
+}
+{
+  const s = computeStatement(inputOf({ flights: [flightOf("f1", "x", "Visitor", 10), flightOf("f2", "b", "Bob", 10)], fuelPence: 0 }));
+  eq(s.members.map((m) => [m.name, m.is_member, m.fixed_pence]), [["Alice", true, 12000], ["Bob", true, 12000], ["Cara", true, 12000], ["Visitor", false, 0]], "someone charged who is not a member pays no fixed share");
+}
+{
+  const s = computeStatement(inputOf({ rates: { feePence: 0, hourlyPence: 6505, missing: false }, flights: [flightOf("f1", "b", "Bob", 1), flightOf("f2", "b", "Bob", 2)], fuelPence: 0 }));
+  eq([s.flights.map((f) => f.pence), s.members.find((m) => m.user_id === "b").hourly_pence], [[651, 1301], 1952], "each flight rounded half up to a penny; the member's total is their sum");
+}
+eq(computeStatement(inputOf({ rates: { feePence: 0, hourlyPence: 0, missing: true } })).rates, { fee_pence: 0, hourly_pence: 0, missing: true }, "missing rates are flagged");
 
 // --- months for the PDF picker
 eq(formatMonthKey("2026-10"), "October 2026", "month label");

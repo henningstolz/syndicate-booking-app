@@ -179,6 +179,39 @@ for (const now of [NOW, new Date("2026-01-15T12:00:00Z"), new Date("2026-07-15T1
   eq((await engine.from("flight_entries").select("captain_id, captain_name").eq("captain_name", "Pat Guest")).data, [{ captain_id: null, captain_name: "Pat Guest" }], "guest has a name and no member id");
 }
 
+// ------------------------------------------------------------ the demo's costs
+{
+  const { engine } = engineAt();
+  const stmt = async (month) => (await engine.rpc("cost_statement", { p_group_id: "demo-group", p_month: month })).data;
+  const identity = (s) => s.members.reduce((t, m) => t + m.total_pence, 0) === s.members.length * s.rates.fee_pence + s.members.reduce((t, m) => t + m.hourly_pence, 0) + s.fuel_pence;
+
+  const oct = await stmt("2026-10-01");
+  eq([oct.result, oct.is_admin, oct.members.map((m) => m.name)], ["ok", true, ["Alex", "Jordan", "Sam", "Taylor"]], "the demo statement covers the four members, shown to the admin");
+  eq([oct.rates.fee_pence, oct.rates.hourly_pence, oct.rates.missing], [12000, 6500, false], "October uses the later demo rates");
+  yes(identity(oct), "the totals add up: fixed shares + flying + all the fuel");
+  eq(oct.members.reduce((t, m) => t + m.fuel_pence, 0), oct.fuel_pence, "fuel shares add up to the fuel bill, to the penny");
+  eq(oct.members.reduce((t, m) => t + m.hours_tenths, 0), oct.hours_tenths, "member hours add up to the month's hours");
+  eq((await stmt("2026-02-01")).rates.hourly_pence, 6000, "an earlier month uses the earlier rates");
+  eq((await stmt("2024-01-01")).rates.missing, true, "before the first rates: flagged as missing");
+  eq((await stmt("nonsense")).result, "month_invalid", "a bad month is refused");
+  eq((await stmt("1990-01-01")).result, "month_invalid", "a silly year is refused");
+  const sep = await stmt("2026-09-01");
+  yes(sep.hours_tenths > 0 && sep.fuel_pence > 0 && identity(sep), "a full month has hours, fuel and adds up");
+
+  // a flight the visitor logs changes their statement
+  const before = (await stmt("2026-10-01")).members.find((m) => m.name === "Alex").hours_tenths;
+  const logged = (await engine.rpc("add_flight_entry", { p_group_id: "demo-group", p_from: "egxx", p_to: "egxx", p_category: "PV", p_captain_id: "demo-alex", p_captain_name: null, p_fuel_left: 20, p_fuel_right: 20, p_oil: 7, p_brakes_off: "2026-10-07T05:00:00Z", p_airborne: "2026-10-07T05:10:00Z", p_landed: "2026-10-07T06:26:00Z", p_brakes_on: "2026-10-07T06:36:00Z", p_defects: null })).data.result;
+  eq(logged, "ok", "the visitor logs a 96-minute block flight");
+  const after = await stmt("2026-10-01");
+  eq(after.members.find((m) => m.name === "Alex").hours_tenths - before, 16, "...and their statement gains 1.6 block hours");
+  yes(identity(after), "...and the totals still add up");
+
+  // the new tables follow the same rules as the others
+  eq((await engine.from("cost_rates").select("id").eq("group_id", "demo-group")).data.length, 2, "two demo rate rows");
+  yes((await engine.from("cost_items").select("id").eq("group_id", "demo-group")).data.length >= 6, "demo shared costs exist");
+  eq((await engine.from("cost_items").insert({ group_id: "demo-group" })).error.code, "demo", "costs cannot be added in the demo");
+}
+
 // ------------------------------------------------- the cookie and its limits
 {
   const o = emptyOverlay();

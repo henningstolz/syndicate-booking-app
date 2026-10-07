@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { path: "/calendar", label: "Calendar" },
   { path: "/chat", label: "Chat" },
   { path: "/tech-log", label: "Tech log" },
+  { path: "/costs", label: "Costs" },
   { path: "/reports", label: "Reports" },
   { path: "/aircraft", label: "Aircraft" },
   { path: "/members", label: "Members" },

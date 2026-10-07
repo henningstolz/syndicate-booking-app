@@ -60,7 +60,7 @@ export default function PrivacyPage() {
           track you around the web.
         </p>
         <p className="mt-4 font-mono text-[13px] text-bt-muted">
-          Last updated 7 October 2026
+          Last updated 8 October 2026
         </p>
 
         <Section title="Who is responsible">
@@ -100,6 +100,11 @@ export default function PrivacyPage() {
               admin has created.
             </li>
             <li>
+              <strong>Costs:</strong> the group&apos;s monthly share and hourly
+              rate, the shared costs (such as fuel) that admins enter, and each
+              member&apos;s monthly statement, worked out from the flight log.
+            </li>
+            <li>
               <strong>Your email choices:</strong> which emails you want from
               each group (for example about new bookings), and a queue of the
               emails still to be sent to you.
@@ -123,7 +128,9 @@ export default function PrivacyPage() {
               <strong>Your group:</strong> every member of a group can see that
               group&apos;s aircraft, bookings, flight log, chat and member
               names.
-              Group admins can also create invitations. Other groups cannot see
+              Each member sees only their own cost statement, plus the month&apos;s
+              totals; admins see everyone&apos;s. Group admins can also create
+              invitations. Other groups cannot see
               any of it; this is enforced in the database itself, not just in
               the pages you see.
             </li>

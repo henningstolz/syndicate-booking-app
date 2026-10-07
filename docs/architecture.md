@@ -110,6 +110,7 @@ your groups, or to `/pending` if you have none.
 | `/<group>/chat` | The group chat: a shared message feed where anyone posts to everyone (not only defects). Old URLs `/squawks`, `/board` and `/tech-log?view=notes` redirect here |
 | `/<group>/tech-log` | The flight log: one entry per flight added with "+ Entry", with calculated flight/block time and running airframe hours. "Monthly PDF" picks a month and downloads it |
 | `/<group>/tech-log/pdf?month=YYYY-MM` | The monthly flight log as an A4 landscape PDF (route handler, members only). Built by `src/lib/flight-log-pdf.ts` with the `pdf-lib` library |
+| `/<group>/costs` | Hours and costs, a month at a time (`?month=YYYY-MM`): your statement with the flights behind it, the month's group totals; for admins everyone's statements, the rates (with history) and the shared costs (fuel and so on) |
 | `/<group>/reports` | Upcoming bookings, and "Bookings per member" donut chart |
 | `/<group>/aircraft` | Renewal and check due dates; admins can edit |
 | `/<group>/members` | Read-only member list |
@@ -132,6 +133,8 @@ is scoped to a group.
 | `bookings` | Start, end, note, status (`confirmed` or `cancelled`), who booked | A database rule makes overlapping confirmed bookings in one group impossible. Cancelling only changes the status; nothing is deleted. A multi-day booking is one row. |
 | `squawks` | The chat's messages: author, message, time | The table keeps its original name; only the screens say "Chat". |
 | `flight_entries` | The flight log: date, from/to, category (PV/TG/PT), captain, fuel in each tank, oil, the four clock times, defects, who entered it | **Never edited or deleted** (like paper): an admin *voids* a wrong entry with a reason, and it stops counting. Block and flight minutes and their decimal hours are generated columns, so every screen agrees. Each entry also remembers the check limit that applied when it was logged (`check_limit_hours`), so "hours to check" stays right after a check resets the limit. A database rule makes overlapping flights impossible. |
+| `cost_rates` | The fixed monthly share and the hourly rate (whole pence), each valid from a month | Append-only: a new row for a month replaces older ones from then on, old rows stay as history. A statement uses the rates in force for ITS month. |
+| `cost_items` | Shared costs: date, fuel or other, description, amount (whole pence) | Admins only (RLS); voided with a reason, never edited. Members see only the month's total in their statement. |
 | `notification_preferences` | Which events a member wants emailed, per group (only explicit choices; the rest follow the defaults in `notification_default()`) | Defaults: bookings, cancellations, chat and defects on; flights logged off. The app's list (`src/lib/notifications.ts`) is checked against the database's in the tests. |
 | `notification_outbox` | The queue of emails to send: recipient, event, details, attempts, sent time | Not readable through the API at all. Sent rows are deleted after 30 days, unsent after a week. |
 | `reminder_log` | Which reminders have already been sent (`booking:<id>`, `aircraft:<item>:<due date>:<stage>`) | Not readable through the API. Booking entries are cleared after 30 days; aircraft ones are kept, which is what stops a reminder repeating. |
@@ -154,6 +157,7 @@ the traps described below.
   database refuses to demote, remove or let leave the last one. Removing or
   leaving also cancels that person's *future* bookings.
 
+- Costs: `set_cost_rate`, `add_cost_item` and `void_cost_item` (admin only), and `cost_statement(group, month)`, which returns one month as JSON for the caller. The rule: each member pays the **fixed monthly share** (anyone in the group at any point in the month), plus the **hourly rate** for the block hours charged to them, plus a share of the month's **fuel and other shared costs** by hours flown. A flight is charged to its captain, or for a guest captain to the member who logged it. Everything is whole pence; each flight's charge is rounded half up, and the fuel is split with the largest-remainder method so the shares add up to the bill exactly (if nobody flew, equally). `src/lib/costs.ts` holds an identical twin of the calculation, used by the demo; a test compares it with the database on 386 random months.
 - Notifications: triggers on bookings, chat messages and flights queue one email per member who wants it (never the person who did it, never a removed member, at most 20 an hour per person; a failure to queue never blocks the booking, post or flight). `set_notification_preferences` saves a member's choices. `claim_notifications`, `mark_notification_sent` and `mark_notification_failed` are how the server works through the queue; they only answer to the sender's secret.
 - Flight log: `add_flight_entry` (validates everything and returns a result
   such as `ok`, `overlap`, `times_order`), `void_flight_entry` (admin),
@@ -171,7 +175,7 @@ every migration to a throwaway in-memory Postgres; the pure helpers in
 `npm test` runs both. `npm run test:demo` crawls every demo page on a running dev server. Run them after changing a migration or those helpers.
 
 The database change history is the numbered files in `supabase/migrations/`
-(0001 to 0014).
+(0001 to 0015).
 
 ## Code map
 
@@ -193,6 +197,7 @@ src/
     flight-log-pdf.ts         the monthly PDF, drawn like the paper log (self-contained, takes ready-made text)
     notifications.ts          the events a member can be emailed about, with the defaults (shared with the tests)
     notify/                   the notification emails: wording (email.ts), the send loop (send-core.ts), Resend and the queue (send.ts), send-after-the-reply (flush.ts)
+    costs.ts                  money formatting and parsing, and the statement calculation (the database's twin, used by the demo and tested against it)
     flight-totals.ts          running airframe totals and hours to check, used by the PDF (pure, tested)
     demo/                     the demo group: invented data, stand-in database client, the visitor's cookie (see "The demo")
     member-colors.ts          the colour palette for members
@@ -373,6 +378,7 @@ either work in the demo (see `engine.ts`) or are blocked there the way
 - Hours and costs (Hobbs, fuel, a monthly split per member).
 - Structured defects (open/resolved, rectification, engineer sign-off): defects are free text on a flight entry for now.
 - On the PDF: the lower defects/rectification/engineer section of the paper sheet (not printed).
+- Costs: a PDF or emailed statement per member, tracking who has paid, charging a pilot extra for something specific (landing fees by flight), pro-rata fixed shares for part months, closing a month so it can never change.
 - Cost sharing from block time.
 - Email notifications for bookings, cancellations and tech log posts.
 - A daily summary email instead of one email per event.

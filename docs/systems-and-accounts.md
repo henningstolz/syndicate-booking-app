@@ -258,6 +258,39 @@ query in the real app, run `npm run dev` and, in another terminal,
 `npm run test:demo`: if the demo can no longer answer a page's questions, it
 fails there with the page's name.
 
+### Set up and run the costs
+
+Costs are worked out for each calendar month from three things. You enter two
+of them; the flight log supplies the third.
+
+1. **Set the rates** (admins): Costs, then **Rates**. Choose the month they
+   apply from, the **fixed monthly share** (what every member pays each month)
+   and the **hourly rate** (per block hour flown). They apply from that month
+   until you set new ones. Earlier months keep their old rates, so raising the
+   hourly rate never changes a past statement. To correct a mistake, save the
+   rates again for the same month: the newest entry wins.
+2. **Add fuel and other shared costs** (admins): Costs, then **Fuel and shared
+   costs**. Enter each bill as it arrives, dated the day it was incurred. They
+   are shared by hours flown in that month. A cost cannot be edited: **Void this
+   cost** with a reason and enter it again.
+3. **The flights** come from the tech log. Each flight's **block time** (brakes
+   off to brakes on) is charged to its captain; for a guest or instructor
+   captain it is charged to the member who logged the entry.
+
+Each member sees **their own statement**: the fixed share, flying (with every
+flight listed), their share of the fuel, and the total. Admins also see
+everyone's and the total to collect. Use the month arrows to go back.
+
+How the numbers are worked out: all amounts are whole pence. Each flight is
+charged hours times the hourly rate, rounded half up to the penny. Fuel is
+split by hours flown; the last pennies go to the members with the largest
+fractions, so the shares add up to the bill exactly. If nobody flew in a
+month, its fuel is split equally. Anyone who was in the group at any point in a
+month pays that month's full fixed share.
+
+If a number looks wrong: check the flight log first (a voided or mistyped
+flight changes everyone's share), then the costs listed for that month.
+
 ### Reminders
 
 Members get a booking reminder the evening before each of their bookings, and

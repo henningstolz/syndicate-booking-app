@@ -1,24 +1,26 @@
 import { Eyebrow } from "./Eyebrow";
 
-const FEATURES = [
+type Status = "Live" | "In progress" | "Next";
+
+const FEATURES: { status: Status; title: string; text: string }[] = [
   {
     status: "Live",
     title: "Booking calendar",
     text: "See the whole week at a glance. Book a slot in seconds, and clashes are caught before they happen.",
   },
   {
-    status: "In progress",
+    status: "Live",
     title: "Tech log",
     text: "One shared record of the aircraft: defects, hours and fixes. The next pilot knows its state before walking out to it.",
   },
   {
-    status: "Next",
+    status: "Live",
     title: "Hours and costs",
-    text: "Hobbs in and out, fuel, and a fair monthly split per member. Being built next.",
+    text: "Block hours from the tech log, fuel shared by hours flown, and a clear statement for every member each month.",
   },
 ];
 
-const STATUS_STYLES: Record<(typeof FEATURES)[number]["status"], string> = {
+const STATUS_STYLES: Record<Status, string> = {
   Live: "border-bt-green-line text-bt-green",
   "In progress": "border-bt-amber-line text-bt-amber",
   Next: "border-bt-neutral text-bt-muted",

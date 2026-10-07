@@ -68,6 +68,13 @@ paste a file's contents, run it — in order, once each.
     which the daily job calls with the sender's secret. Backwards compatible:
     run it *before* pushing the matching code.
 
+15. `0015_costs.sql` — hours and costs: `cost_rates` (the fixed monthly share and
+    the hourly rate, each valid from a month, with history), `cost_items` (fuel
+    and other shared costs, voided never edited), and `cost_statement()`, which
+    works out a month for the caller (an admin sees everyone, a member sees
+    only themselves). Backwards compatible: run it *before* pushing the
+    matching code.
+
 ## Adding members to a group
 
 Two ways now:

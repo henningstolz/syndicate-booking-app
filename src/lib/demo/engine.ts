@@ -17,6 +17,8 @@ import {
   type Row,
 } from "./data.ts";
 import { overlayFits, type DemoOverlay } from "./overlay.ts";
+import { computeStatement } from "../costs.ts";
+import { londonDateKey } from "../datetime.ts";
 
 const MIN = 60_000;
 
@@ -354,6 +356,7 @@ class Engine {
     let outcome: Result;
     if (name === "add_flight_entry") outcome = ok(this.addFlight(args));
     else if (name === "void_flight_entry") outcome = ok(this.voidFlight(args));
+    else if (name === "cost_statement") outcome = ok(this.costStatement(args));
     else outcome = ok({ result: "demo" });
     const promise = Promise.resolve(outcome);
     // Enough of the real call's shape for the way the app uses it.
@@ -364,6 +367,64 @@ class Engine {
       maybeSingle() {
         return promise;
       },
+    });
+  }
+
+  // The month's statement for the visitor (Alex, the admin), worked out by the
+  // same calculation the database uses (src/lib/costs.ts; migration 0015).
+  private costStatement(a: Record<string, unknown>) {
+    const match = /^(\d{4})-(\d{2})/.exec(String(a.p_month ?? ""));
+    if (!match || Number(match[1]) < 2000 || Number(match[1]) > 2100 || Number(match[2]) < 1 || Number(match[2]) > 12) {
+      return { result: "month_invalid" };
+    }
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const start = `${match[1]}-${match[2]}-01`;
+    const next = month === 12 ? `${year + 1}-01-01` : `${match[1]}-${String(month + 1).padStart(2, "0")}-01`;
+
+    const rate = this.db.cost_rates
+      .filter((r) => (r.effective_month as string) <= start)
+      .sort((x, y) => String(y.effective_month).localeCompare(String(x.effective_month)) || String(y.created_at).localeCompare(String(x.created_at)))[0];
+
+    const nameOf = (userId: string) =>
+      (this.db.group_members.find((m) => m.user_id === userId)?.display_name as string | null) ?? "Member";
+    const members = this.db.group_members
+      .filter(
+        (m) =>
+          londonDateKey(new Date(m.created_at as string)) < next &&
+          (!m.removed_at || londonDateKey(new Date(m.removed_at as string)) >= start),
+      )
+      .map((m) => ({ userId: m.user_id as string, name: nameOf(m.user_id as string) }));
+
+    const flights = this.db.flight_entries
+      .filter((f) => !f.voided_at && (f.flight_date as string) >= start && (f.flight_date as string) < next)
+      .map((f) => {
+        const chargedTo = ((f.captain_id as string | null) ?? (f.created_by as string));
+        return {
+          id: f.id as string,
+          date: f.flight_date as string,
+          from: f.from_place as string,
+          to: f.to_place as string,
+          chargedTo,
+          chargedName: nameOf(chargedTo),
+          tenths: Math.round((f.block_deci as number) * 10),
+          order: f.brakes_off as string,
+        };
+      });
+
+    const fuelPence = this.db.cost_items
+      .filter((c) => !c.voided_at && (c.incurred_on as string) >= start && (c.incurred_on as string) < next)
+      .reduce((sum, c) => sum + (c.amount_pence as number), 0);
+
+    return computeStatement({
+      month: start,
+      rates: rate
+        ? { feePence: rate.monthly_fee_pence as number, hourlyPence: rate.hourly_rate_pence as number, missing: false }
+        : { feePence: 0, hourlyPence: 0, missing: true },
+      fuelPence,
+      members,
+      flights,
+      viewer: { userId: DEMO_USER.id, isAdmin: true },
     });
   }
 

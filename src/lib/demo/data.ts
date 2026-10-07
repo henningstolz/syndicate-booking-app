@@ -32,6 +32,8 @@ export type DemoDb = {
   flight_entries: Row[];
   invites: Row[];
   notification_preferences: Row[];
+  cost_rates: Row[];
+  cost_items: Row[];
 };
 
 // Columns of each table, so a query that asks for one that does not exist
@@ -58,6 +60,11 @@ export const TABLE_COLUMNS: Record<keyof DemoDb, string[]> = {
   ],
   invites: ["id", "group_id", "role", "label", "created_by", "created_at", "expires_at", "revoked_at", "used_by", "used_at"],
   notification_preferences: ["group_id", "user_id", "event", "enabled", "updated_at"],
+  cost_rates: ["id", "group_id", "effective_month", "monthly_fee_pence", "hourly_rate_pence", "created_by", "created_at"],
+  cost_items: [
+    "id", "group_id", "incurred_on", "category", "description", "amount_pence",
+    "created_by", "created_at", "voided_at", "voided_by", "void_reason",
+  ],
 };
 
 const MIN = 60_000;
@@ -449,6 +456,49 @@ export function buildDb(now: Date, overlay: DemoOverlay): DemoDb {
     removed_at: null,
   }));
 
+  // ------------------------------------------------------------------- costs
+  // The first day of the month `monthsAgo` months back (a UK date).
+  const [thisYear, thisMonth] = today.split("-").map(Number);
+  const monthStart = (monthsAgo: number) => {
+    const index = thisYear * 12 + (thisMonth - 1) - monthsAgo;
+    return `${Math.floor(index / 12)}-${String((index % 12) + 1).padStart(2, "0")}-01`;
+  };
+  const costRates: Row[] = [
+    [14, 11000, 6000],
+    [4, 12000, 6500],
+  ].map(([monthsAgo, fee, hourly], index) => ({
+    id: `demo-r-${index + 1}`,
+    group_id: DEMO_GROUP_ID,
+    effective_month: monthStart(monthsAgo),
+    monthly_fee_pence: fee,
+    hourly_rate_pence: hourly,
+    created_by: DEMO_USER.id,
+    created_at: iso(at(monthStart(monthsAgo), "09:00")),
+  }));
+  const costItems: Row[] = [
+    [-2, "fuel", "Fuel, self-serve pump", 62500],
+    [-9, "fuel", "Fuel, self-serve pump", 71840],
+    [-17, "fuel", "Fuel, self-serve pump", 58900],
+    [-26, "other", "Landing fees", 8750],
+    [-33, "fuel", "Fuel, self-serve pump", 66450],
+    [-41, "fuel", "Fuel, self-serve pump", 73200],
+    [-55, "fuel", "Fuel, self-serve pump", 61100],
+    [-63, "fuel", "Fuel, self-serve pump", 69800],
+    [-71, "other", "Oil and consumables", 9500],
+  ].map(([offset, category, description, amount], index) => ({
+    id: `demo-c-${index + 1}`,
+    group_id: DEMO_GROUP_ID,
+    incurred_on: dayKey(offset as number),
+    category,
+    description,
+    amount_pence: amount,
+    created_by: DEMO_USER.id,
+    created_at: iso(at(dayKey(offset as number), "18:00")),
+    voided_at: null,
+    voided_by: null,
+    void_reason: null,
+  }));
+
   return {
     groups: [group],
     group_members: members,
@@ -458,5 +508,7 @@ export function buildDb(now: Date, overlay: DemoOverlay): DemoDb {
     invites: [],
     // No explicit choices: the demo shows the defaults.
     notification_preferences: [],
+    cost_rates: costRates,
+    cost_items: costItems,
   };
 }

@@ -1,8 +1,10 @@
 # Database setup
 
-Migrations live in `migrations/` as plain SQL. Until we set up the Supabase
-CLI, run them by hand in the Supabase dashboard: **SQL Editor → New query**,
-paste a file's contents, run it — in order, once each.
+Migrations live in `migrations/` as plain SQL. On the **live** project, run
+them by hand in the Supabase dashboard: **SQL Editor → New query**, paste a
+file's contents, run it — in order, once each. On the **test** project,
+`npm run db:migrate` applies them all (and only the new ones next time); try
+every migration there first. See `docs/systems-and-accounts.md`.
 
 1. `0001_init_schema.sql` — tables, indexes, and row-level security
 2. `0002_seed_group.sql` — the real G-BBFD group row

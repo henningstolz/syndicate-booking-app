@@ -20,6 +20,8 @@ where each one is stored.
 | 4 | **Resend** (EU region) | Sends email: sign-up confirmations, the notification emails members choose, and mail you send as `hello@`. | resend.com | API keys: one inside Supabase's SMTP settings, one in Gmail's "send as", one in Vercel for notifications. |
 | 5 | **ImprovMX** | Forwards `hello@blocktime.group` to your personal inbox. | improvmx.com | Account login only. |
 | 6 | **Gmail** (your personal account) | Receives `hello@` mail and sends as it. | gmail.com | Holds the "send as" Resend key. |
+| 8 | **GitHub, a second private repository** (`blocktime-backups`) | Holds the nightly encrypted database backups (as releases). Nothing else. | github.com | A token in the code repository's Actions secrets (`BACKUP_REPO_TOKEN`), and the backup passphrase, which also lives in your password manager. |
+| 9 | **Supabase, a second project** (`blocktime-test`) | The test database: where new changes are tried before they touch the live one. Holds only made-up data. | supabase.com/dashboard | Its connection string is `TEST_DATABASE_URL` in `.env.local` on your Mac. |
 | 7 | **Domain registrar for `blocktime.group`** | Owns the domain name and renews it every year. | _Write down where you registered it_ | Account login only. |
 
 **To fill in yourself** (I can't see these, and they are what you'd lose track
@@ -60,9 +62,9 @@ These depend on the plan you chose, which I can't see. Check each.
 - **Supabase free projects pause after a period of inactivity** and must be
   restored by hand in the dashboard. A paused project takes the whole app down.
   A paid plan avoids this and adds automatic backups.
-- **Backups.** On a free Supabase plan you should not rely on automatic
-  backups. Before real data accumulates, either upgrade or export data
-  regularly.
+- **Backups.** A free Supabase plan has no usable automatic backups, so this
+  project makes its own every night (see "Backups" below). A paid plan would
+  add Supabase's own on top.
 - **Vercel's free (Hobby) plan is for non-commercial use.** Fine for a group
   of friends. If Blocktime ever charges money, move to a paid plan.
 - **Resend's free plan has daily and monthly sending limits.** Plenty for
@@ -77,9 +79,11 @@ These depend on the plan you chose, which I can't see. Check each.
 
 Migrations are plain SQL files in `supabase/migrations/`, numbered in order.
 
-1. Supabase dashboard, then SQL Editor, then New query.
-2. Paste the new file's contents and run it. Each file is run once.
-3. **Do this before pushing code that depends on it.**
+1. **Try it on the test project first:** `npm run db:migrate` (see "The test
+   database"), and use the change in the app locally.
+2. Live project: Supabase dashboard, then SQL Editor, then New query.
+3. Paste the new file's contents and run it. Each file is run once.
+4. **Do this before pushing code that depends on it.**
 
 To check from a terminal that a new column landed (use your real URL and
 publishable key): requesting `…/rest/v1/groups?select=<column>` with the
@@ -148,14 +152,122 @@ The contact address is `CONTACT_EMAIL` in
 whenever it changes, and change it if you add analytics, a new service that
 handles user data, or new personal information.
 
-### Separate testing from live data (recommended before inviting the others)
+### The test database
 
-1. Create a second Supabase project for development.
-2. Run all the migrations in it, in order.
-3. Point `.env.local` on your Mac at the new project, and keep Vercel pointing
-   at the real one.
-4. Add `http://localhost:3000/**` to the new project's Authentication, then
-   URL Configuration, redirect URLs.
+Blocktime has two databases: the **live** one (Supabase project
+`trdtqhkbxssujcwmvham`, which the website uses) and a **test** one (a second,
+free Supabase project, `blocktime-test`) that holds only made-up data. Your
+Mac points at the test one, so trying things locally can never touch real
+flights, costs or members. Only Vercel knows the live one.
+
+**Set it up (once):**
+
+1. In the Supabase dashboard, New project: name `blocktime-test`, region
+   London, and a strong database password (save it in your password manager).
+   The free plan allows two projects.
+2. In the test project: Authentication, then Sign In / Providers, then Email,
+   and **turn off "Confirm email"**, so you can create test accounts without
+   waiting for emails. Under Authentication, then URL Configuration, set the
+   Site URL to `http://localhost:3000` and add `http://localhost:3000/**` to the
+   redirect URLs.
+3. Open `.env.local` on your Mac. The live values that are in it now are also
+   saved in `.env.live`, so nothing is lost. Replace:
+   - `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` with the
+     test project's (Settings, then API),
+   - `SITE_URL` with `http://localhost:3000`,
+   - and add `TEST_DATABASE_URL=` with the test project's connection string
+     (Connect, then Session pooler; put the database password in place of
+     `[YOUR-PASSWORD]`).
+4. Run `npm run db:migrate`. It builds the whole database in the test project
+   from `supabase/migrations`, in order, and remembers what it has applied. It
+   refuses to run against the live project.
+5. `npm run dev`, then sign up two or three test accounts and create a test
+   group (and invite the accounts to it). The demo at `/demo` is the quick way
+   to see the app with data; the test project is for trying real changes.
+
+**From then on, every database change goes through the test project first:**
+add the migration file, run `npm run db:migrate` (test), try it in the app,
+and only then run the same SQL on the live project (see "Run a database
+change"). Email: the test project sends no notification emails, because
+`.env.local` has no `RESEND_API_KEY`.
+
+**If you ever need the live values on your Mac** (for example to look at live
+data locally), they are in `.env.live`. Don't do that casually.
+
+### Backups
+
+**What happens:** every night at about 03:17 UTC, a GitHub job (`Daily
+database backup`, in this repository's Actions tab) copies the whole live
+database, **proves the copy works by restoring it into a throwaway database
+and comparing it with the original** (tables, rules, permissions, row counts),
+encrypts it, and stores it as a release in the private repository
+`blocktime-backups`. It keeps the last 30 days plus the oldest backup of each of
+the last 12 months. It only ever reads the live database. If a night's backup
+fails, GitHub emails you. The same machinery is tested without any real data
+whenever the backup scripts or the migrations change (`Backup self-test`).
+
+**What is in a backup:** everything: all groups' data and the sign-in table
+(emails and password hashes, so everyone can still sign in after a restore).
+That is why the file is encrypted with a passphrase before it leaves the job.
+**Without the passphrase a backup cannot be opened. Keep it in your password
+manager.**
+
+**Set it up (once):**
+
+1. **The database connection.** Supabase dashboard, live project, Connect,
+   **Session pooler**: copy the connection string. (GitHub's machines cannot
+   use the "direct" one.) It contains `[YOUR-PASSWORD]`: that is the database
+   password (Settings, then Database, "Reset database password" if you don't
+   have it; resetting it doesn't affect the website). Put the real password in
+   its place.
+2. **A private repository.** GitHub, New repository, name `blocktime-backups`,
+   **Private**, and tick "Add a README file" (a release needs a first commit).
+3. **A token that can write to only that repository.** GitHub, Settings,
+   Developer settings, Personal access tokens, **Fine-grained tokens**,
+   Generate: resource owner you, repository access "Only select repositories"
+   and choose `blocktime-backups`, permission **Contents: Read and write**,
+   expiry 1 year. Put a reminder in your calendar a week before it expires: when
+   it does, the nightly job starts failing (and emails you).
+4. **A passphrase.** In a terminal: `openssl rand -base64 32`. Save the result
+   in your password manager first.
+5. **Four secrets** in the code repository (`syndicate-booking-app`): Settings,
+   Secrets and variables, Actions, New repository secret:
+   - `BACKUP_DATABASE_URL`: the connection string from step 1
+   - `BACKUP_PASSPHRASE`: from step 4
+   - `BACKUP_REPO_TOKEN`: from step 3
+   - `BACKUP_REPO`: `henningstolz/blocktime-backups`
+6. **First run.** Actions tab, Daily database backup, Run workflow. A green tick
+   means a verified backup now sits in `blocktime-backups`, under Releases.
+
+**Look after it:** the code repository is public, so the job's log is public;
+it is written to print no data (not even row counts). GitHub switches off
+scheduled jobs in a repository with no activity for 60 days, which cannot happen
+while you keep pushing changes, but if you ever stop for two months, check the
+Actions tab. Once a month, glance at the backups repository's Releases: there
+should be one a night.
+
+**Restore (disaster, or a practice drill).** You need `psql`, `pg_dump` and
+`pg_restore` version 17 (on a Mac: `brew install postgresql@17`).
+
+1. Download the newest `backup-….tar.enc` from the backups repository's Releases.
+2. Unpack it (needs the passphrase):
+   `BACKUP_PASSPHRASE='…' scripts/backup/encrypt.sh unpack backup-2026-10-08.tar.enc /tmp/restore`
+3. Create a **new, empty** Supabase project (never restore into the live one;
+   the script refuses a database that already has tables). Use its Session
+   pooler connection string:
+   `scripts/backup/restore.sh '<connection string>' /tmp/restore`
+   It ends with `RESTORE VERIFIED` when the copy matches the original. Add
+   `SHOW_COUNTS=1` in front to see the row counts.
+4. If this is a real recovery, point the website at the new project: in Vercel,
+   replace `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   (Production), redeploy, set the new project's Authentication, then URL
+   Configuration to the live address, and add the new project's SMTP settings
+   (Resend) so sign-up emails work. The notification secret
+   (`notification_worker`) is part of the data and comes back with it.
+
+A good drill once in a while (for example after each big feature): do steps 1
+to 3 into the **test project** (empty it first: delete and recreate the
+project), and sign in.
 
 ### Someone forgot their password
 
@@ -230,8 +342,9 @@ done (and the database change 0013 has been run).
    alias), join with it, then post in the chat as yourself: the alias's inbox
    should get an email (you never get emails about your own actions).
 
-Do **not** put these keys on your Mac (`.env.local`): your local copy shares the
-live database, so sending from there would email real members.
+Do **not** put these keys on your Mac (`.env.local`): your Mac uses the test
+database, and sending from there would email the test accounts for nothing (and
+could email real people if you ever pointed it at live data).
 
 ### Change what members are emailed about
 
@@ -352,6 +465,7 @@ npx tsc --noEmit
 npm run test:db    # checks the database rules in a throwaway Postgres
 ```
 
-You need a `.env.local` with the three variables listed in
-[architecture.md](architecture.md#environments-and-configuration). Remember
-that, until you separate them, local testing writes to the live database.
+You need a `.env.local` with the variables listed in
+[architecture.md](architecture.md#environments-and-configuration), pointing at
+the **test** project (see "The test database"). `npm run db:migrate` brings the
+test project up to date with `supabase/migrations`.

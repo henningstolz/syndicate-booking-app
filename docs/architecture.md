@@ -248,6 +248,7 @@ secrets are committed to Git.
 | --- | --- | --- |
 | `NEXT_PUBLIC_SUPABASE_URL` | Address of the Supabase project | `.env.local` (your Mac) and Vercel |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase's public "publishable" key. Safe to expose; RLS protects the data | `.env.local` and Vercel |
+| `TEST_DATABASE_URL` | Connection string of the TEST project, for `npm run db:migrate` only | `.env.local` only |
 | `SITE_URL` | The site's own address, used in sign-up email links and notification emails | `.env.local` and Vercel (Production and Preview) |
 | `RESEND_API_KEY` | A Resend key that may only send, for the notification emails | Vercel only (not on your Mac) |
 | `NOTIFY_TOKEN` | The long random secret the server uses to claim queued emails; its hash is in `notification_worker` | Vercel only |
@@ -256,10 +257,27 @@ secrets are committed to Git.
 
 `.env.local.example` shows the shape without values.
 
-**Important: development and production share one Supabase database.** When
-you test on your Mac, you write to the real data. This was a deliberate,
-temporary choice; separate it before other members rely on real data (see the
-runbook).
+There are **two Supabase projects**: the live one (set in Vercel) and a test
+one (set in `.env.local` on your Mac, which also has `TEST_DATABASE_URL` for
+`npm run db:migrate`). The test project holds only made-up data. The live
+values are kept in `.env.live` for the rare case they are needed locally. See
+the runbook, "The test database".
+
+## Backups
+
+A GitHub Actions job (`.github/workflows/backup.yml`, nightly) reads the live
+database with `scripts/backup/backup.sh` (`pg_dump` of the `public` schema, plus
+the sign-in tables `auth.users` and `auth.identities`), restores it into a
+throwaway Postgres inside the job with `scripts/backup/restore.sh`, and compares
+the copy with the original using `scripts/backup/fingerprint.sh` (row counts and
+checksums of columns, security policies, constraints, and who can run each
+function or use each table). Only a verified backup is encrypted (AES-256,
+`encrypt.sh`) and stored as a release in the private `blocktime-backups`
+repository; `retention.mjs` keeps 30 daily and 12 monthly. The same scripts are
+run against a pretend database built from the migrations by
+`backup-selftest.yml`, which also checks that a deleted row, a wrong passphrase
+and a non-empty target are all caught. Secrets: `BACKUP_DATABASE_URL`,
+`BACKUP_PASSPHRASE`, `BACKUP_REPO_TOKEN`, `BACKUP_REPO` (Actions secrets).
 
 ## Email
 

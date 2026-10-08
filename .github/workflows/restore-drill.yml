@@ -56,7 +56,10 @@ jobs:
           gh release download "$tag" --repo "$BACKUP_REPO" --pattern '*.tar.enc' --dir /tmp/download
           scripts/backup/encrypt.sh unpack /tmp/download/*.tar.enc /tmp/restore
       - name: Empty the test project
-        run: psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -q -f scripts/db/wipe.sql 2>&1 | grep -v -E 'CONTEXT|DETAIL'
+        run: |
+          psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -q -f scripts/db/wipe.sql > /tmp/wipe.log 2>&1 \
+            || { grep -v -E 'CONTEXT|DETAIL' /tmp/wipe.log; exit 1; }
+          echo "The test project is empty."
       - name: Restore the backup into it and compare with the original
         run: |
           scripts/backup/with-diagnostics.sh bash -c "set -o pipefail; scripts/backup/restore.sh \"\$TEST_DATABASE_URL\" /tmp/restore 2>&1 | grep -v -E 'CONTEXT|DETAIL|INSERT INTO|^COPY'"

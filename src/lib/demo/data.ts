@@ -34,6 +34,7 @@ export type DemoDb = {
   notification_preferences: Row[];
   cost_rates: Row[];
   cost_expenses: Row[];
+  calendar_feeds: Row[];
 };
 
 // Columns of each table, so a query that asks for one that does not exist
@@ -61,6 +62,7 @@ export const TABLE_COLUMNS: Record<keyof DemoDb, string[]> = {
   invites: ["id", "group_id", "role", "label", "created_by", "created_at", "expires_at", "revoked_at", "used_by", "used_at"],
   notification_preferences: ["group_id", "user_id", "event", "enabled", "updated_at"],
   cost_rates: ["id", "group_id", "user_id", "effective_month", "monthly_fee_pence", "hourly_rate_pence", "created_by", "created_at"],
+  calendar_feeds: ["id", "group_id", "user_id", "token", "created_at", "revoked_at"],
   cost_expenses: [
     "id", "group_id", "paid_by", "incurred_on", "description", "amount_pence",
     "created_by", "created_at", "voided_at", "voided_by", "void_reason",
@@ -510,5 +512,7 @@ export function buildDb(now: Date, overlay: DemoOverlay): DemoDb {
     notification_preferences: [],
     cost_rates: costRates,
     cost_expenses: costExpenses,
+    // Nobody has a calendar link in the demo; creating one says it is a demo.
+    calendar_feeds: [],
   };
 }

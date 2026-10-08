@@ -293,3 +293,34 @@ export async function sendRemindersNow(formData: FormData) {
   await flushNotifications();
   back("reminders_queued", `&n=${queued.bookingReminders + queued.aircraftReminders}`);
 }
+
+// ------------------------------------------------------- calendar subscription
+
+const CALENDAR_TAB = "&tab=calendar";
+
+// Create the member's private calendar link for this group (a new one replaces
+// and switches off the old one).
+export async function createCalendarFeed(formData: FormData) {
+  const groupId = text(formData, "groupId");
+  const groupSlug = text(formData, "groupSlug");
+  await blockInDemo(groupSlug, CALENDAR_TAB);
+
+  const supabase = await signedInClient();
+  const { data, error } = await supabase.rpc("create_calendar_feed", { p_group_id: groupId });
+  const result = (data as RpcResult | null)?.result;
+  if (error || result !== "ok") redirect(settingsUrl(groupSlug, "error", CALENDAR_TAB));
+  redirect(settingsUrl(groupSlug, "calendar_created", CALENDAR_TAB));
+}
+
+// Turn the member's calendar link off: the old address stops working at once.
+export async function revokeCalendarFeed(formData: FormData) {
+  const groupId = text(formData, "groupId");
+  const groupSlug = text(formData, "groupSlug");
+  await blockInDemo(groupSlug, CALENDAR_TAB);
+
+  const supabase = await signedInClient();
+  const { data, error } = await supabase.rpc("revoke_calendar_feed", { p_group_id: groupId });
+  const result = (data as RpcResult | null)?.result;
+  if (error || (result !== "ok" && result !== "no_feed")) redirect(settingsUrl(groupSlug, "error", CALENDAR_TAB));
+  redirect(settingsUrl(groupSlug, "calendar_off", CALENDAR_TAB));
+}

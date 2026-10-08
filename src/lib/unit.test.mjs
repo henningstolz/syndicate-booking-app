@@ -9,6 +9,7 @@ import {
 } from "./flight-times.ts";
 import { buildFlightLogPdf } from "./flight-log-pdf.ts";
 import { buildStatementPdf } from "./statement-pdf.ts";
+import { buildIcs, icsTime, icsText, foldLine } from "./ical.ts";
 import { runningTotals } from "./flight-totals.ts";
 import { formatMoney, parsePounds, formatHoursTenths, computeStatement, shiftMonth } from "./costs.ts";
 import { PDFDocument } from "pdf-lib";
@@ -205,6 +206,41 @@ const stmtPages = async (input) => (await PDFDocument.load(await buildStatementP
   eq(await stmtPages(stmtInput([person("Bob", 0)])), 1, "a month with no flights is fine");
   eq(await stmtPages(stmtInput([person("Bob", 3, { payments: [{ date: "Sat 5 Sep", note: "Bank transfer", amount: "-£100.00" }, { date: "Sun 20 Sep", note: "", amount: "-£95.00" }], paymentsTotal: "-£195.00", balanceLabel: "Settled", balance: "£0.00" })])), 1, "a statement with payments received still fits");
   eq(await stmtPages(stmtInput([person("Bob", 120, { payments: [{ date: "Sat 5 Sep", note: "x", amount: "-£1.00" }], paymentsTotal: "-£1.00", balanceLabel: "Still to pay", balance: "£1.00" })])), 3, "...and a long one still paginates with payments at the end");
+}
+
+// --- the calendar subscription file (iCalendar)
+const yes = (cond, label) => eq(Boolean(cond), true, label);
+eq(icsTime("2026-10-10T07:00:00.000Z"), "20261010T070000Z", "times are written in UTC");
+eq(icsTime("2026-10-10T08:00:00+01:00"), "20261010T070000Z", "a time with an offset is converted to UTC");
+eq(icsText("Fly-out; lunch, then home\\ back\nline two"), "Fly-out\\; lunch\\, then home\\\\ back\\nline two", "semicolons, commas, backslashes and line breaks are escaped");
+eq(foldLine("short"), "short", "a short line is left alone");
+{
+  const long = "SUMMARY:" + "a".repeat(200);
+  const folded = foldLine(long);
+  const lines = folded.split("\r\n");
+  eq(lines.every((l) => new TextEncoder().encode(l).length <= 75), true, "folded lines are at most 75 octets");
+  eq(lines.slice(1).every((l) => l.startsWith(" ")), true, "continuation lines start with a space");
+  eq(lines.map((l, i) => (i ? l.slice(1) : l)).join(""), long, "unfolding gives the original");
+  const accents = "DESCRIPTION:" + "é✈".repeat(60);
+  const f2 = foldLine(accents).split("\r\n");
+  eq(f2.map((l, i) => (i ? l.slice(1) : l)).join(""), accents, "folding never splits a multi-byte character");
+  eq(f2.every((l) => new TextEncoder().encode(l).length <= 75), true, "...and still respects the byte limit");
+}
+{
+  const ics = buildIcs({
+    name: "Demo Flying Group bookings",
+    events: [
+      { uid: "booking-1@blocktime.group", start: "2026-10-10T07:00:00Z", end: "2026-10-10T11:00:00Z", summary: "G-DEMO: You", description: "Your booking\nNote: Fly-out lunch, then home", url: "https://blocktime.group/demo/calendar?view=list", stamp: "2026-10-01T09:00:00Z" },
+      { uid: "booking-2@blocktime.group", start: "2026-10-12T07:00:00Z", end: "2026-10-12T09:00:00Z", summary: "G-DEMO: Sam", stamp: "2026-10-02T09:00:00Z" },
+    ],
+  });
+  yes(ics.startsWith("BEGIN:VCALENDAR\r\nVERSION:2.0\r\n") && ics.endsWith("END:VCALENDAR\r\n"), "a calendar with the required wrapper, CRLF line ends");
+  eq(ics.split("BEGIN:VEVENT").length - 1, 2, "one event per booking");
+  yes(ics.includes("UID:booking-1@blocktime.group") && ics.includes("DTSTART:20261010T070000Z") && ics.includes("DTEND:20261010T110000Z") && ics.includes("SUMMARY:G-DEMO: You"), "uid, start, end and summary");
+  yes(ics.includes("DESCRIPTION:Your booking\\nNote: Fly-out lunch\\, then home"), "the description is escaped");
+  yes(ics.includes("X-WR-CALNAME:Demo Flying Group bookings") && ics.includes("REFRESH-INTERVAL;VALUE=DURATION:PT1H"), "a name and a hint to refresh hourly");
+  yes(!ics.includes("\n\n") && ics.split("\r\n").every((l) => !l.includes("\n")), "no stray line breaks inside lines");
+  eq(buildIcs({ name: "Empty", events: [] }).includes("BEGIN:VEVENT"), false, "no bookings is a valid, empty calendar");
 }
 
 console.log(`${count} unit checks passed`);

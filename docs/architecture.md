@@ -115,6 +115,7 @@ your groups, or to `/pending` if you have none.
 | `/<group>/tech-log/pdf?month=YYYY-MM` | The monthly flight log as an A4 landscape PDF (route handler, members only). Built by `src/lib/flight-log-pdf.ts` with the `pdf-lib` library |
 | `/<group>/costs` | Hours and costs, a month at a time (`?month=YYYY-MM`): your statement with the flights behind it, the month's group totals; for admins everyone's statements, the group rates and members' own rates (with history), the expenses members paid, and closing or reopening the month |
 | `/<group>/costs/pdf` | A month's cost statement as an A4 PDF (`?month=YYYY-MM`): your own, or for admins `&member=<id>` for one member or `&member=all` for everyone with a summary page. Made from `cost_statement()`, so a closed month prints the saved figures; an open month is marked provisional. A member can only ever get their own (a request for another member's is refused) |
+| `/cal/<secret>.ics` | A member's calendar subscription (iCalendar): every confirmed booking of their group from 60 days back, their own marked "You", with who booked and the note. Public address, no login: the 64-character secret is the credential, answered by `calendar_feed()`; unknown or switched-off links get a 404 |
 | `/<group>/reports` | Upcoming bookings, and "Bookings per member" donut chart |
 | `/<group>/aircraft` | Renewal and check due dates; admins can edit |
 | `/<group>/members` | Read-only member list |
@@ -138,6 +139,7 @@ is scoped to a group.
 | `squawks` | The chat's messages: author, message, time | The table keeps its original name; only the screens say "Chat". |
 | `flight_entries` | The flight log: date, from/to, category (PV/TG/PT), captain, fuel in each tank, oil, the four clock times, defects, who entered it | **Never edited or deleted** (like paper): an admin *voids* a wrong entry with a reason, and it stops counting. Block and flight minutes and their decimal hours are generated columns, so every screen agrees. Each entry also remembers the check limit that applied when it was logged (`check_limit_hours`), so "hours to check" stays right after a check resets the limit. A database rule makes overlapping flights impossible. |
 | `cost_rates` | The fixed monthly share and the hourly rate (whole pence), each valid from a month. A row with no `user_id` is the group's default; a row with a `user_id` is that member's own (an empty part follows the group's, 0 is a real zero) | Append-only: a new row for a month replaces older ones from then on, old rows stay as history. A statement uses the rates in force for ITS month. Members read the group's rows and their own, never other members'. |
+| `calendar_feeds` | A member's private calendar link for a group: the secret (64 hex characters), created, revoked | A member reads only their own row (RLS); written only by `create_calendar_feed` (revokes the old one) and `revoke_calendar_feed`. Stops working when the member leaves the group. The secret is stored as is (members need to see it again); it is in the encrypted backups only. |
 | `cost_payments` | A payment recorded against a member and a CLOSED month: amount in whole pence (positive = the member paid the group, negative = paid back), the date, an optional note | Admins read all, a member reads their own (RLS); written only by `record_cost_payment` / `void_cost_payment`; voided with a reason, never edited. A member's balance is their statement total minus their payments. |
 | `cost_month_closures` | A closed month: the statement saved exactly as it stood (everyone's numbers, flights and expenses, as JSON), who closed it, when, an optional note, and, if reopened, who/when/why | Admins read it (RLS); written only by `close_cost_month` / `reopen_cost_month`. One open closure per group and month; a reopened one stays as history. |
 | `cost_expenses` | Something a member paid for the aircraft out of their own pocket: who paid, date, description, amount (whole pence) | Admins and the payer read it (RLS); voided with a reason, never edited. Credited on the payer's statement for the month of its date. (The earlier shared-fuel table `cost_items` was removed in 0017.) |
@@ -183,7 +185,7 @@ every migration to a throwaway in-memory Postgres; the pure helpers in
 `npm test` runs both. `npm run test:demo` crawls every demo page on a running dev server. Run them after changing a migration or those helpers.
 
 The database change history is the numbered files in `supabase/migrations/`
-(0001 to 0020).
+(0001 to 0021).
 
 ## Code map
 
@@ -508,6 +510,7 @@ either work in the demo (see `engine.ts`) or are blocked there the way
 
 - Structured defects (open/resolved, rectification, engineer sign-off): defects are free text on a flight entry for now.
 - On the PDF: the lower defects/rectification/engineer section of the paper sheet (not printed).
+- Calendar subscription: it is read-only (bookings are made in the app); two-way sync and a choice between "everyone's bookings" and "mine only" are not built.
 - Costs, chosen to keep on the list: **payment reminders** (an email to members who haven't paid a closed month, by hand or automatically after some days) and **bank details** on the statement and its email. Also: a visible history of voided payments, charging a pilot extra for something specific (landing fees by flight), pro-rata fixed shares for part months, carrying a late correction into the next month as an adjustment (today a closed month is reopened instead).
 - A daily summary email instead of one email per event.
 - **Pilot currency reminders** (rating, medical, licence, 90-day currency), chosen to keep on the list: needs each pilot's own dates stored.

@@ -114,6 +114,15 @@ export default function PrivacyPage() {
               emails still to be sent to you.
             </li>
             <li>
+              <strong>Your calendar link:</strong> if you create one under
+              Settings, a secret web address that shows your group&apos;s
+              bookings (times, who booked, notes) to whoever has it. You can
+              replace or switch it off at any time. If you add it to a
+              calendar app, that calendar provider (for example Apple, Google
+              or Microsoft) fetches and keeps a copy of those bookings under
+              its own terms.
+            </li>
+            <li>
               <strong>Technical data:</strong> like any website, the hosting
               provider sees your IP address and browser type when you load a
               page, and keeps short-lived server logs to keep the service

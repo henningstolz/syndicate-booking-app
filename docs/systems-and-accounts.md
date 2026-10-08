@@ -467,6 +467,27 @@ flight changes the charge), then the rates and expenses listed for that month.
 If the month is closed, the page shows the saved figures; the yellow box says
 what has changed since.
 
+### Calendar subscription
+
+Every member can add the group's bookings to their own calendar app: **Settings,
+then the Calendar tab, then Create my calendar link.** The link is private and
+personal (a long secret address, `/cal/<secret>.ics`). It shows every booking of
+the aircraft with who booked it and the note, and the member's own bookings are
+marked "You". Cancelled bookings drop out at the calendar's next refresh.
+
+- **Adding it:** "Open in my calendar app" (iPhone, Mac), or paste the link into
+  Google Calendar (Other calendars, From URL) or Outlook (Subscribe from web).
+- **How fast it updates** is decided by the calendar app, not Blocktime: about an
+  hour for Apple and Outlook, up to a day for Google.
+- **Keep it private:** anyone with the link can see the bookings, names and notes.
+  **Make a new link** replaces it and stops the old one at once; **Turn it off**
+  stops it. A member who leaves (or is removed from) the group loses it
+  automatically. Nothing can be changed through the calendar: bookings are still
+  made and cancelled in Blocktime.
+- **If someone says it doesn't work:** open the link in a browser. A calendar
+  file downloads, or a plain "not found" page means the link was replaced or
+  turned off, so they should copy the current one from Settings.
+
 ### Reminders
 
 Members get a booking reminder the evening before each of their bookings, and

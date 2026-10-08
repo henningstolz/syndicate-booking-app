@@ -118,6 +118,13 @@ every migration there first. See `docs/systems-and-accounts.md`.
     previous version moves to the internal `cost_statement_base()`). Backwards
     compatible. Try it on the test project first.
 
+21. `0021_calendar_feeds.sql` — calendar subscription: `calendar_feeds` (a private
+    link per member and group; a member reads only their own), `create_calendar_feed()`
+    / `revoke_calendar_feed()`, and `calendar_feed(token)`, the one thing the public
+    feed address calls (callable without login; answers only for an active link of
+    a current member). Backwards compatible: nothing live uses it yet. Try it on
+    the test project first.
+
 ## Adding members to a group
 
 Two ways now:

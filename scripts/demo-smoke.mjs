@@ -24,6 +24,7 @@ const pages = [
   "/demo/members",
   "/demo/settings",
   "/demo/settings?tab=notifications",
+  "/demo/settings?tab=calendar",
   "/demo/costs",
   `/demo/costs?month=${lastMonth}`,
 ];
@@ -58,6 +59,13 @@ for (const [what, query] of [["a member's statement", `month=${month}`], ["every
     `the demo's cost statement PDF downloads (${what})`,
     `status ${statement.status}`,
   );
+}
+
+// The calendar subscription address: an unknown link gets a polite 404, never an error or any data.
+for (const file of [`${"0".repeat(64)}.ics`, "nonsense.ics", `${"A".repeat(64)}.ics`]) {
+  const feed = await fetch(`${BASE}/cal/${file}`, { redirect: "manual" });
+  const text = await feed.text();
+  check(feed.status === 404 && !text.includes("BEGIN:VCALENDAR"), `an unknown calendar link (${file.slice(0, 12)}…) is refused`, `status ${feed.status}`);
 }
 
 // The demo is switched on by the web address alone. A visitor who sends the

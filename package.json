@@ -11,7 +11,8 @@
     "test:unit": "node --no-warnings src/lib/unit.test.mjs && node --no-warnings src/lib/demo/demo.test.mjs && node --no-warnings src/lib/notify/notify.test.mjs && node scripts/backup/retention.test.mjs",
     "test": "npm run test:unit && npm run test:db",
     "test:demo": "node scripts/demo-smoke.mjs",
-    "db:migrate": "node scripts/db/migrate.mjs"
+    "db:migrate": "node scripts/db/migrate.mjs",
+    "db:reset-test": "node scripts/db/reset-test.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

@@ -1,0 +1,68 @@
+name: Restore drill (into the TEST project)
+
+# Practice for a real disaster: takes the newest nightly backup, EMPTIES the test
+# Supabase project, restores the backup into it, and checks the copy matches the
+# original. Afterwards the test project holds a copy of the REAL data (emails
+# included): empty it again with `npm run db:reset-test -- --yes` and rebuild it
+# with `npm run db:migrate`.
+#
+# Started by hand only. It refuses to run against the live project.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "empty the test project" to confirm'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  drill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+      GH_TOKEN: ${{ secrets.BACKUP_REPO_TOKEN }}
+      BACKUP_REPO: ${{ secrets.BACKUP_REPO }}
+    steps:
+      - name: Safety checks
+        run: |
+          if [ "${{ inputs.confirm }}" != "empty the test project" ]; then
+            echo "Confirmation text did not match. Nothing was changed."; exit 1
+          fi
+          missing=""
+          [ -n "$TEST_DATABASE_URL" ] || missing="$missing TEST_DATABASE_URL"
+          [ -n "$BACKUP_PASSPHRASE" ] || missing="$missing BACKUP_PASSPHRASE"
+          [ -n "$GH_TOKEN" ] || missing="$missing BACKUP_REPO_TOKEN"
+          [ -n "$BACKUP_REPO" ] || missing="$missing BACKUP_REPO"
+          if [ -n "$missing" ]; then echo "These secrets are not set:$missing"; exit 1; fi
+          case "$TEST_DATABASE_URL" in
+            *trdtqhkbxssujcwmvham*) echo "REFUSING: TEST_DATABASE_URL points at the LIVE project."; exit 1 ;;
+          esac
+          echo "Safety checks passed."
+      - uses: actions/checkout@v4
+      - name: Install the Postgres 17 tools
+        run: |
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y postgresql-client-17
+          echo /usr/lib/postgresql/17/bin >> "$GITHUB_PATH"
+      - name: Fetch and open the newest backup
+        run: |
+          tag="$(gh release list --repo "$BACKUP_REPO" --limit 1 --json tagName -q '.[0].tagName')"
+          [ -n "$tag" ] || { echo "No backups found"; exit 1; }
+          echo "Using $tag"
+          gh release download "$tag" --repo "$BACKUP_REPO" --pattern '*.tar.enc' --dir /tmp/download
+          scripts/backup/encrypt.sh unpack /tmp/download/*.tar.enc /tmp/restore
+      - name: Empty the test project
+        run: psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -q -f scripts/db/wipe.sql 2>&1 | grep -v -E 'CONTEXT|DETAIL'
+      - name: Restore the backup into it and compare with the original
+        run: |
+          scripts/backup/with-diagnostics.sh bash -c "set -o pipefail; scripts/backup/restore.sh \"\$TEST_DATABASE_URL\" /tmp/restore 2>&1 | grep -v -E 'CONTEXT|DETAIL|INSERT INTO|^COPY'"
+      - name: Spot checks
+        run: |
+          psql "$TEST_DATABASE_URL" -At -c "select 'people who can sign in: ' || (count(*) > 0)::text from auth.users"
+          psql "$TEST_DATABASE_URL" -At -c "select 'anonymous visitors may run cost_statement: ' || has_function_privilege('anon', 'public.cost_statement(uuid,date)', 'execute')::text"
+          psql "$TEST_DATABASE_URL" -At -c "select 'signed-in users may run cost_statement: ' || has_function_privilege('authenticated', 'public.cost_statement(uuid,date)', 'execute')::text"
+          echo "::notice title=The test project now holds a copy of the real data::Empty it again with: npm run db:reset-test -- --yes   then rebuild with: npm run db:migrate"

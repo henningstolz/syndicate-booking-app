@@ -28,7 +28,9 @@ if [ "$flag" = "--with-auth-schema" ]; then
 fi
 # People first (the app's tables point at them), then the app's own data.
 psql_q -f "$in/auth-data.sql"
-pg_restore --no-owner --exit-on-error --dbname="$url" "$in/public.dump"
+# The 'public' schema already exists in every database, so leave out the step that creates it.
+pg_restore --list "$in/public.dump" | grep -v -E ' SCHEMA - public ' > "$in/restore-list.txt"
+pg_restore --no-owner --exit-on-error --use-list="$in/restore-list.txt" --dbname="$url" "$in/public.dump"
 
 # Prove it: the restored copy must look exactly like the original.
 "$here/fingerprint.sh" "$url" all > "$in/fingerprint-restored.txt"

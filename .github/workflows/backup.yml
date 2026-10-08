@@ -54,6 +54,7 @@ jobs:
         run: |
           sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
           sudo apt-get install -y postgresql-client-17
+          echo /usr/lib/postgresql/17/bin >> "$GITHUB_PATH"
 
       - name: Copy the live database (read only)
         run: scripts/backup/backup.sh "$DATABASE_URL" /tmp/backup 2>&1 | grep -v -E 'CONTEXT|DETAIL|^-rw'

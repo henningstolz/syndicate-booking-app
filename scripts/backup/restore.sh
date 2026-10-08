@@ -28,8 +28,12 @@ if [ "$flag" = "--with-auth-schema" ]; then
 fi
 # People first (the app's tables point at them), then the app's own data.
 psql_q -f "$in/auth-data.sql"
-# The 'public' schema already exists in every database, so leave out the step that creates it.
-pg_restore --list "$in/public.dump" | grep -v -E ' SCHEMA - public ' > "$in/restore-list.txt"
+# Two kinds of entry are left out:
+#  - the step that creates the 'public' schema (it exists in every database), and
+#  - "default privileges" for Supabase's own admin role, which the database user is
+#    not allowed to change (they come with every Supabase project anyway). The
+#    permissions on the actual tables and functions are restored, and checked.
+pg_restore --list "$in/public.dump" | grep -v -E ' SCHEMA - public | DEFAULT ACL ' > "$in/restore-list.txt"
 pg_restore --no-owner --exit-on-error --use-list="$in/restore-list.txt" --dbname="$url" "$in/public.dump"
 
 # Prove it: the restored copy must look exactly like the original.

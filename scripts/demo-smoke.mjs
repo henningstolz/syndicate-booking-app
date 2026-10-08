@@ -7,7 +7,8 @@
 //   npm run test:demo      (in another; optional: BASE=https://blocktime.group)
 const BASE = process.env.BASE ?? "http://localhost:3000";
 const month = new Date().toISOString().slice(0, 7);
-const lastMonth = (() => { const d = new Date(); d.setUTCMonth(d.getUTCMonth() - 1, 1); return d.toISOString().slice(0, 7); })();
+const monthsAgo = (n) => { const d = new Date(); d.setUTCMonth(d.getUTCMonth() - n, 1); return d.toISOString().slice(0, 7); };
+const lastMonth = monthsAgo(1);
 
 const pages = [
   "/demo",
@@ -48,6 +49,16 @@ check(
   "the demo's monthly PDF downloads",
   `status ${pdf.status}`,
 );
+
+for (const [what, query] of [["a member's statement", `month=${month}`], ["everyone's statements", `month=${month}&member=all`], ["a closed month's statement", `month=${monthsAgo(3)}`]]) {
+  const statement = await fetch(`${BASE}/demo/costs/pdf?${query}`, { redirect: "manual" });
+  const statementBytes = new Uint8Array(await statement.arrayBuffer());
+  check(
+    statement.status === 200 && statement.headers.get("content-type") === "application/pdf" && String.fromCharCode(...statementBytes.slice(0, 5)) === "%PDF-",
+    `the demo's cost statement PDF downloads (${what})`,
+    `status ${statement.status}`,
+  );
+}
 
 // The demo is switched on by the web address alone. A visitor who sends the
 // demo header to a REAL group's address must still get the real app (here:

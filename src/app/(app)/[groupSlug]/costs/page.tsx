@@ -258,7 +258,14 @@ export default async function CostsPage({
 
       {/* ---------------------------------------------------- your statement */}
       <section className="flex flex-col gap-2">
-        <h2 className={sectionTitle}>Your statement</h2>
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className={sectionTitle}>Your statement</h2>
+          {me && (
+            <a href={`/${groupSlug}/costs/pdf?month=${monthKey}`} className="text-xs text-zinc-600 underline underline-offset-4">
+              Download PDF
+            </a>
+          )}
+        </div>
         <div className={`${card} flex flex-col gap-3 p-4`}>
           {!me ? (
             <p className="text-sm text-zinc-600">
@@ -362,9 +369,17 @@ export default async function CostsPage({
         <>
           {/* ---------------------------------------------------- everyone */}
           <section className="flex flex-col gap-2">
-            <h2 className={sectionTitle}>Everyone, {formatMonthKey(monthKey)}</h2>
+            <div className="flex items-baseline justify-between gap-3">
+              <h2 className={sectionTitle}>Everyone, {formatMonthKey(monthKey)}</h2>
+              <a
+                href={`/${groupSlug}/costs/pdf?month=${monthKey}&member=all`}
+                className="text-xs text-zinc-600 underline underline-offset-4"
+              >
+                Download everyone (PDF)
+              </a>
+            </div>
             <div className={`${card} overflow-x-auto`}>
-              <table className="w-full min-w-[480px] text-sm">
+              <table className="w-full min-w-[520px] text-sm">
                 <thead>
                   <tr className="border-b border-zinc-200 text-left text-xs text-zinc-500">
                     <th className="px-3 py-2 font-medium">Member</th>
@@ -373,6 +388,7 @@ export default async function CostsPage({
                     <th className="px-3 py-2 text-right font-medium">Flying</th>
                     <th className="px-3 py-2 text-right font-medium">Expenses</th>
                     <th className="px-3 py-2 text-right font-medium">Total</th>
+                    <th className="px-3 py-2 font-medium"><span className="sr-only">PDF</span></th>
                   </tr>
                 </thead>
                 <tbody className="font-mono text-zinc-900">
@@ -388,6 +404,15 @@ export default async function CostsPage({
                       <td className="px-3 py-2 text-right">{formatMoney(member.hourly_pence)}</td>
                       <td className="px-3 py-2 text-right">{formatMoney(-member.credit_pence)}</td>
                       <td className="px-3 py-2 text-right font-semibold">{formatMoney(member.total_pence)}</td>
+                      <td className="px-3 py-2 text-right font-sans text-xs">
+                        <a
+                          href={`/${groupSlug}/costs/pdf?month=${monthKey}&member=${member.user_id}`}
+                          className="text-zinc-600 underline underline-offset-4"
+                          aria-label={`PDF statement for ${member.name}`}
+                        >
+                          PDF
+                        </a>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -399,6 +424,7 @@ export default async function CostsPage({
                     <td className="px-3 py-2 text-right">{formatMoney(sum((m) => m.hourly_pence))}</td>
                     <td className="px-3 py-2 text-right">{formatMoney(-sum((m) => m.credit_pence))}</td>
                     <td className="px-3 py-2 text-right font-semibold">{formatMoney(sum((m) => m.total_pence))}</td>
+                    <td />
                   </tr>
                 </tfoot>
               </table>

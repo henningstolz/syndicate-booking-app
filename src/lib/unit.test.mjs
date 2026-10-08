@@ -8,6 +8,7 @@ import {
   formatMonthKey, monthKeysDescending,
 } from "./flight-times.ts";
 import { buildFlightLogPdf } from "./flight-log-pdf.ts";
+import { buildStatementPdf } from "./statement-pdf.ts";
 import { runningTotals } from "./flight-totals.ts";
 import { formatMoney, parsePounds, formatHoursTenths, computeStatement, shiftMonth } from "./costs.ts";
 import { PDFDocument } from "pdf-lib";
@@ -181,5 +182,27 @@ const longNote = await open([sample(1, { defects: "word ".repeat(600) })]);
 eq(longNote.getPageCount(), 1, "a very long defect note stays on one page");
 const manyBreaks = await open([sample(1, { defects: "x\n".repeat(1000) }), sample(2)]);
 eq(manyBreaks.getPageCount() <= 2, true, "a note of a thousand line breaks cannot run off the page");
+
+// --- the cost statement PDF: A4 portrait, one statement per member, grows pages
+const person = (name, flightCount = 3, o = {}) => ({
+  name, notAMember: false, fixedLabel: "Fixed monthly share", fixed: "£120.00",
+  flyingLabel: `Flying: ${flightCount} block hours at £65.00 an hour`, flying: `£${flightCount * 65}.00`,
+  flights: Array.from({ length: flightCount }, (_, i) => ({ date: `Thu ${i + 1} Oct`, route: "EGLM to EGTK", hours: "1.0", charge: "£65.00" })),
+  expenses: [], expensesTotal: "", totalLabel: "Total for October 2026", total: `£${120 + flightCount * 65}.00`, note: "", ...o,
+});
+const stmtInput = (people, o = {}) => ({ groupName: "G-BBFD Syndicate", registration: "G-BBFD", monthLabel: "October 2026", printedAt: "8 Oct 2026, 14:05", closed: true, status: "Final. Closed on 2 Nov 2026 by Alex.", people, ...o });
+const stmtPages = async (input) => (await PDFDocument.load(await buildStatementPdf(input))).getPageCount();
+{
+  const one = await PDFDocument.load(await buildStatementPdf(stmtInput([person("Bob")])));
+  eq([one.getPageCount(), Math.round(one.getPage(0).getWidth()), Math.round(one.getPage(0).getHeight())], [1, 595, 842], "a statement is one A4 portrait page");
+  eq(await stmtPages(stmtInput([person("Bob", 120)])), 3, "a month with 120 flights runs onto more pages (120 lines of 12pt about 3 pages)");
+  eq(await stmtPages(stmtInput([person("Alex"), person("Bob"), person("Cara")])), 3, "one page per member");
+  const summary = { rows: [{ name: "Alex", hours: "6.7", fixed: "£120.00", flying: "£435.50", expenses: "£0.00", total: "£555.50" }], totals: { name: "To collect", hours: "6.7", fixed: "£120.00", flying: "£435.50", expenses: "£0.00", total: "£555.50" } };
+  eq(await stmtPages(stmtInput([person("Alex"), person("Bob")], { summary })), 3, "the everyone download starts with a summary page");
+  const many = { ...summary, rows: Array.from({ length: 90 }, (_, i) => ({ ...summary.rows[0], name: `Member ${i}` })) };
+  eq((await stmtPages(stmtInput([], { summary: many }))) > 1, true, "a long summary table runs onto a second page");
+  eq(await stmtPages(stmtInput([person("Zoë 🙂 Müller", 2, { expenses: [{ date: "Sat 3 Oct", description: "Fuel at Sywell — très cher ✈ " + "x".repeat(300), amount: "-£184.00" }], expensesTotal: "-£184.00", note: "Your own rates apply: £0.00 a month and £90.00 an hour." })], { closed: false, status: "Provisional: the month is still running, so these figures can still change." })), 1, "characters the font lacks and very long text do not break the statement");
+  eq(await stmtPages(stmtInput([person("Bob", 0)])), 1, "a month with no flights is fine");
+}
 
 console.log(`${count} unit checks passed`);

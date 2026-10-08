@@ -430,6 +430,13 @@ Each member sees **their own statement**: the fixed share, flying (with every
 flight listed), expenses they paid, and the total. Admins also see everyone's.
 Use the month arrows to go back.
 
+**PDF statements:** **Download PDF** above a statement gives an A4 PDF of it. A
+closed month prints the saved, final figures and says so; an open month is marked
+"Provisional". Admins also get **PDF** next to each member in the Everyone table
+(to send to that member) and **Download everyone (PDF)**: a summary page with
+the total to collect, then one page per member. Nothing is emailed yet; the PDFs
+are for sending yourself or printing.
+
 How the numbers are worked out: all amounts are whole pence. Each flight is
 charged hours times the hourly rate that applies to the person it is charged
 to, rounded half up to the penny. Anyone who was in the group at any point in a

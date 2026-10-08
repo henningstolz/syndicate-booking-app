@@ -114,6 +114,7 @@ your groups, or to `/pending` if you have none.
 | `/<group>/tech-log` | The flight log: one entry per flight added with "+ Entry", with calculated flight/block time and running airframe hours. "Monthly PDF" picks a month and downloads it |
 | `/<group>/tech-log/pdf?month=YYYY-MM` | The monthly flight log as an A4 landscape PDF (route handler, members only). Built by `src/lib/flight-log-pdf.ts` with the `pdf-lib` library |
 | `/<group>/costs` | Hours and costs, a month at a time (`?month=YYYY-MM`): your statement with the flights behind it, the month's group totals; for admins everyone's statements, the group rates and members' own rates (with history), the expenses members paid, and closing or reopening the month |
+| `/<group>/costs/pdf` | A month's cost statement as an A4 PDF (`?month=YYYY-MM`): your own, or for admins `&member=<id>` for one member or `&member=all` for everyone with a summary page. Made from `cost_statement()`, so a closed month prints the saved figures; an open month is marked provisional. A member can only ever get their own (a request for another member's is refused) |
 | `/<group>/reports` | Upcoming bookings, and "Bookings per member" donut chart |
 | `/<group>/aircraft` | Renewal and check due dates; admins can edit |
 | `/<group>/members` | Read-only member list |
@@ -492,7 +493,7 @@ either work in the demo (see `engine.ts`) or are blocked there the way
 
 - Structured defects (open/resolved, rectification, engineer sign-off): defects are free text on a flight entry for now.
 - On the PDF: the lower defects/rectification/engineer section of the paper sheet (not printed).
-- Costs: a PDF or emailed statement per member, tracking who has paid, charging a pilot extra for something specific (landing fees by flight), pro-rata fixed shares for part months, carrying a late correction into the next month as an adjustment (today a closed month is reopened instead).
+- Costs: emailing the statement PDF to members (the PDF can be downloaded today), tracking who has paid, charging a pilot extra for something specific (landing fees by flight), pro-rata fixed shares for part months, carrying a late correction into the next month as an adjustment (today a closed month is reopened instead).
 - Email notifications for bookings, cancellations and tech log posts.
 - A daily summary email instead of one email per event.
 - Pilots' personal currency reminders (rating, medical, licence, 90-day currency): needs each pilot's own dates stored.

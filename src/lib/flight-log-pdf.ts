@@ -106,7 +106,7 @@ const COLUMNS: Column[] = [
 // The standard PDF fonts only know Western European characters; anything else
 // (an emoji in a defect note, a non-Latin name) becomes "?" instead of making
 // the whole PDF fail.
-function makeSafe(font: PDFFont) {
+export function makeSafe(font: PDFFont) {
   const supported = new Set(font.getCharacterSet());
   return (text: string) =>
     Array.from(text.replace(/\r\n?/g, "\n"))
@@ -116,7 +116,7 @@ function makeSafe(font: PDFFont) {
 
 // Splits text into lines no wider than maxWidth, honouring line breaks and
 // breaking words that are longer than a line.
-function wrap(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
+export function wrap(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
   const lines: string[] = [];
   for (const paragraph of text.split("\n")) {
     let line = "";

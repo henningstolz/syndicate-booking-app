@@ -265,9 +265,24 @@ should be one a night.
    (Resend) so sign-up emails work. The notification secret
    (`notification_worker`) is part of the data and comes back with it.
 
-A good drill once in a while (for example after each big feature): do steps 1
-to 3 into the **test project** (empty it first: delete and recreate the
-project), and sign in.
+**The drill (do it after big changes, or a few times a year).** It restores the
+newest backup into the **test project** and checks the copy matches the live
+database. It needs one more Actions secret, `TEST_DATABASE_URL` (the same
+Session pooler string as in `.env.local`). Then: Actions tab, **Restore drill
+(into the TEST project)**, Run workflow, and type `empty the test project`. It
+empties the test project first, restores, and compares everything (tables,
+security rules, who may call which function, row counts). It refuses to run
+against the live project. First done 2026-10-08 (it needed three fixes that
+only a real Supabase project could show: Supabase's own default-permission
+entries, and its automatic grants of new functions to anonymous visitors).
+
+Afterwards the test project holds a **copy of the real data**. Sign in locally
+with your real account if you want to see that a recovery works, then empty it:
+
+```bash
+npm run db:reset-test -- --yes   # empties the test project (refuses the live one)
+npm run db:migrate               # rebuilds it, empty
+```
 
 ### Someone forgot their password
 

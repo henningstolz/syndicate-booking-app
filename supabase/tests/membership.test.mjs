@@ -126,4 +126,26 @@ check("member cannot UPDATE own role directly", (await q("bob", "update public.g
 check("member cannot DELETE members directly", (await q("bob", "delete from public.group_members where user_id=$1 returning id", [U.cara])).length, 0);
 check("cannot self-insert into an existing group as admin", (await q("dan", "insert into public.group_members (group_id,user_id,role) values ($1,$2,'admin')", [G, U.dan])).thrown?.includes("row-level security") ?? false, true);
 
+// --- joining is only possible through accept_invite -----------------------
+// (The old "join via any valid invite" insert policy never checked WHICH invite
+// the person held, so anyone who knew a group's id could join while any invite
+// for that role was open. Cleaned up in 0017.)
+await db.exec("reset role");
+await h.addUsers("eve");
+await as("alice");
+const open1 = await mk("left open");
+await db.exec("reset role");
+check("an outsider cannot insert themselves into a group that has an open invite", (await q("eve", "insert into public.group_members (group_id,user_id,role,display_name) values ($1,$2,'member','Eve')", [G, U.eve])).thrown?.includes("row-level security") ?? false, true);
+check("...nor as admin", (await q("eve", "insert into public.group_members (group_id,user_id,role,display_name) values ($1,$2,'admin','Eve')", [G, U.eve])).thrown?.includes("row-level security") ?? false, true);
+await db.exec("reset role");
+check("so eve is still not a member", (await db.query("select count(*)::int n from public.group_members where user_id=$1", [U.eve])).rows[0].n, 0);
+check("but the invite link works", result(await rpc("eve", "accept_invite", open1, "Eve")), "ok");
+// Creating a group and becoming its first admin is still allowed (the app does it with two inserts).
+const NEW = "99999999-9999-9999-9999-999999999999";
+check("anyone can still create a group", (await q("dan", "insert into public.groups (id, slug, name, aircraft_registration) values ($1,'dans','Dan Group','G-DAN')", [NEW])).thrown ?? "ok", "ok");
+check("...and claim it as its first admin", (await q("dan", "insert into public.group_members (group_id,user_id,role,display_name) values ($1,$2,'admin','Dan')", [NEW, U.dan])).thrown ?? "ok", "ok");
+check("...but not claim an admin seat in it once it has a member", (await q("eve", "insert into public.group_members (group_id,user_id,role,display_name) values ($1,$2,'admin','Eve')", [NEW, U.eve])).thrown?.includes("row-level security") ?? false, true);
+await db.exec("reset role");
+check("the old helper functions are gone", (await db.query("select to_regprocedure('public.mark_invite_used(uuid)') is null a, to_regprocedure('public.has_valid_invite(uuid,text)') is null b")).rows[0], { a: true, b: true });
+
 h.finish();

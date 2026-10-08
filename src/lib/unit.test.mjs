@@ -107,7 +107,8 @@ const row = (s, id) => s.members.find((m) => m.user_id === id);
   const s = computeStatement(inputOf());
   eq(s.members.map((m) => [m.name, m.fixed_pence, m.hourly_pence, m.credit_pence, m.total_pence]),
     [["Alice", 12000, 0, 0, 12000], ["Bob", 12000, 9750, 0, 21750], ["Cara", 12000, 11050, 0, 23050]], "the worked example: fixed share + hours x group rate");
-  eq([s.hours_tenths, s.credits_pence, s.fuel_pence], [32, 0, 0], "month totals");
+  eq([s.hours_tenths, s.credits_pence], [32, 0], "month totals");
+  eq(Object.keys(s).includes("fuel_pence") || Object.keys(s.members[0]).includes("fuel_pence"), false, "no leftover fuel fields");
   eq(s.flights.map((f) => [f.user_id, f.hours_tenths, f.pence]), [["b", 15, 9750], ["c", 17, 11050]], "flights with their charge");
   eq(s.members.map((m) => m.custom_rates), [false, false, false], "nobody has their own rates");
 }

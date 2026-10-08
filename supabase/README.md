@@ -86,6 +86,14 @@ every migration there first. See `docs/systems-and-accounts.md`.
     statement still returns a `fuel_pence` of 0. Run it *before* pushing the
     matching code.
 
+17. `0017_cleanup_old_join_policy_and_fuel_pot.sql` — removes what nothing uses
+    any more: the old direct-insert "join via an open invite" policy (it never
+    checked which invite the person held, so anyone who knew a group's id could
+    join while an invite was open — a real gap, closed here), `has_valid_invite`,
+    `mark_invite_used`, the pooled-fuel table `cost_items` with its functions,
+    and the constant `fuel_pence` keys in `cost_statement()`. Backwards
+    compatible. Try it on the test project first, then run it on the live one.
+
 ## Adding members to a group
 
 Two ways now:

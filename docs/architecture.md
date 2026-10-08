@@ -134,7 +134,7 @@ is scoped to a group.
 | `squawks` | The chat's messages: author, message, time | The table keeps its original name; only the screens say "Chat". |
 | `flight_entries` | The flight log: date, from/to, category (PV/TG/PT), captain, fuel in each tank, oil, the four clock times, defects, who entered it | **Never edited or deleted** (like paper): an admin *voids* a wrong entry with a reason, and it stops counting. Block and flight minutes and their decimal hours are generated columns, so every screen agrees. Each entry also remembers the check limit that applied when it was logged (`check_limit_hours`), so "hours to check" stays right after a check resets the limit. A database rule makes overlapping flights impossible. |
 | `cost_rates` | The fixed monthly share and the hourly rate (whole pence), each valid from a month. A row with no `user_id` is the group's default; a row with a `user_id` is that member's own (an empty part follows the group's, 0 is a real zero) | Append-only: a new row for a month replaces older ones from then on, old rows stay as history. A statement uses the rates in force for ITS month. Members read the group's rows and their own, never other members'. |
-| `cost_expenses` | Something a member paid for the aircraft out of their own pocket: who paid, date, description, amount (whole pence) | Admins and the payer read it (RLS); voided with a reason, never edited. Credited on the payer's statement for the month of its date. (The old `cost_items` table of pooled fuel is no longer used and is removed by a later clean-up.) |
+| `cost_expenses` | Something a member paid for the aircraft out of their own pocket: who paid, date, description, amount (whole pence) | Admins and the payer read it (RLS); voided with a reason, never edited. Credited on the payer's statement for the month of its date. (The earlier shared-fuel table `cost_items` was removed in 0017.) |
 | `notification_preferences` | Which events a member wants emailed, per group (only explicit choices; the rest follow the defaults in `notification_default()`) | Defaults: bookings, cancellations, chat and defects on; flights logged off. The app's list (`src/lib/notifications.ts`) is checked against the database's in the tests. |
 | `notification_outbox` | The queue of emails to send: recipient, event, details, attempts, sent time | Not readable through the API at all. Sent rows are deleted after 30 days, unsent after a week. |
 | `reminder_log` | Which reminders have already been sent (`booking:<id>`, `aircraft:<item>:<due date>:<stage>`) | Not readable through the API. Booking entries are cleared after 30 days; aircraft ones are kept, which is what stops a reminder repeating. |
@@ -146,11 +146,13 @@ rights, so a policy can look at rows the user can't see. They exist to avoid
 the traps described below.
 
 - Access checks: `is_group_member`, `is_group_admin` (both ignore removed
-  members), `has_valid_invite`, `group_has_no_members`.
+  members), `group_has_no_members` (lets the creator of a brand-new group
+  claim its first admin seat).
 - Invites: `get_invite_info` (public, so the join page can show the group's
   name), `accept_invite` (validate, add or re-add the member, mark used, all
-  in one step), `revoke_invite`. `mark_invite_used` is the old two-step
-  helper, no longer called.
+  in one step), `revoke_invite`. **Joining is only possible through
+  `accept_invite`**: there is no insert policy for joining (the old one only
+  asked whether any invite was open, so it was removed in 0017).
 - Membership changes: `set_member_role`, `remove_member`, `leave_group`,
   `set_my_display_name`. They return a result such as `ok` or `last_admin`
   instead of failing. **A group can never be left without an admin**: the
@@ -175,7 +177,7 @@ every migration to a throwaway in-memory Postgres; the pure helpers in
 `npm test` runs both. `npm run test:demo` crawls every demo page on a running dev server. Run them after changing a migration or those helpers.
 
 The database change history is the numbered files in `supabase/migrations/`
-(0001 to 0016).
+(0001 to 0017).
 
 ## Code map
 

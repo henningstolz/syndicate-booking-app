@@ -70,7 +70,6 @@ export type StatementMember = {
   fixed_pence: number;
   hourly_pence: number;
   credit_pence: number; // expenses they paid, taken off their total
-  fuel_pence: number; // always 0; only there for the transition from fuel pooling
   total_pence: number;
 };
 
@@ -99,7 +98,6 @@ export type CostStatement = {
   rates: { fee_pence: number; hourly_pence: number; missing: boolean };
   hours_tenths: number;
   credits_pence: number;
-  fuel_pence: number; // always 0; see above
   members: StatementMember[];
   flights: StatementFlight[];
   expenses: StatementExpense[];
@@ -190,7 +188,6 @@ export function computeStatement(input: StatementInput): CostStatement {
         fixed_pence: fixed,
         hourly_pence: hourly,
         credit_pence: credit,
-        fuel_pence: 0,
         total_pence: fixed + hourly - credit,
       };
     })
@@ -204,7 +201,6 @@ export function computeStatement(input: StatementInput): CostStatement {
     rates: { fee_pence: rates.feePence, hourly_pence: rates.hourlyPence, missing: rates.missing },
     hours_tenths: totalTenths,
     credits_pence: input.expenses.reduce((sum, e) => sum + e.pence, 0),
-    fuel_pence: 0,
     members: everyone.filter((m) => visible(m.user_id)),
     flights: flights
       .filter((f) => visible(f.chargedTo))

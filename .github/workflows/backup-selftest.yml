@@ -65,7 +65,7 @@ jobs:
           done
           psql "$SOURCE_URL" -v ON_ERROR_STOP=1 -q -f scripts/backup/sample-data.sql
       - name: Back it up
-        run: scripts/backup/backup.sh "$SOURCE_URL" /tmp/backup
+        run: scripts/backup/with-diagnostics.sh scripts/backup/backup.sh "$SOURCE_URL" /tmp/backup
       - name: Encrypt and decrypt round trip
         run: |
           scripts/backup/encrypt.sh pack /tmp/backup /tmp/backup.tar.enc
@@ -77,7 +77,7 @@ jobs:
       - name: Restore into an empty database and compare
         run: |
           psql "$TARGET_URL" -v ON_ERROR_STOP=1 -q -f scripts/backup/container-prelude.sql
-          scripts/backup/restore.sh "$TARGET_URL" /tmp/opened --with-auth-schema
+          scripts/backup/with-diagnostics.sh scripts/backup/restore.sh "$TARGET_URL" /tmp/opened --with-auth-schema
       - name: The restore refuses a database that is not empty
         run: |
           if scripts/backup/restore.sh "$TARGET_URL" /tmp/opened --with-auth-schema; then

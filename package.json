@@ -10,7 +10,8 @@
     "test:db": "node supabase/tests/membership.test.mjs && node supabase/tests/flights.test.mjs && node --no-warnings supabase/tests/notifications.test.mjs && node --no-warnings supabase/tests/notification-emails.test.mjs && node --no-warnings supabase/tests/reminders.test.mjs && node --no-warnings supabase/tests/costs.test.mjs",
     "test:unit": "node --no-warnings src/lib/unit.test.mjs && node --no-warnings src/lib/demo/demo.test.mjs && node --no-warnings src/lib/notify/notify.test.mjs && node scripts/backup/retention.test.mjs",
     "test": "npm run test:unit && npm run test:db",
-    "test:demo": "node scripts/demo-smoke.mjs"
+    "test:demo": "node scripts/demo-smoke.mjs",
+    "db:migrate": "node scripts/db/migrate.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
@@ -28,6 +29,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.5",
+    "pg": "^8.23.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

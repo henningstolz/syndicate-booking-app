@@ -35,6 +35,9 @@ psql_q -f "$in/auth-data.sql"
 #    permissions on the actual tables and functions are restored, and checked.
 pg_restore --list "$in/public.dump" | grep -v -E ' SCHEMA - public | DEFAULT ACL ' > "$in/restore-list.txt"
 pg_restore --no-owner --exit-on-error --use-list="$in/restore-list.txt" --dbname="$url" "$in/public.dump"
+psql_q -c "alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
+           alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
+           alter default privileges in schema public grant all on functions to anon, authenticated, service_role;"
 
 # Prove it: the restored copy must look exactly like the original.
 "$here/fingerprint.sh" "$url" all > "$in/fingerprint-restored.txt"

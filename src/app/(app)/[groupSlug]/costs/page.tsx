@@ -12,6 +12,7 @@ import {
 import {
   addCostExpense,
   closeCostMonth,
+  previewStatementEmail,
   reopenCostMonth,
   saveCostRate,
   saveMemberCostRate,
@@ -42,6 +43,10 @@ const NOTICES: Record<string, { ok: boolean; text: string }> = {
   rate_saved: { ok: true, text: "Rates saved from the month you chose." },
   member_rate_saved: { ok: true, text: "The member's own rates are saved from the month you chose." },
   month_closed_done: { ok: true, text: "Month closed. Its figures are saved and no longer change." },
+  month_closed_emailed: { ok: true, text: "Month closed. Statements are being emailed to the members who have that email switched on." },
+  preview_sent: { ok: true, text: "A preview was sent to your own email address. Nothing was sent to members." },
+  no_statement: { ok: false, text: "You have no statement for that month, so there is nothing to preview." },
+  no_email: { ok: false, text: "Your account has no email address to send the preview to." },
   month_reopened: { ok: true, text: "Month reopened. It is worked out live again." },
   month_closed: { ok: false, text: "That month is closed. Reopen it first, or date the expense in an open month." },
   month_not_over: { ok: false, text: "Only a finished month can be closed." },
@@ -467,6 +472,15 @@ export default async function CostsPage({
                     Note (optional)
                     <input type="text" name="note" maxLength={300} placeholder="e.g. checked with the group" className={inputClass} />
                   </label>
+                  <label className="flex items-start gap-2 text-sm text-zinc-700">
+                    <input type="checkbox" name="notify" defaultChecked className="mt-1" />
+                    <span>
+                      Email each member their statement, with the PDF attached
+                      <span className="block text-xs text-zinc-500">
+                        Each member only receives their own. Members can switch these emails off in Settings.
+                      </span>
+                    </span>
+                  </label>
                   <button type="submit" className={`${primaryButton} self-start`}>
                     Close {formatMonthKey(monthKey)}
                   </button>
@@ -476,6 +490,23 @@ export default async function CostsPage({
                   </p>
                 </form>
               )}
+            </section>
+          )}
+
+          {/* ------------------------------------------- preview my statement */}
+          {me && (
+            <section className="flex flex-col gap-2">
+              <h2 className={sectionTitle}>Check the statement email</h2>
+              <form action={previewStatementEmail} className={`${card} flex max-w-md flex-col gap-3 p-4`}>
+                {hidden}
+                <button type="submit" className={`${smallButton} self-start`}>
+                  Email me my {formatMonthKey(monthKey)} statement
+                </button>
+                <p className="text-xs text-zinc-500">
+                  Sends the statement email, with its PDF, to you only, so you can see what members receive. Nobody
+                  else is emailed, and nothing is closed.
+                </p>
+              </form>
             </section>
           )}
 

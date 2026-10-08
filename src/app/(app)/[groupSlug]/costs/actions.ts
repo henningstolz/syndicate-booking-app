@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isDemoRequest } from "@/lib/demo/mode";
 import { parsePounds } from "@/lib/costs";
+import { flushSoon } from "@/lib/notify/flush";
 
 // Admins keep the money side: the group's rates, members' own rates, the
 // expenses members paid out of their own pocket, and closing a month. Every action ends by
@@ -145,10 +146,16 @@ export async function closeCostMonth(formData: FormData) {
     p_group_id: groupId,
     p_month: `${view}-01`,
     p_note: text(formData, "note") || null,
+    // The checkbox is only in the form when ticked.
+    p_notify: formData.get("notify") === "on",
   });
-  const result = (data as { result?: string } | null)?.result;
+  const answer = data as { result?: string; emails_queued?: number } | null;
+  const result = answer?.result;
   if (error || !result) back(groupSlug, view, "error");
-  back(groupSlug, view, result === "ok" ? "month_closed_done" : (result as string));
+  if (result !== "ok") back(groupSlug, view, result as string);
+  // Send the statements that were queued, after the page has answered.
+  if ((answer?.emails_queued ?? 0) > 0) await flushSoon();
+  back(groupSlug, view, (answer?.emails_queued ?? 0) > 0 ? "month_closed_emailed" : "month_closed_done");
 }
 
 // Reopen a closed month, with a reason. The closure stays on record.
@@ -168,4 +175,24 @@ export async function reopenCostMonth(formData: FormData) {
   const result = (data as { result?: string } | null)?.result;
   if (error || !result) back(groupSlug, view, "error");
   back(groupSlug, view, result === "ok" ? "month_reopened" : (result as string));
+}
+
+// Email the calling admin their own statement for the month, to check the email
+// and the PDF before members get theirs. Nobody else is emailed.
+export async function previewStatementEmail(formData: FormData) {
+  const groupId = text(formData, "groupId");
+  const groupSlug = text(formData, "groupSlug");
+  const view = text(formData, "view");
+  await blockInDemo(groupSlug, view);
+  if (!MONTH.test(view)) back(groupSlug, view, "month_invalid");
+
+  const supabase = await signedIn();
+  const { data, error } = await supabase.rpc("preview_statement_email", {
+    p_group_id: groupId,
+    p_month: `${view}-01`,
+  });
+  const result = (data as { result?: string } | null)?.result;
+  if (error || !result) back(groupSlug, view, "error");
+  if (result === "ok") await flushSoon();
+  back(groupSlug, view, result === "ok" ? "preview_sent" : (result as string));
 }

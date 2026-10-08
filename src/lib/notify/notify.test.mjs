@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import { renderNotification, renderTestEmail, escapeHtml, describeWhen } from "./email.ts";
 import { flushQueue } from "./send-core.ts";
 import { sendEmail } from "./send.ts";
+import { PDFDocument } from "pdf-lib";
 
 let count = 0;
 const eq = (got, want, label) => { assert.deepEqual(got, want, label); count++; };
@@ -172,6 +173,62 @@ function deps(overrides = {}) {
   eq(down, { ok: false, error: "socket hang up" }, "a network error comes back as a failure");
   delete process.env.RESEND_API_KEY;
   eq(await sendEmail(email, fake), { ok: false, error: "RESEND_API_KEY is not set" }, "without a key it says so and sends nothing");
+}
+
+// ------------------------------------------------------- emailed statements
+{
+  const statementPayload = (o = {}) => ({
+    result: "ok", month: "2026-10-01", is_admin: false, registration: "G-BBFD", updated: false,
+    rates: { fee_pence: 12000, hourly_pence: 6500, missing: false }, hours_tenths: 67, credits_pence: 18400,
+    members: [{ user_id: "u-alex", name: "Alex", is_member: true, flights: 2, hours_tenths: 33, fee_pence: 12000, hourly_rate_pence: 6500, custom_rates: false, fixed_pence: 12000, hourly_pence: 21450, credit_pence: 18400, total_pence: 15050 }],
+    flights: [{ id: "f1", date: "2026-10-01", from: "EGXX", to: "EGKA", user_id: "u-alex", hours_tenths: 20, pence: 13000 }, { id: "f2", date: "2026-10-03", from: "EGKA", to: "EGXX", user_id: "u-alex", hours_tenths: 13, pence: 8450 }],
+    expenses: [{ id: "e1", date: "2026-10-04", description: "Fuel at Sywell", user_id: "u-alex", pence: 18400 }],
+    closed: { id: "c1", closed_at: "2026-11-02T10:00:00Z", closed_by_name: "Alice", note: "Checked with the group" }, can_close: false, drift: [],
+    ...o,
+  });
+  const stmt = (payload) => item("statement_ready", payload, { id: "s1", group_name: "G-BBFD Syndicate", group_slug: "g-bbfd", recipient_email: "alex@x.test" });
+
+  const mail = renderNotification(stmt(statementPayload()), SITE);
+  eq(mail.subject, "Your October 2026 statement: £150.50", "the subject says the month and the total");
+  yes(mail.text.includes("Your October 2026 statement is ready") && mail.text.includes("Total: £150.50"), "the text says it is ready, with the total");
+  yes(mail.text.includes("Fixed share £120.00, flying £214.50 (3.3 h), expenses you paid -£184.00"), "the breakdown is in the text");
+  yes(mail.text.includes("Closed by Alice. The PDF is attached.") && mail.text.includes("Note: Checked with the group"), "who closed it, and the note");
+  yes(mail.text.includes("https://blocktime.group/g-bbfd/costs?month=2026-10"), "links to that month's page");
+  const credit = renderNotification(stmt(statementPayload({ members: [{ ...statementPayload().members[0], total_pence: -5000 }] })), SITE);
+  yes(credit.subject.includes("credit due £50.00") && credit.text.includes("Credit due: £50.00"), "a negative total reads as a credit due");
+  const again = renderNotification(stmt(statementPayload({ updated: true })), SITE);
+  yes(again.subject.includes("(updated)") && again.text.includes("was updated"), "a re-closed month says updated");
+  const pre = renderNotification(stmt(statementPayload({ preview: true, closed: null })), SITE);
+  yes(pre.subject.startsWith("Preview: Your October 2026 statement") && pre.text.includes("Preview of your October 2026 statement") && pre.text.includes("sent only to you"), "a preview says so, and that members get nothing");
+  yes(!pre.text.includes("Closed by") && pre.text.includes("The PDF is attached."), "a preview of an open month has no closing line");
+  const broken = renderNotification(stmt({ month: "2026-10-01", members: [] }), SITE);
+  yes(broken.subject.startsWith("Update from"), "a statement email with nothing usable still renders something sensible");
+
+  // The PDF is made from the same payload and attached; a failure to make it must not stop the email.
+  const attached = [];
+  const q = { queue: [stmt(statementPayload()), item("chat_message", { who: "A", message: "1" }, { id: "plain", recipient_email: "a@x.test" })] };
+  const { deps: d1 } = deps({ ...q, post: async (email) => { attached.push(email); return { ok: true }; } });
+  eq(await flushQueue(d1), { sent: 2, failed: 0 }, "a statement email and an ordinary one both go");
+  const first = attached[0];
+  eq(first.attachments?.length, 1, "the statement email has one attachment");
+  eq(first.attachments[0].filename, "G-BBFD-statement-2026-10.pdf", "named after the aircraft and month");
+  yes(Buffer.from(first.attachments[0].content, "base64").subarray(0, 5).toString() === "%PDF-", "and it is a real PDF");
+  eq(attached[1].attachments, undefined, "an ordinary email has none");
+  const pdfDoc = await PDFDocument.load(Buffer.from(first.attachments[0].content, "base64"));
+  eq(pdfDoc.getPageCount(), 1, "a one-page statement");
+  const sent = [];
+  const { deps: d2 } = deps({ queue: [stmt({ month: "2026-10-01", members: [] })], post: async (email) => { sent.push(email); return { ok: true }; } });
+  eq(await flushQueue(d2), { sent: 1, failed: 0 }, "an email whose PDF cannot be made still goes");
+  eq(sent[0].attachments, undefined, "...without the attachment");
+
+  // The request to Resend carries the attachment.
+  process.env.RESEND_API_KEY = "re_test_key";
+  let body;
+  await sendEmail({ ...first }, async (url, init) => { body = JSON.parse(init.body); return { ok: true }; });
+  eq(body.attachments?.[0]?.filename, "G-BBFD-statement-2026-10.pdf", "the Resend request includes the attachment");
+  await sendEmail({ to: "a@x.test", subject: "s", text: "t", html: "h", unsubscribeUrl: "u" }, async (url, init) => { body = JSON.parse(init.body); return { ok: true }; });
+  eq("attachments" in body, false, "and leaves the field out for ordinary emails");
+  delete process.env.RESEND_API_KEY;
 }
 
 console.log(`${count} notification email checks passed`);

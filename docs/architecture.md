@@ -182,7 +182,7 @@ every migration to a throwaway in-memory Postgres; the pure helpers in
 `npm test` runs both. `npm run test:demo` crawls every demo page on a running dev server. Run them after changing a migration or those helpers.
 
 The database change history is the numbered files in `supabase/migrations/`
-(0001 to 0018).
+(0001 to 0019).
 
 ## Code map
 
@@ -423,6 +423,20 @@ Notifications tab, which runs the same job for their group. Vercel's free plan
 runs a daily job once a day at a fixed time, so the "evening before" is one time
 for everyone, and the plan allows two daily jobs (the morning retry and the
 evening reminders use both).
+
+**Statement emails** start from an admin action. `close_cost_month()` (when the
+"Email each member their statement" box is ticked, `p_notify`) queues one
+`statement_ready` email per current member who wants it. Each queued row's
+payload is that member's own part of the saved statement (their line, flights
+and expenses, the rates, who closed the month): nothing of anyone else's. When
+the server sends it, `src/lib/notify/statement-email.ts` prints the PDF from
+that payload with the same code as the download (`statement-pdf-input.ts`,
+`statement-pdf.ts`) and attaches it (base64, through Resend's `attachments`).
+If the PDF cannot be made, the email still goes without it. Closing again after
+a reopen says "updated". `preview_statement_email()` queues the same email to the
+calling admin only (marked "Preview"), for any month they have a statement in, so
+the real email and PDF can be checked before members get theirs. The queued payload holds financial figures, so it
+follows the queue's usual clean-up (sent rows deleted after 30 days).
 
 Why the sender needs a secret rather than a database master key: reading other
 members' email addresses is something the app deliberately cannot do as a

@@ -23,6 +23,9 @@ export function createHarness() {
     U,
 
     async setup() {
+      // Supabase runs in UTC; PGlite would otherwise take the time zone of the machine
+      // the tests run on, which changes how timestamps are written into JSON.
+      await db.exec("set time zone 'UTC'");
       await db.exec(`
         create role anon nologin; create role authenticated nologin;
         create schema auth;

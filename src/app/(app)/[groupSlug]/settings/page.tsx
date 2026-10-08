@@ -222,7 +222,7 @@ export default async function SettingsPage({
       .eq("user_id", user?.id ?? "")
       .returns<{ event: string; enabled: boolean }[]>();
     const chosen = new Map((saved ?? []).map((row) => [row.event, row.enabled]));
-    const sections = ["Calendar", "Chat", "Tech log", "Reminders"] as const;
+    const sections = ["Calendar", "Chat", "Tech log", "Reminders", "Costs"] as const;
 
     return (
       <div className="flex flex-1 flex-col gap-6 px-4 py-6">

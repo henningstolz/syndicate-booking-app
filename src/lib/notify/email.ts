@@ -3,6 +3,8 @@
 // can run it in plain Node. Everything a member typed (chat text, notes,
 // names, defects) is escaped before it goes into the HTML.
 import { LONDON_TZ, formatDayHeading, formatTime, londonDateKey } from "../datetime.ts";
+import { formatHoursTenths, formatMoney } from "../costs.ts";
+import { monthLabel } from "../statement-pdf-input.ts";
 
 export type QueuedNotification = {
   id: string;
@@ -190,6 +192,44 @@ function content(n: QueuedNotification): Content {
           headline: `${registration}: ${count === 1 ? "1 item needs" : `${count} items need`} attention`,
           lines: described.map((x) => x.line),
           link: { label: "Open the aircraft page", path: `/${slug}/aircraft` },
+        };
+      }
+      break;
+    }
+    case "statement_ready": {
+      // The payload is this member's own part of the saved statement.
+      const members = Array.isArray(p.members) ? (p.members as Record<string, unknown>[]) : [];
+      const me = members[0];
+      const monthKey = str(p.month).slice(0, 7);
+      if (me && /^\d{4}-\d{2}$/.test(monthKey) && typeof me.total_pence === "number") {
+        const label = monthLabel(monthKey);
+        const total = me.total_pence;
+        const updated = p.updated === true;
+        const preview = p.preview === true;
+        const closedInfo = (typeof p.closed === "object" && p.closed !== null ? p.closed : {}) as Record<string, unknown>;
+        const by = str(closedInfo.closed_by_name);
+        const note = str(closedInfo.note);
+        const headline = total < 0 ? `Credit due: ${formatMoney(-total)}` : `Total: ${formatMoney(total)}`;
+        const parts = [
+          `Fixed share ${formatMoney(Number(me.fixed_pence) || 0)}`,
+          `flying ${formatMoney(Number(me.hourly_pence) || 0)} (${formatHoursTenths(Number(me.hours_tenths) || 0)} h)`,
+        ];
+        if (Number(me.credit_pence) > 0) parts.push(`expenses you paid -${formatMoney(Number(me.credit_pence))}`);
+        return {
+          subject: `${preview ? "Preview: " : ""}Your ${label} statement${updated ? " (updated)" : ""}: ${total < 0 ? `credit due ${formatMoney(-total)}` : formatMoney(total)}`,
+          headline: preview
+            ? `Preview of your ${label} statement`
+            : updated
+              ? `Your ${label} statement was updated`
+              : `Your ${label} statement is ready`,
+          lines: [
+            ...(preview ? ["This preview was sent only to you. Nothing has been emailed to members."] : []),
+            headline,
+            parts.join(", "),
+            by ? `Closed by ${by}. The PDF is attached.` : "The PDF is attached.",
+          ],
+          quote: note ? { label: "Note", text: note } : undefined,
+          link: { label: "Open your statement", path: `/${slug}/costs?month=${monthKey}` },
         };
       }
       break;

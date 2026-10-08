@@ -2,8 +2,11 @@
 // it went. The database, the email service and the clock are passed in, so the
 // logic can be tested without any of them.
 import { renderNotification, type QueuedNotification, type RenderedEmail } from "./email.ts";
+import { statementAttachment } from "./statement-email.ts";
 
-export type OutgoingEmail = RenderedEmail & { to: string; unsubscribeUrl: string };
+export type EmailAttachment = { filename: string; content: string }; // content is base64
+
+export type OutgoingEmail = RenderedEmail & { to: string; unsubscribeUrl: string; attachments?: EmailAttachment[] };
 
 export type FlushDeps = {
   claim: (limit: number) => Promise<QueuedNotification[]>;
@@ -30,8 +33,12 @@ export async function flushQueue(
     if (i > 0) await deps.sleep(PAUSE_MS);
     try {
       const email = renderNotification(item, deps.siteUrl);
+      // A statement email carries the PDF; if it cannot be made, the email still
+      // goes out (the statement is on the page too).
+      const attachment = await statementAttachment(item);
       const result = await deps.post({
         ...email,
+        ...(attachment ? { attachments: [attachment] } : {}),
         to: item.recipient_email,
         unsubscribeUrl: `${deps.siteUrl.replace(/\/+$/, "")}/${encodeURIComponent(item.group_slug)}/settings?tab=notifications`,
       });

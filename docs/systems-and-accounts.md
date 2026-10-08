@@ -424,7 +424,16 @@ fuel is paid by the group's fuel card, or by a member who is then credited.
    see a yellow "Changed since this month was closed" box listing who would now
    pay something different. To take such changes in, **Reopen this month** (with
    a reason; it is recorded) and close it again. A month without rates can't be
-   closed, and neither can the current month.
+   closed, and neither can the current month. The close form has a box,
+   ticked by default: **Email each member their statement, with the PDF
+   attached**. Each member gets only their own, within a minute or so. Members
+   who switched off "Monthly statements" in Settings, Notifications, and members
+   who have left are skipped. Closing a month again after a reopen sends the
+   updated statements. Untick the box if you'd rather not email (for example for
+   a month already settled). **Before the first real use,** press **Email me my
+   <month> statement** (Costs page, under the close form): it sends the statement
+   email, with its PDF, to you only, so you can check what members will get.
+   Nobody else is emailed and nothing is closed.
 
 Each member sees **their own statement**: the fixed share, flying (with every
 flight listed), expenses they paid, and the total. Admins also see everyone's.

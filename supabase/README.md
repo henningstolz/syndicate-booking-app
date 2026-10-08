@@ -102,6 +102,15 @@ every migration there first. See `docs/systems-and-accounts.md`.
     can no longer be added to or voided in a closed month. Backwards compatible
     (the live page ignores the new fields). Try it on the test project first.
 
+19. `0019_email_statements.sql` — emailed statements: the `statement_ready` email
+    (on by default; members switch it in Settings), `close_cost_month()` gains an
+    optional `p_notify` (default true) that queues one email per current member who
+    wants it, each carrying only that member's own part of the saved statement, and
+    the helper `cost_statement_member_view()` that picks a member's part (also used
+    by `cost_statement()`), and `preview_statement_email()`, which queues the same
+    email to the calling admin only so it can be checked first. Backwards compatible: the old three-argument call still
+    works. Try it on the test project first.
+
 ## Adding members to a group
 
 Two ways now:

@@ -42,6 +42,7 @@ export async function sendEmail(
         text: email.text,
         html: email.html,
         headers: { "List-Unsubscribe": `<${email.unsubscribeUrl}>` },
+        ...(email.attachments?.length ? { attachments: email.attachments } : {}),
       }),
     });
     if (response.ok) return { ok: true };

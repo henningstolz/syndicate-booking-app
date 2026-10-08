@@ -9,11 +9,12 @@ export type NotificationEvent =
   | "flight_logged"
   | "defect_reported"
   | "booking_reminder"
-  | "aircraft_reminder";
+  | "aircraft_reminder"
+  | "statement_ready";
 
 export type NotificationEventInfo = {
   key: NotificationEvent;
-  section: "Calendar" | "Chat" | "Tech log" | "Reminders";
+  section: "Calendar" | "Chat" | "Tech log" | "Reminders" | "Costs";
   label: string;
   description: string;
   // What applies until a member makes their own choice.
@@ -71,6 +72,14 @@ export const NOTIFICATION_EVENTS: NotificationEventInfo[] = [
     label: "Aircraft reminders",
     description:
       "When a check, renewal or other due date is 30 or 7 days away or has passed, and when the hours to the next check run low (10 and 5 hours left). Each one is sent once.",
+    defaultOn: true,
+  },
+  {
+    key: "statement_ready",
+    section: "Costs",
+    label: "Monthly statements",
+    description:
+      "When an admin closes a month, you get your statement for it, with the PDF attached. It only goes to you.",
     defaultOn: true,
   },
 ];

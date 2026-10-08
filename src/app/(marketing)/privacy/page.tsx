@@ -164,7 +164,8 @@ export default function PrivacyPage() {
               <strong>Resend</strong> sends the sign-up confirmation and
               password-reset emails, and the notification and reminder emails you choose
               in Settings, so it sees the recipient&apos;s email address and
-              the message.
+              the message. When an admin closes a month, that includes your
+              cost statement for it, as a PDF attachment.
             </li>
             <li>
               <strong>GitHub</strong> holds a private, encrypted nightly copy

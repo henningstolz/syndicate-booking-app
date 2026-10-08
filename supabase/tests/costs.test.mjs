@@ -336,6 +336,59 @@ check("the new closure has the new figures", [s.closed.note, member(s, "Bob").cr
 await db.exec("reset role");
 check("the first closure stays on record, reopened, with the reason", (await db.query("select note, reopen_reason, reopened_at is not null as reopened from public.cost_month_closures where month = '2026-09-01' order by closed_at")).rows, [{ note: "Checked with the group", reopen_reason: "late flight on the 20th", reopened: true }, { note: "second time", reopen_reason: null, reopened: false }]);
 
+// ------------------------------------------------ emailed statements
+// August 2026: Bob flew 1.0 h. Closing queues one email per current member who wants it,
+// each carrying only that member's own figures.
+const AUG = "2026-08-01";
+await put("bob", { ...day("2026-08-12", 9, 60), captainName: "Bob" });
+await db.exec("reset role");
+const statementEmails = async () => (await db.exec("reset role"), await db.query("select o.recipient_email, o.payload from public.notification_outbox o where o.event = 'statement_ready' and o.payload->>'month' = '2026-08-01' order by o.created_at, o.recipient_email")).rows;
+let closed = await closure("alice", "close_cost_month", AUG, "first");
+check("closing queues an email for each current member (Dan, who has left, gets none)", [closed.result, closed.emails_queued], ["ok", 3]);
+let rows = await statementEmails();
+check("...to the right addresses", rows.map((r) => r.recipient_email), ["alice@example.test", "bob@example.test", "cara@example.test"]);
+const bobMail = rows[1].payload;
+check("Bob's email holds only Bob's own part", [bobMail.members.map((m) => m.name), bobMail.flights.map((f) => f.hours_tenths), bobMail.expenses.length, bobMail.is_admin], [["Bob"], [10], 0, false]);
+check("...nothing of anyone else's (not even their ids)", [JSON.stringify(bobMail).includes(U.cara), JSON.stringify(bobMail).includes(U.dan)], [false, false]);
+check("...with who closed it, the note, the aircraft and 'not updated'", [bobMail.closed.closed_by_name, bobMail.closed.note, bobMail.registration, bobMail.updated], ["Alice", "first", "G-ONE", false]);
+check("...and the same total he sees on the page", bobMail.members[0].total_pence, member(await stmt("bob", AUG), "Bob").total_pence);
+check("the admin's own email is also only their own part", [rows[0].payload.members.map((m) => m.name), rows[0].payload.flights.length], [["Alice"], 0]);
+
+// A member can switch it off; reopening and closing again says "updated".
+check("Cara switches the statement email off", result(await rpc("cara", "set_notification_preferences", G1, { statement_ready: false })), "ok");
+check("an admin reopens the month", result(await closure("alice", "reopen_cost_month", AUG, "checking the emails")), "ok");
+closed = await closure("alice", "close_cost_month", AUG, "second");
+check("closed again: only those who want it get one", [closed.result, closed.emails_queued], ["ok", 2]);
+await db.exec("reset role");
+rows = await statementEmails();
+check("...so five emails in all, the new two marked updated", [rows.length, rows.slice(3).map((r) => r.payload.updated), rows.slice(3).map((r) => r.recipient_email)], [5, [true, true], ["alice@example.test", "bob@example.test"]]);
+check("emails can be left out when closing", result(await closure("alice", "reopen_cost_month", AUG, "again")), "ok");
+closed = await closure("alice", "close_cost_month", AUG, "no emails", false);
+check("...nothing is queued", [closed.result, closed.emails_queued], ["ok", 0]);
+await db.exec("reset role");
+check("...and the queue is unchanged", (await statementEmails()).length, 5);
+check("only admins close, with or without emails", result(await closure("bob", "close_cost_month", "2026-07-01", null, true)), "not_allowed");
+check("the old three-argument call still works (the live page uses it until the code is deployed)", (await closure("alice", "close_cost_month", "2026-07-01", "old call")).result, "ok");
+
+// The admin's own preview: only to themselves, whatever their settings, never to members.
+const previewRows = async () => (await db.exec("reset role"), await db.query("select recipient_email, payload from public.notification_outbox where event = 'statement_ready' and payload->>'preview' = 'true' order by created_at")).rows;
+check("a member cannot ask for a preview", result(await rpc("bob", "preview_statement_email", G1, AUG)), "not_allowed");
+check("anonymous cannot", (await rpc(null, "preview_statement_email", G1, AUG)).thrown?.includes("permission denied") ?? false, true);
+check("another group's admin cannot", result(await rpc("eve", "preview_statement_email", G1, AUG)), "not_allowed");
+check("a silly month is refused", result(await rpc("alice", "preview_statement_email", G1, "1990-01-01")), "month_invalid");
+check("nothing was queued by the refused calls", (await previewRows()).length, 0);
+check("an admin asks for a preview of a closed month", result(await rpc("alice", "preview_statement_email", G1, AUG)), "ok");
+let preview = await previewRows();
+check("exactly one email, to the admin only, marked as a preview", [preview.length, preview[0].recipient_email, preview[0].payload.preview, preview[0].payload.members.map((m) => m.name)], [1, "alice@example.test", true, ["Alice"]]);
+check("...holding the saved figures of that closed month", preview[0].payload.closed.note, "no emails");
+await rpc("alice", "set_notification_preferences", G1, { statement_ready: false });
+check("it comes even when the admin has switched statement emails off", result(await rpc("alice", "preview_statement_email", G1, "2026-10-01")), "ok");
+preview = await previewRows();
+check("...for an open month too, with no closing information", [preview.length, preview[1].payload.closed], [2, null]);
+check("a month the admin had no statement in is refused", result(await rpc("alice", "preview_statement_email", G1, "2024-03-01")), "no_statement");
+await rpc("alice", "set_notification_preferences", G1, { statement_ready: true });
+check("no preview ever reaches anyone but the admin", (await previewRows()).every((r) => r.recipient_email === "alice@example.test"), true);
+
 // -------------------------------------------- joining and leaving
 await db.exec("reset role");
 await db.query("update public.group_members set created_at = '2027-05-20T12:00:00Z' where user_id = $1", [U.cara]);

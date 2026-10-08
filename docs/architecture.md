@@ -508,13 +508,13 @@ either work in the demo (see `engine.ts`) or are blocked there the way
 
 - Structured defects (open/resolved, rectification, engineer sign-off): defects are free text on a flight entry for now.
 - On the PDF: the lower defects/rectification/engineer section of the paper sheet (not printed).
-- Costs: payment reminders to members who haven't paid, payment details (bank account) on the statement, charging a pilot extra for something specific (landing fees by flight), pro-rata fixed shares for part months, carrying a late correction into the next month as an adjustment (today a closed month is reopened instead).
-- Email notifications for bookings, cancellations and tech log posts.
+- Costs, chosen to keep on the list: **payment reminders** (an email to members who haven't paid a closed month, by hand or automatically after some days) and **bank details** on the statement and its email. Also: a visible history of voided payments, charging a pilot extra for something specific (landing fees by flight), pro-rata fixed shares for part months, carrying a late correction into the next month as an adjustment (today a closed month is reopened instead).
 - A daily summary email instead of one email per event.
-- Pilots' personal currency reminders (rating, medical, licence, 90-day currency): needs each pilot's own dates stored.
+- **Pilot currency reminders** (rating, medical, licence, 90-day currency), chosen to keep on the list: needs each pilot's own dates stored.
+- A limit on how many groups one person can create (today anyone signed in can create any number).
+- Supabase's free plan pauses an unused project; a paid plan would remove that risk and add its own backups.
 - Self-service account deletion (done by hand in Supabase today). Members can
   leave a group, but their login stays.
-- Separate development and production databases.
 - An installable (PWA) version for phones.
 - Colour palette retune for red-green colour blindness (rose and lime are too
   close).

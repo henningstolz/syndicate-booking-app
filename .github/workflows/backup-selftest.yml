@@ -78,6 +78,9 @@ jobs:
       - name: Restore into an empty database and compare
         run: |
           psql "$TARGET_URL" -v ON_ERROR_STOP=1 -q -f scripts/backup/container-prelude.sql
+          # A real Supabase project hands new tables and functions to anon/authenticated/service_role
+          # automatically; the restore has to cope with that, so the target behaves the same way.
+          psql "$TARGET_URL" -v ON_ERROR_STOP=1 -q -c "alter default privileges in schema public grant all on tables to anon, authenticated, service_role; alter default privileges in schema public grant all on sequences to anon, authenticated, service_role; alter default privileges in schema public grant all on functions to anon, authenticated, service_role;"
           scripts/backup/with-diagnostics.sh scripts/backup/restore.sh "$TARGET_URL" /tmp/opened --with-auth-schema
       - name: The restore refuses a database that is not empty
         run: |

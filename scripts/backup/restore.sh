@@ -28,6 +28,15 @@ if [ "$flag" = "--with-auth-schema" ]; then
 fi
 # People first (the app's tables point at them), then the app's own data.
 psql_q -f "$in/auth-data.sql"
+# A Supabase project automatically hands new tables and functions in 'public' to
+# anonymous visitors, signed-in users and the server role. A backup records "not
+# anonymous" only by leaving a permission out, so those automatic grants must be
+# off while restoring, or a restored function could end up callable by anyone.
+# They are put back afterwards, exactly as Supabase sets them, for future changes.
+psql_q -c "alter default privileges in schema public revoke all on tables from anon, authenticated, service_role;
+           alter default privileges in schema public revoke all on sequences from anon, authenticated, service_role;
+           alter default privileges in schema public revoke all on functions from anon, authenticated, service_role;"
+
 # Two kinds of entry are left out:
 #  - the step that creates the 'public' schema (it exists in every database), and
 #  - "default privileges" for Supabase's own admin role, which the database user is

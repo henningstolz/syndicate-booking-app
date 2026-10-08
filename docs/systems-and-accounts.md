@@ -16,12 +16,12 @@ where each one is stored.
 | --- | --- | --- | --- | --- |
 | 1 | **GitHub** (`henningstolz/syndicate-booking-app`) | Holds the code and its history. A push to `main` starts a deploy. | github.com | Your Mac pushes with an SSH key. |
 | 2 | **Vercel** (project `syndicate-booking-app-ukds`) | Builds and hosts the website. Also hosts the DNS for `blocktime.group`. | vercel.com | Environment variables are stored in the project's Settings. |
-| 3 | **Supabase** (project ref `trdtqhkbxssujcwmvham`, London) | The database, sign-in, and the SQL editor where migrations are run. | supabase.com/dashboard | Project keys are under Settings, then API. |
+| 3 | **Supabase** (live project, named `blocktime`, ref `trdtqhkbxssujcwmvham`, London) | The database, sign-in, and the SQL editor where migrations are run. | supabase.com/dashboard | Project keys are under Settings, then API. |
 | 4 | **Resend** (EU region) | Sends email: sign-up confirmations, the notification emails members choose, and mail you send as `hello@`. | resend.com | API keys: one inside Supabase's SMTP settings, one in Gmail's "send as", one in Vercel for notifications. |
 | 5 | **ImprovMX** | Forwards `hello@blocktime.group` to your personal inbox. | improvmx.com | Account login only. |
 | 6 | **Gmail** (your personal account) | Receives `hello@` mail and sends as it. | gmail.com | Holds the "send as" Resend key. |
 | 8 | **GitHub, a second private repository** (`blocktime-backups`) | Holds the nightly encrypted database backups (as releases). Nothing else. | github.com | A token in the code repository's Actions secrets (`BACKUP_REPO_TOKEN`), and the backup passphrase, which also lives in your password manager. |
-| 9 | **Supabase, a second project** (`blocktime-test`) | The test database: where new changes are tried before they touch the live one. Holds only made-up data. | supabase.com/dashboard | Its connection string is `TEST_DATABASE_URL` in `.env.local` on your Mac. |
+| 9 | **Supabase, a second project** (`blocktime-test`, ref `ojxvrtlttppyjygjfapm`) | The test database: where new changes are tried before they touch the live one. Holds only made-up data. | supabase.com/dashboard | Its connection string is `TEST_DATABASE_URL` in `.env.local` on your Mac. |
 | 7 | **Domain registrar for `blocktime.group`** | Owns the domain name and renews it every year. | _Write down where you registered it_ | Account login only. |
 
 **To fill in yourself** (I can't see these, and they are what you'd lose track
@@ -154,8 +154,8 @@ handles user data, or new personal information.
 
 ### The test database
 
-Blocktime has two databases: the **live** one (Supabase project
-`trdtqhkbxssujcwmvham`, which the website uses) and a **test** one (a second,
+Blocktime has two databases: the **live** one (the Supabase project
+`blocktime`, ref `trdtqhkbxssujcwmvham`, which the website uses) and a **test** one (a second,
 free Supabase project, `blocktime-test`) that holds only made-up data. Your
 Mac points at the test one, so trying things locally can never touch real
 flights, costs or members. Only Vercel knows the live one.

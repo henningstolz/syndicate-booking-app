@@ -5,8 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { isDemoRequest } from "@/lib/demo/mode";
 import { parsePounds } from "@/lib/costs";
 
-// Admins keep the money side: the group's rates, members' own rates, and the
-// expenses members paid out of their own pocket. Every action ends by
+// Admins keep the money side: the group's rates, members' own rates, the
+// expenses members paid out of their own pocket, and closing a month. Every action ends by
 // redirecting back to the month being looked at, with a short notice code in
 // the address (the page turns it into a message).
 
@@ -130,4 +130,42 @@ export async function voidCostExpense(formData: FormData) {
   const result = (data as { result?: string } | null)?.result;
   if (error || !result) back(groupSlug, view, "error");
   back(groupSlug, view, result === "ok" ? "expense_voided" : (result as string));
+}
+
+// Close a finished month: its figures are saved and stop moving.
+export async function closeCostMonth(formData: FormData) {
+  const groupId = text(formData, "groupId");
+  const groupSlug = text(formData, "groupSlug");
+  const view = text(formData, "view");
+  await blockInDemo(groupSlug, view);
+  if (!MONTH.test(view)) back(groupSlug, view, "month_invalid");
+
+  const supabase = await signedIn();
+  const { data, error } = await supabase.rpc("close_cost_month", {
+    p_group_id: groupId,
+    p_month: `${view}-01`,
+    p_note: text(formData, "note") || null,
+  });
+  const result = (data as { result?: string } | null)?.result;
+  if (error || !result) back(groupSlug, view, "error");
+  back(groupSlug, view, result === "ok" ? "month_closed_done" : (result as string));
+}
+
+// Reopen a closed month, with a reason. The closure stays on record.
+export async function reopenCostMonth(formData: FormData) {
+  const groupId = text(formData, "groupId");
+  const groupSlug = text(formData, "groupSlug");
+  const view = text(formData, "view");
+  await blockInDemo(groupSlug, view);
+  if (!MONTH.test(view)) back(groupSlug, view, "month_invalid");
+
+  const supabase = await signedIn();
+  const { data, error } = await supabase.rpc("reopen_cost_month", {
+    p_group_id: groupId,
+    p_month: `${view}-01`,
+    p_reason: text(formData, "reason"),
+  });
+  const result = (data as { result?: string } | null)?.result;
+  if (error || !result) back(groupSlug, view, "error");
+  back(groupSlug, view, result === "ok" ? "month_reopened" : (result as string));
 }

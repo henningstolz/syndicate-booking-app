@@ -94,6 +94,14 @@ every migration there first. See `docs/systems-and-accounts.md`.
     and the constant `fuel_pence` keys in `cost_statement()`. Backwards
     compatible. Try it on the test project first, then run it on the live one.
 
+18. `0018_close_cost_months.sql` — closing a month: `cost_month_closures` (the
+    statement saved as it stood, who/when/note, reopen history), `close_cost_month()`
+    and `reopen_cost_month()` (admin), and `cost_statement()` now answers from the
+    saved figures for a closed month (the live calculation moves to the internal
+    `cost_statement_live()`) and adds `closed`, `can_close` and `drift`. Expenses
+    can no longer be added to or voided in a closed month. Backwards compatible
+    (the live page ignores the new fields). Try it on the test project first.
+
 ## Adding members to a group
 
 Two ways now:

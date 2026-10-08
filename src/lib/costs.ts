@@ -1,7 +1,8 @@
 // Money helpers and the monthly cost statement.
 //
-// computeStatement() is an exact twin of the database function cost_statement()
-// (migration 0016). The database is the real thing; this copy lets the demo
+// computeStatement() is an exact twin of the database's live calculation
+// (cost_statement_live(), migrations 0016 and 0018; cost_statement() adds the
+// closed-month handling around it). The database is the real thing; this copy lets the demo
 // show believable statements, and a test compares the two on hundreds of random
 // months so they cannot drift apart. No imports, so tests can load it in plain
 // Node.
@@ -91,6 +92,26 @@ export type StatementExpense = {
   pence: number;
 };
 
+// Set when the admin has closed the month: the figures shown are the ones saved
+// at that moment, and later changes do not alter them.
+export type StatementClosure = {
+  id: string;
+  closed_at: string;
+  closed_by_name: string;
+  note: string | null;
+};
+
+// For a closed month, shown to admins: someone whose total or hours are no
+// longer what was saved (a flight logged late, for example).
+export type StatementDrift = {
+  user_id: string;
+  name: string;
+  closed_pence: number;
+  now_pence: number;
+  closed_tenths: number;
+  now_tenths: number;
+};
+
 export type CostStatement = {
   result: "ok";
   month: string;
@@ -101,6 +122,9 @@ export type CostStatement = {
   members: StatementMember[];
   flights: StatementFlight[];
   expenses: StatementExpense[];
+  closed: StatementClosure | null;
+  can_close: boolean; // an admin may close this month now
+  drift: StatementDrift[];
 };
 
 export type StatementInput = {
@@ -218,5 +242,9 @@ export function computeStatement(input: StatementInput): CostStatement {
       .filter((e) => visible(e.paidBy))
       .sort((a, b) => compareText(a.date, b.date) || compareText(a.id, b.id))
       .map((e) => ({ id: e.id, date: e.date, description: e.description, user_id: e.paidBy, pence: e.pence })),
+    // Closing is not part of the calculation: whoever calls this adds it.
+    closed: null,
+    can_close: false,
+    drift: [],
   };
 }

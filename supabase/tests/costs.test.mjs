@@ -258,6 +258,84 @@ await db.query("insert into public.cost_expenses (group_id, paid_by, incurred_on
 s = await stmt("alice", "2027-03-01");
 check("a month with only an expense (the January 2027 rates have no fixed share): just the credit to the payer", [s.hours_tenths, s.members.map((m) => m.total_pence)], [0, [0, 0, -1000]]);
 
+// ------------------------------------------------ closing a month
+// September 2026: Bob flew 1.5 h, Cara 1.0 h, Cara paid 30.00 of fuel away from home.
+const SEP = "2026-09-01";
+const nowDate = new Date();
+const thisMonthStart = `${nowDate.getUTCFullYear()}-${String(nowDate.getUTCMonth() + 1).padStart(2, "0")}-01`;
+await put("bob", { ...day("2026-09-08", 9, 90), captainName: "Bob" });
+await put("cara", { ...day("2026-09-09", 9, 60), captainName: "Cara" });
+await db.exec("reset role");
+await db.query("insert into public.cost_expenses (group_id, paid_by, incurred_on, description, amount_pence, created_by) values ($1,$2,'2026-09-05','Fuel away',3000,$3)", [G1, U.cara, U.alice]);
+const figures = (x) => JSON.stringify([x.rates, x.hours_tenths, x.credits_pence, x.members, x.flights, x.expenses]);
+const closure = (user, fn, ...args) => rpc(user, fn, G1, ...args);
+s = await stmt("alice", SEP);
+const septBefore = figures(s);
+check("an open past month can be closed by an admin (and is not closed yet)", [s.closed, s.can_close, s.drift], [null, true, []]);
+check("a member is not offered it", (await stmt("bob", SEP)).can_close, false);
+check("the current month cannot be closed (it is not over)", [result(await closure("alice", "close_cost_month", thisMonthStart)), result(await closure("alice", "close_cost_month", "2099-01-01"))], ["month_not_over", "month_not_over"]);
+check("...so it is not offered either", (await stmt("alice", thisMonthStart)).can_close, false);
+check("a month without rates cannot be closed (it would freeze zeros)", result(await closure("alice", "close_cost_month", "2025-06-01")), "rates_missing");
+check("a silly month is refused", result(await closure("alice", "close_cost_month", "1990-01-01")), "month_invalid");
+check("a member cannot close", result(await closure("bob", "close_cost_month", SEP)), "not_allowed");
+check("an admin of another group cannot", result(await rpc("eve", "close_cost_month", G1, SEP)), "not_allowed");
+check("anonymous cannot", (await rpc(null, "close_cost_month", G1, SEP)).thrown?.includes("permission denied") ?? false, true);
+check("the note has a limit", result(await closure("alice", "close_cost_month", SEP, "x".repeat(301))), "note_too_long");
+check("nothing was saved by the refused calls", (await q("alice", "select count(*)::int n from public.cost_month_closures"))[0].n, 0);
+check("an admin closes September", result(await closure("alice", "close_cost_month", SEP, "  Checked with the group  ")), "ok");
+check("it cannot be closed twice", result(await closure("alice", "close_cost_month", SEP)), "already_closed");
+s = await stmt("alice", SEP);
+check("the closed month shows exactly the figures as they stood", figures(s), septBefore);
+check("...with who closed it, when and the note", [s.closed.closed_by_name, s.closed.note, typeof s.closed.closed_at, s.can_close, s.drift], ["Alice", "Checked with the group", "string", false, []]);
+const bobClosed = await stmt("bob", SEP);
+check("a member sees the closed month with only their own part", [bobClosed.is_admin, bobClosed.closed.closed_by_name, bobClosed.members.map((m) => m.name), bobClosed.flights.map((f) => f.hours_tenths), bobClosed.expenses.length, bobClosed.can_close, bobClosed.drift], [false, "Alice", ["Bob"], [15], 0, false, []]);
+check("...with the same total as the admin sees", member(bobClosed, "Bob").total_pence, member(s, "Bob").total_pence);
+const caraClosed = await stmt("cara", SEP);
+check("a member sees their own expense in it", [caraClosed.expenses.length, caraClosed.members.map((m) => m.name), member(caraClosed, "Cara").credit_pence], [1, ["Cara"], 3000]);
+check("...and the group's month totals", [caraClosed.hours_tenths, caraClosed.credits_pence], [s.hours_tenths, 3000]);
+check("a non-member of the group cannot read it", (await stmt("eve", SEP)).result, "not_allowed");
+check("members cannot read the saved figures directly", (await q("bob", "select * from public.cost_month_closures")).length, 0);
+check("admins can; another group's admin cannot", [(await q("alice", "select count(*)::int n from public.cost_month_closures"))[0].n, (await q("eve", "select count(*)::int n from public.cost_month_closures"))[0].n], [1, 0]);
+check("nobody writes the table directly", [(await q("alice", "update public.cost_month_closures set note = 'x' returning id")).length, (await q("alice", "delete from public.cost_month_closures returning id")).length, (await q("alice", "insert into public.cost_month_closures (group_id, month, snapshot, closed_by) values ($1,'2026-08-01','{}',$2)", [G1, U.alice])).thrown?.includes("row-level security") ?? false], [0, 0, true]);
+check("the internal live calculation is not callable", (await rpc("alice", "cost_statement_live", G1, SEP)).thrown?.includes("permission denied") ?? false, true);
+
+// After closing: a late flight does not change the closed figures; the admin is warned.
+await put("bob", { ...day("2026-09-20", 9, 30), captainName: "Bob" });   // 0.5 h = 3250
+s = await stmt("alice", SEP);
+check("a flight logged later does not change a closed month", figures(s), septBefore);
+check("...but the admin is shown what has changed since closing", s.drift.map((d) => [d.name, d.closed_pence, d.now_pence, d.closed_tenths, d.now_tenths]), [["Bob", 21750, 25000, 15, 20]]);
+check("...a member is not shown the warning", (await stmt("bob", SEP)).drift, []);
+// New rates for September do not change it either (but show as a difference).
+await rate("alice", SEP, 99999, 99999);
+s = await stmt("alice", SEP);
+check("new rates for a closed month leave the saved figures alone", figures(s), septBefore);
+check("...and show up as a difference for everyone", s.drift.length, 4);
+await rate("alice", SEP, 12000, 6500);
+check("set back, only the late flight is left as a difference", (await stmt("alice", SEP)).drift.map((d) => d.name), ["Bob"]);
+// Expenses: not into, and not out of, a closed month.
+check("an expense cannot be added to a closed month", result(await expense("alice", "bob", "2026-09-10", 1500)), "month_closed");
+await db.exec("reset role");
+const sepExpense = (await db.query("select id from public.cost_expenses where incurred_on = '2026-09-05'")).rows[0].id;
+check("...nor voided in one", result(await rpc("alice", "void_cost_expense", sepExpense, "wrong amount")), "month_closed");
+check("an expense in an open month is fine", result(await expense("alice", "bob", "2026-10-02", 1500)), "ok");
+
+// Reopening, with a reason.
+check("a member cannot reopen", result(await closure("bob", "reopen_cost_month", SEP, "please")), "not_allowed");
+check("another group's admin cannot", result(await rpc("eve", "reopen_cost_month", G1, SEP, "not mine")), "not_allowed");
+check("a reason is required", result(await closure("alice", "reopen_cost_month", SEP, "  ")), "reason_required");
+check("the reason has a limit", result(await closure("alice", "reopen_cost_month", SEP, "x".repeat(301))), "reason_too_long");
+check("an open month cannot be reopened", result(await closure("alice", "reopen_cost_month", "2026-08-01", "nothing to reopen")), "not_closed");
+check("an admin reopens September", result(await closure("alice", "reopen_cost_month", SEP, "late flight on the 20th")), "ok");
+check("it cannot be reopened twice", result(await closure("alice", "reopen_cost_month", SEP, "again")), "not_closed");
+s = await stmt("alice", SEP);
+check("a reopened month is live again, with the late flight in it", [s.closed, s.can_close, s.drift, member(s, "Bob").hours_tenths, member(s, "Bob").total_pence], [null, true, [], 20, 12000 + 13000]);
+check("an expense can be added to it again", result(await expense("alice", "bob", "2026-09-10", 1500)), "ok");
+check("it can be closed again", result(await closure("alice", "close_cost_month", SEP, "second time")), "ok");
+s = await stmt("alice", SEP);
+check("the new closure has the new figures", [s.closed.note, member(s, "Bob").credit_pence, member(s, "Bob").hours_tenths], ["second time", 1500, 20]);
+await db.exec("reset role");
+check("the first closure stays on record, reopened, with the reason", (await db.query("select note, reopen_reason, reopened_at is not null as reopened from public.cost_month_closures where month = '2026-09-01' order by closed_at")).rows, [{ note: "Checked with the group", reopen_reason: "late flight on the 20th", reopened: true }, { note: "second time", reopen_reason: null, reopened: false }]);
+
 // -------------------------------------------- joining and leaving
 await db.exec("reset role");
 await db.query("update public.group_members set created_at = '2027-05-20T12:00:00Z' where user_id = $1", [U.cara]);

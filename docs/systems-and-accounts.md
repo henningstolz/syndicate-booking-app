@@ -415,6 +415,17 @@ fuel is paid by the group's fuel card, or by a member who is then credited.
    off to brakes on) is charged to its captain; for a guest or instructor
    captain it is charged to the member who logged the entry.
 
+5. **Close the month** (admins, optional): once a month is over, Costs, then
+   **Close <month>**, with an optional note. This saves everyone's statement
+   exactly as it stands and freezes it: later flights, new rates or new entries
+   can no longer change it, and no expense can be added to (or voided in) that
+   month. Pilots can still log flights in a closed month, because the tech log
+   must stay complete; those flights don't change the closed figures, and you
+   see a yellow "Changed since this month was closed" box listing who would now
+   pay something different. To take such changes in, **Reopen this month** (with
+   a reason; it is recorded) and close it again. A month without rates can't be
+   closed, and neither can the current month.
+
 Each member sees **their own statement**: the fixed share, flying (with every
 flight listed), expenses they paid, and the total. Admins also see everyone's.
 Use the month arrows to go back.
@@ -426,6 +437,8 @@ month pays that month's full fixed share.
 
 If a number looks wrong: check the flight log first (a voided or mistyped
 flight changes the charge), then the rates and expenses listed for that month.
+If the month is closed, the page shows the saved figures; the yellow box says
+what has changed since.
 
 ### Reminders
 

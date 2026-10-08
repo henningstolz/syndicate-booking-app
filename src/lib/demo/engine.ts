@@ -17,7 +17,7 @@ import {
   type Row,
 } from "./data.ts";
 import { overlayFits, type DemoOverlay } from "./overlay.ts";
-import { computeStatement } from "../costs.ts";
+import { computeStatement, shiftMonth } from "../costs.ts";
 import { londonDateKey } from "../datetime.ts";
 
 const MIN = 60_000;
@@ -371,7 +371,7 @@ class Engine {
   }
 
   // The month's statement for the visitor (Alex, the admin), worked out by the
-  // same calculation the database uses (src/lib/costs.ts; migration 0016).
+  // same calculation the database uses (src/lib/costs.ts; migrations 0016 and 0018).
   private costStatement(a: Record<string, unknown>) {
     const match = /^(\d{4})-(\d{2})/.exec(String(a.p_month ?? ""));
     if (!match || Number(match[1]) < 2000 || Number(match[1]) > 2100 || Number(match[2]) < 1 || Number(match[2]) > 12) {
@@ -433,7 +433,7 @@ class Engine {
         : [];
     });
 
-    return computeStatement({
+    const statement = computeStatement({
       month: start,
       rates: rate
         ? { feePence: rate.monthly_fee_pence as number, hourlyPence: rate.hourly_rate_pence as number, missing: false }
@@ -444,6 +444,25 @@ class Engine {
       expenses,
       viewer: { userId: DEMO_USER.id, isAdmin: true },
     });
+
+    // Closing: last month is finished but still open (so the visitor sees the
+    // button, which says it is a demo); anything older with rates is shown as
+    // closed on the 1st of the following month by Alex. Nothing is ever saved.
+    const thisMonth = londonDateKey(this.options.now).slice(0, 7);
+    const lastMonth = shiftMonth(thisMonth, -1);
+    const key = start.slice(0, 7);
+    if (key < lastMonth && !statement.rates.missing) {
+      return {
+        ...statement,
+        closed: {
+          id: `demo-closure-${key}`,
+          closed_at: new Date(`${shiftMonth(key, 1)}-02T10:00:00Z`).toISOString(),
+          closed_by_name: nameOf(DEMO_USER.id),
+          note: null,
+        },
+      };
+    }
+    return { ...statement, can_close: key <= lastMonth && !statement.rates.missing };
   }
 
   // The same rules as the add_flight_entry database function (migration 0011).

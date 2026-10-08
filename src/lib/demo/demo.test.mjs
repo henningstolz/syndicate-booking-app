@@ -202,6 +202,14 @@ for (const now of [NOW, new Date("2026-01-15T12:00:00Z"), new Date("2026-07-15T1
   yes(sep.hours_tenths > 0 && identity(sep), "a full month has hours and adds up");
   yes((await Promise.all(["2026-10-01", "2026-09-01", "2026-08-01", "2026-07-01", "2026-06-01"].map(stmt))).some((x) => x.credits_pence > 0), "some recent month shows an expense credited to a member");
 
+  // closing: older months are shown as closed, last month can be closed, this month cannot
+  yes(oct.closed === null && oct.can_close === false, "the current month is open and cannot be closed yet");
+  const aug = await stmt("2026-08-01");
+  yes(aug.closed !== null && aug.closed.closed_by_name === "Alex" && aug.can_close === false && aug.drift.length === 0, "an older month shows as closed by Alex");
+  const lastM = await stmt("2026-09-01");
+  yes(lastM.closed === null && lastM.can_close === true, "last month is finished but open, so the visitor sees the Close button");
+  yes((await stmt("2024-01-01")).closed === null && (await stmt("2024-01-01")).can_close === false, "a month without rates is never closable");
+
   // a flight the visitor logs changes their statement
   const before = (await stmt("2026-10-01")).members.find((m) => m.name === "Alex").hours_tenths;
   const logged = (await engine.rpc("add_flight_entry", { p_group_id: "demo-group", p_from: "egxx", p_to: "egxx", p_category: "PV", p_captain_id: "demo-alex", p_captain_name: null, p_fuel_left: 20, p_fuel_right: 20, p_oil: 7, p_brakes_off: "2026-10-07T05:00:00Z", p_airborne: "2026-10-07T05:10:00Z", p_landed: "2026-10-07T06:26:00Z", p_brakes_on: "2026-10-07T06:36:00Z", p_defects: null })).data.result;

@@ -9,7 +9,14 @@ import {
   shiftMonth,
   type CostStatement,
 } from "@/lib/costs";
-import { addCostExpense, saveCostRate, saveMemberCostRate, voidCostExpense } from "./actions";
+import {
+  addCostExpense,
+  closeCostMonth,
+  reopenCostMonth,
+  saveCostRate,
+  saveMemberCostRate,
+  voidCostExpense,
+} from "./actions";
 
 type RateRow = {
   id: string;
@@ -34,6 +41,14 @@ const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
 const NOTICES: Record<string, { ok: boolean; text: string }> = {
   rate_saved: { ok: true, text: "Rates saved from the month you chose." },
   member_rate_saved: { ok: true, text: "The member's own rates are saved from the month you chose." },
+  month_closed_done: { ok: true, text: "Month closed. Its figures are saved and no longer change." },
+  month_reopened: { ok: true, text: "Month reopened. It is worked out live again." },
+  month_closed: { ok: false, text: "That month is closed. Reopen it first, or date the expense in an open month." },
+  month_not_over: { ok: false, text: "Only a finished month can be closed." },
+  rates_missing: { ok: false, text: "This month has no rates set, so there is nothing to freeze. Set the rates first." },
+  already_closed: { ok: false, text: "That month is already closed." },
+  not_closed: { ok: false, text: "That month is not closed." },
+  note_too_long: { ok: false, text: "That note is too long (300 characters at most)." },
   expense_added: { ok: true, text: "Expense added. It is credited to the member." },
   expense_voided: { ok: true, text: "Expense voided. It no longer counts." },
   demo: { ok: false, text: "This is a demo, so changes to costs aren't saved." },
@@ -57,6 +72,13 @@ const dayFormat = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
   month: "short",
 });
+const closedFormat = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Europe/London",
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+});
+const closedOn = (timestamp: string) => closedFormat.format(new Date(timestamp));
 const shortDay = (date: string) => dayFormat.format(new Date(`${date.slice(0, 10)}T00:00:00Z`));
 
 const card = "rounded-lg border border-zinc-200 bg-white";
@@ -203,6 +225,37 @@ export default async function CostsPage({
         </p>
       )}
 
+      {s.closed && (
+        <div className="flex flex-col gap-1 rounded-lg border border-zinc-300 bg-zinc-100 px-3 py-2 text-sm text-zinc-800">
+          <p>
+            <span className="font-medium">Closed</span> on {closedOn(s.closed.closed_at)} by {s.closed.closed_by_name}.
+            These are the saved, final figures for {formatMonthKey(monthKey)}.
+          </p>
+          {s.closed.note && <p className="text-xs text-zinc-600">Note: {s.closed.note}</p>}
+        </div>
+      )}
+
+      {s.is_admin && s.closed && s.drift.length > 0 && (
+        <div className="flex flex-col gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <p className="font-medium">Changed since this month was closed</p>
+          <p className="text-xs">
+            Flights or other changes mean the figures would now be different. The closed figures above did not
+            change. Reopen the month below to take the changes in, or settle the difference in an open month.
+          </p>
+          <ul className="flex flex-col gap-0.5 text-xs">
+            {s.drift.map((entry) => (
+              <li key={entry.user_id} className="flex items-baseline justify-between gap-3">
+                <span>{entry.name}</span>
+                <span className="font-mono">
+                  {formatMoney(entry.closed_pence)} → {formatMoney(entry.now_pence)} ({formatHoursTenths(entry.closed_tenths)} →{" "}
+                  {formatHoursTenths(entry.now_tenths)} h)
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* ---------------------------------------------------- your statement */}
       <section className="flex flex-col gap-2">
         <h2 className={sectionTitle}>Your statement</h2>
@@ -278,7 +331,7 @@ export default async function CostsPage({
         </div>
         <p className="text-xs text-zinc-500">
           Block time runs from brakes off to brakes on, as in the tech log. A guest&apos;s flight is charged to
-          the member who logged it. Expenses you paid for the group are taken off your total. This updates as flights and expenses are entered.
+          the member who logged it. Expenses you paid for the group are taken off your total. {s.closed ? "This month is closed, so these figures no longer change." : "This updates as flights and expenses are entered."}
         </p>
       </section>
 
@@ -351,6 +404,54 @@ export default async function CostsPage({
               </table>
             </div>
           </section>
+
+          {/* --------------------------------------------- close or reopen */}
+          {(s.can_close || s.closed) && (
+            <section className="flex flex-col gap-3">
+              <h2 className={sectionTitle}>
+                {s.closed ? "Reopen" : "Close"} {formatMonthKey(monthKey)}
+              </h2>
+              {s.closed ? (
+                <form action={reopenCostMonth} className={`${card} flex max-w-md flex-col gap-3 p-4`}>
+                  {hidden}
+                  <label className={labelClass}>
+                    Reason
+                    <input
+                      type="text"
+                      name="reason"
+                      required
+                      minLength={3}
+                      maxLength={300}
+                      placeholder="e.g. a flight was logged late"
+                      className={inputClass}
+                    />
+                  </label>
+                  <button type="submit" className={`${smallButton} self-start`}>
+                    Reopen this month
+                  </button>
+                  <p className="text-xs text-zinc-500">
+                    The month is worked out live again, so it takes in any changes since closing. The earlier closing
+                    stays on record, and you can close the month again afterwards.
+                  </p>
+                </form>
+              ) : (
+                <form action={closeCostMonth} className={`${card} flex max-w-md flex-col gap-3 p-4`}>
+                  {hidden}
+                  <label className={labelClass}>
+                    Note (optional)
+                    <input type="text" name="note" maxLength={300} placeholder="e.g. checked with the group" className={inputClass} />
+                  </label>
+                  <button type="submit" className={`${primaryButton} self-start`}>
+                    Close {formatMonthKey(monthKey)}
+                  </button>
+                  <p className="text-xs text-zinc-500">
+                    Saves everyone&apos;s statement exactly as it is now. Later flights, new rates or new entries can no
+                    longer change it, and no expense can be added to the month. You can reopen it with a reason.
+                  </p>
+                </form>
+              )}
+            </section>
+          )}
 
           {/* ------------------------------------------------------- rates */}
           <section className="flex flex-col gap-3">
@@ -487,6 +588,12 @@ export default async function CostsPage({
           {/* ------------------------------------------------------ expenses */}
           <section className="flex flex-col gap-3">
             <h2 className={sectionTitle}>Expenses paid by members, {formatMonthKey(monthKey)}</h2>
+            {s.closed ? (
+              <p className={`${card} max-w-md p-4 text-sm text-zinc-600`}>
+                {formatMonthKey(monthKey)} is closed, so expenses can&apos;t be added to it. Reopen the month below to
+                change it, or date the expense in an open month.
+              </p>
+            ) : (
             <form action={addCostExpense} className={`${card} flex max-w-md flex-col gap-3 p-4`}>
               {hidden}
               <div className="grid grid-cols-2 gap-3">
@@ -526,6 +633,7 @@ export default async function CostsPage({
                 void it with a reason and enter it again.
               </p>
             </form>
+            )}
 
             {expenses.length === 0 ? (
               <p className="text-sm text-zinc-500">No expenses entered for this month.</p>
@@ -545,7 +653,7 @@ export default async function CostsPage({
                       {shortDay(expense.incurred_on)} · paid by {nameOf(expense.paid_by)}
                       {expense.voided_at && ` · Voided: ${expense.void_reason}`}
                     </p>
-                    {!expense.voided_at && (
+                    {!expense.voided_at && !s.closed && (
                       <details className="text-xs text-zinc-600">
                         <summary className="w-fit text-zinc-500 underline underline-offset-4">Void this expense</summary>
                         <form action={voidCostExpense} className="mt-2 flex flex-col gap-2">

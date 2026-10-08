@@ -104,7 +104,8 @@ export default function PrivacyPage() {
               rate, any individual rates an admin sets for a member, expenses a
               member paid for the group (such as fuel bought away from home)
               that admins enter, and each member&apos;s monthly statement,
-              worked out from the flight log.
+              worked out from the flight log, and a saved copy of each statement
+              for any month an admin has closed.
             </li>
             <li>
               <strong>Your email choices:</strong> which emails you want from

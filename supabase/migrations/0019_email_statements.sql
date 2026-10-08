@@ -2,7 +2,8 @@
 --
 -- * A new email a member can choose, `statement_ready` ("Monthly statements",
 --   on until they switch it off), like the others in Settings, Notifications.
--- * close_cost_month() gains an optional last argument, p_notify (default true).
+-- * close_cost_month() gains an optional last argument, p_notify (default false:
+--   emailing is always an explicit choice, so an older caller can never email by accident).
 --   When it is true, one email per current member who wants it is queued, and
 --   each carries ONLY that member's own part of the saved statement (their line,
 --   their flights, their expenses, the rates, who closed the month and when), so
@@ -13,7 +14,7 @@
 --   the queued emails alike.
 --
 -- Backwards compatible: the page that is live calls close_cost_month() with three
--- named arguments, which still works (the new one defaults to true). Run this
+-- named arguments, which still works (and, as before, emails nobody). Run this
 -- BEFORE pushing the matching code.
 
 -- ---------------------------------------------------------------------------
@@ -192,7 +193,7 @@ create function public.close_cost_month(
   p_group_id uuid,
   p_month date,
   p_note text default null,
-  p_notify boolean default true
+  p_notify boolean default false
 )
 returns jsonb
 language plpgsql

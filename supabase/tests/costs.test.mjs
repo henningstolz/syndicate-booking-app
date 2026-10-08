@@ -343,7 +343,7 @@ const AUG = "2026-08-01";
 await put("bob", { ...day("2026-08-12", 9, 60), captainName: "Bob" });
 await db.exec("reset role");
 const statementEmails = async () => (await db.exec("reset role"), await db.query("select o.recipient_email, o.payload from public.notification_outbox o where o.event = 'statement_ready' and o.payload->>'month' = '2026-08-01' order by o.created_at, o.recipient_email")).rows;
-let closed = await closure("alice", "close_cost_month", AUG, "first");
+let closed = await closure("alice", "close_cost_month", AUG, "first", true);
 check("closing queues an email for each current member (Dan, who has left, gets none)", [closed.result, closed.emails_queued], ["ok", 3]);
 let rows = await statementEmails();
 check("...to the right addresses", rows.map((r) => r.recipient_email), ["alice@example.test", "bob@example.test", "cara@example.test"]);
@@ -357,7 +357,7 @@ check("the admin's own email is also only their own part", [rows[0].payload.memb
 // A member can switch it off; reopening and closing again says "updated".
 check("Cara switches the statement email off", result(await rpc("cara", "set_notification_preferences", G1, { statement_ready: false })), "ok");
 check("an admin reopens the month", result(await closure("alice", "reopen_cost_month", AUG, "checking the emails")), "ok");
-closed = await closure("alice", "close_cost_month", AUG, "second");
+closed = await closure("alice", "close_cost_month", AUG, "second", true);
 check("closed again: only those who want it get one", [closed.result, closed.emails_queued], ["ok", 2]);
 await db.exec("reset role");
 rows = await statementEmails();
@@ -368,7 +368,8 @@ check("...nothing is queued", [closed.result, closed.emails_queued], ["ok", 0]);
 await db.exec("reset role");
 check("...and the queue is unchanged", (await statementEmails()).length, 5);
 check("only admins close, with or without emails", result(await closure("bob", "close_cost_month", "2026-07-01", null, true)), "not_allowed");
-check("the old three-argument call still works (the live page uses it until the code is deployed)", (await closure("alice", "close_cost_month", "2026-07-01", "old call")).result, "ok");
+const oldCall = await closure("alice", "close_cost_month", "2026-07-01", "old call");
+check("the old three-argument call (what the live page uses until the code is deployed) still works and emails nobody", [oldCall.result, oldCall.emails_queued], ["ok", 0]);
 
 // The admin's own preview: only to themselves, whatever their settings, never to members.
 const previewRows = async () => (await db.exec("reset role"), await db.query("select recipient_email, payload from public.notification_outbox where event = 'statement_ready' and payload->>'preview' = 'true' order by created_at")).rows;

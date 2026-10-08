@@ -425,7 +425,7 @@ for everyone, and the plan allows two daily jobs (the morning retry and the
 evening reminders use both).
 
 **Statement emails** start from an admin action. `close_cost_month()` (when the
-"Email each member their statement" box is ticked, `p_notify`) queues one
+"Email each member their statement" box is ticked, i.e. `p_notify` is true; it is false by default) queues one
 `statement_ready` email per current member who wants it. Each queued row's
 payload is that member's own part of the saved statement (their line, flights
 and expenses, the rates, who closed the month): nothing of anyone else's. When

@@ -390,6 +390,68 @@ check("a month the admin had no statement in is refused", result(await rpc("alic
 await rpc("alice", "set_notification_preferences", G1, { statement_ready: true });
 check("no preview ever reaches anyone but the admin", (await previewRows()).every((r) => r.recipient_email === "alice@example.test"), true);
 
+// ------------------------------------------------ payment tracking
+// August 2026 is closed: Alice 120.00, Bob 185.00 (one flight), Cara 120.00, Dan 120.00 (left in September).
+const pay = (user, who, amount, o = {}) => rpc(user, "record_cost_payment", G1, U[who] ?? who, o.month ?? AUG, amount, o.date ?? "2026-09-05", o.note ?? null);
+const balances = async (user = "alice", month = AUG) => Object.fromEntries((await stmt(user, month)).members.map((m) => [m.name, [m.total_pence, m.paid_pence, m.balance_pence]]));
+check("before any payment everyone owes their total", await balances(), { Alice: [12000, 0, 12000], Bob: [18500, 0, 18500], Cara: [12000, 0, 12000], Dan: [12000, 0, 12000] });
+check("a member cannot record a payment", result(await pay("bob", "bob", 18500)), "not_allowed");
+check("another group's admin cannot", result(await rpc("eve", "record_cost_payment", G1, U.bob, AUG, 18500, "2026-09-05", null)), "not_allowed");
+check("anonymous cannot", (await rpc(null, "record_cost_payment", G1, U.bob, AUG, 18500, "2026-09-05", null)).thrown?.includes("permission denied") ?? false, true);
+check("an open month cannot be paid yet (the amount is not final)", result(await pay("alice", "bob", 100, { month: "2026-10-01" })), "month_not_closed");
+check("someone with no line on that month is refused", result(await pay("alice", "eve", 100)), "member_invalid");
+check("so is an unknown person", result(await pay("alice", "00000000-0000-0000-0000-000000000000", 100)), "member_invalid");
+check("a zero amount is refused", result(await pay("alice", "bob", 0)), "amount_invalid");
+check("an absurd amount is refused", result(await pay("alice", "bob", 10000001)), "amount_invalid");
+check("a date in the future is refused", result(await pay("alice", "bob", 100, { date: "2999-01-01" })), "date_invalid");
+check("so is a silly month", result(await pay("alice", "bob", 100, { month: "1990-01-01" })), "month_invalid");
+check("a long note is refused", result(await pay("alice", "bob", 100, { note: "x".repeat(121) })), "note_too_long");
+await db.exec("reset role");
+check("nothing was saved by the refused calls", (await db.query("select count(*)::int n from public.cost_payments")).rows[0].n, 0);
+
+check("Bob pays in full", result(await pay("alice", "bob", 18500, { note: "Bank transfer" })), "ok");
+check("Alice pays part of hers", result(await pay("alice", "alice", 5000)), "ok");
+check("Cara pays 10.00 too much", result(await pay("alice", "cara", 13000)), "ok");
+check("a payment for someone who has since left the group is fine (they still owe)", result(await pay("alice", "dan", 4000)), "ok");
+check("balances: paid, part paid, overpaid, part paid", await balances(), { Alice: [12000, 5000, 7000], Bob: [18500, 18500, 0], Cara: [12000, 13000, -1000], Dan: [12000, 4000, 8000] });
+check("a second payment adds up", result(await pay("alice", "alice", 7000, { date: "2026-09-20" })), "ok");
+check("...settled", (await balances()).Alice, [12000, 12000, 0]);
+check("money paid back to a member is a negative payment", result(await pay("alice", "cara", -1000, { note: "Paid back" })), "ok");
+check("...and settles an overpayment", (await balances()).Cara, [12000, 12000, 0]);
+s = await stmt("alice", AUG);
+check("the admin sees every payment, in date order, with who and the note", [s.payments.length, s.payments[0].note, s.payments[0].amount_pence, s.payments[0].paid_on], [6, "Bank transfer", 18500, "2026-09-05"]);
+
+// Who sees what
+const bobPaid = await stmt("bob", AUG);
+check("a member sees only their own payments and balance", [bobPaid.payments.map((p) => p.amount_pence), bobPaid.members.map((m) => [m.name, m.balance_pence])], [[18500], [["Bob", 0]]]);
+check("another member sees none of Bob's", (await stmt("cara", AUG)).payments.map((p) => p.amount_pence), [13000, -1000]);
+check("members read only their own payments directly; admins read all", [(await q("bob", "select count(*)::int n from public.cost_payments"))[0].n, (await q("alice", "select count(*)::int n from public.cost_payments"))[0].n, (await q("eve", "select count(*)::int n from public.cost_payments"))[0].n], [1, 6, 0]);
+check("nobody edits or deletes a payment directly", [(await q("alice", "update public.cost_payments set amount_pence = 1 returning id")).length, (await q("alice", "delete from public.cost_payments returning id")).length], [0, 0]);
+check("nobody inserts one directly", (await q("bob", "insert into public.cost_payments (group_id, user_id, month, amount_pence, paid_on, created_by) values ($1,$2,'2026-08-01',1,'2026-09-01',$2)", [G1, U.bob])).thrown?.includes("row-level security") ?? false, true);
+check("the internal statement is not callable", (await rpc("alice", "cost_statement_base", G1, AUG)).thrown?.includes("permission denied") ?? false, true);
+
+// Voiding
+await db.exec("reset role");
+const alicePayment = (await db.query("select id from public.cost_payments where user_id = $1 and amount_pence = 5000", [U.alice])).rows[0].id;
+check("a member cannot void", result(await rpc("bob", "void_cost_payment", alicePayment, "wrong")), "not_allowed");
+check("another group's admin cannot", result(await rpc("eve", "void_cost_payment", alicePayment, "not mine")), "not_allowed");
+check("a reason is required", result(await rpc("alice", "void_cost_payment", alicePayment, " ")), "reason_required");
+check("the reason has a limit", result(await rpc("alice", "void_cost_payment", alicePayment, "x".repeat(301))), "reason_too_long");
+check("unknown payment", result(await rpc("alice", "void_cost_payment", "00000000-0000-0000-0000-000000000000", "mistake")), "not_found");
+check("an admin voids it", result(await rpc("alice", "void_cost_payment", alicePayment, "entered on the wrong member")), "ok");
+check("it cannot be voided twice", result(await rpc("alice", "void_cost_payment", alicePayment, "again")), "already_voided");
+check("a voided payment stops counting", (await balances()).Alice, [12000, 7000, 5000]);
+await db.exec("reset role");
+check("...but stays on record with its reason", (await db.query("select void_reason, voided_at is not null as v from public.cost_payments where id = $1", [alicePayment])).rows[0], { void_reason: "entered on the wrong member", v: true });
+
+// Payments stay with the month when it is reopened.
+await rpc("alice", "reopen_cost_month", G1, AUG, "payments stay");
+s = await stmt("alice", AUG);
+check("a reopened month keeps its payments and balances", [s.closed, s.payments.length, member(s, "Bob").balance_pence], [null, 5, 0]);
+check("but takes no new ones until it is closed again", result(await pay("alice", "bob", 100)), "month_not_closed");
+await rpc("alice", "close_cost_month", G1, AUG, "closed again", false);
+check("closed again, the balances are still there", (await balances()).Bob, [18500, 18500, 0]);
+
 // -------------------------------------------- joining and leaving
 await db.exec("reset role");
 await db.query("update public.group_members set created_at = '2027-05-20T12:00:00Z' where user_id = $1", [U.cara]);

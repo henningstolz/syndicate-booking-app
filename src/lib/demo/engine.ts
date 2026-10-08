@@ -17,7 +17,7 @@ import {
   type Row,
 } from "./data.ts";
 import { overlayFits, type DemoOverlay } from "./overlay.ts";
-import { computeStatement, shiftMonth } from "../costs.ts";
+import { computeStatement, shiftMonth, type CostStatement, type StatementPayment } from "../costs.ts";
 import { londonDateKey } from "../datetime.ts";
 
 const MIN = 60_000;
@@ -70,6 +70,19 @@ function compare(a: unknown, b: unknown): number {
 }
 
 type Mode = "select" | "insert" | "update" | "delete";
+
+// What cost_statement() adds to every answer: the month's payments, and for each
+// member how much has been paid and what is left.
+function withPayments(statement: CostStatement, payments: StatementPayment[]): CostStatement {
+  return {
+    ...statement,
+    payments,
+    members: statement.members.map((m) => {
+      const paid = payments.filter((p) => p.user_id === m.user_id).reduce((sum, p) => sum + p.amount_pence, 0);
+      return { ...m, paid_pence: paid, balance_pence: m.total_pence - paid };
+    }),
+  };
+}
 
 class Query implements PromiseLike<Result> {
   private mode: Mode = "select";
@@ -452,17 +465,32 @@ class Engine {
     const lastMonth = shiftMonth(thisMonth, -1);
     const key = start.slice(0, 7);
     if (key < lastMonth && !statement.rates.missing) {
-      return {
-        ...statement,
-        closed: {
-          id: `demo-closure-${key}`,
-          closed_at: new Date(`${shiftMonth(key, 1)}-02T10:00:00Z`).toISOString(),
-          closed_by_name: nameOf(DEMO_USER.id),
-          note: null,
+      const closedAt = new Date(`${shiftMonth(key, 1)}-02T10:00:00Z`);
+      // Payments: older months are all settled; the most recently closed month
+      // has one person still to pay and one who has paid part.
+      const newest = key === shiftMonth(thisMonth, -2);
+      const payments = statement.members.flatMap((m, index): StatementPayment[] => {
+        if (m.total_pence === 0) return [];
+        let amount = m.total_pence;
+        if (newest && m.user_id === "demo-sam") return [];
+        if (newest && m.user_id === "demo-jordan") amount = Math.round(m.total_pence / 2);
+        return [{
+          id: `demo-pay-${key}-${index}`,
+          user_id: m.user_id,
+          amount_pence: amount,
+          paid_on: new Date(closedAt.getTime() + (3 + index) * 86_400_000).toISOString().slice(0, 10),
+          note: index % 2 === 0 ? "Bank transfer" : null,
+        }];
+      });
+      return withPayments(
+        {
+          ...statement,
+          closed: { id: `demo-closure-${key}`, closed_at: closedAt.toISOString(), closed_by_name: nameOf(DEMO_USER.id), note: null },
         },
-      };
+        payments,
+      );
     }
-    return { ...statement, can_close: key <= lastMonth && !statement.rates.missing };
+    return withPayments({ ...statement, can_close: key <= lastMonth && !statement.rates.missing }, []);
   }
 
   // The same rules as the add_flight_entry database function (migration 0011).

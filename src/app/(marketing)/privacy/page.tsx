@@ -105,7 +105,8 @@ export default function PrivacyPage() {
               member paid for the group (such as fuel bought away from home)
               that admins enter, and each member&apos;s monthly statement,
               worked out from the flight log, and a saved copy of each statement
-              for any month an admin has closed.
+              for any month an admin has closed, and the payments admins record
+              against them.
             </li>
             <li>
               <strong>Your email choices:</strong> which emails you want from

@@ -196,3 +196,53 @@ export async function previewStatementEmail(formData: FormData) {
   if (result === "ok") await flushSoon();
   back(groupSlug, view, result === "ok" ? "preview_sent" : (result as string));
 }
+
+// Record a payment for a closed month: the member paid the group (positive), or
+// the group paid the member back (negative). The "Mark paid" button sends the
+// exact amount still open as `amountPence`; the form sends pounds and a direction.
+export async function recordCostPayment(formData: FormData) {
+  const groupId = text(formData, "groupId");
+  const groupSlug = text(formData, "groupSlug");
+  const view = text(formData, "view");
+  await blockInDemo(groupSlug, view);
+  if (!MONTH.test(view)) back(groupSlug, view, "month_invalid");
+
+  let amount: number | null;
+  const exact = text(formData, "amountPence");
+  if (exact !== "") {
+    amount = /^-?\d{1,9}$/.test(exact) ? Number(exact) : null;
+  } else {
+    const pounds = parsePounds(text(formData, "amount"));
+    amount = pounds === null ? null : text(formData, "direction") === "out" ? -pounds : pounds;
+  }
+  if (amount === null || amount === 0) back(groupSlug, view, "amount_invalid");
+
+  const supabase = await signedIn();
+  const { data, error } = await supabase.rpc("record_cost_payment", {
+    p_group_id: groupId,
+    p_user_id: text(formData, "memberId"),
+    p_month: `${view}-01`,
+    p_amount_pence: amount,
+    p_paid_on: text(formData, "date"),
+    p_note: text(formData, "note") || null,
+  });
+  const result = (data as { result?: string } | null)?.result;
+  if (error || !result) back(groupSlug, view, "error");
+  back(groupSlug, view, result === "ok" ? "payment_recorded" : (result as string));
+}
+
+// Take a wrong payment out of the balances, with a reason. It stays on record.
+export async function voidCostPayment(formData: FormData) {
+  const groupSlug = text(formData, "groupSlug");
+  const view = text(formData, "view");
+  await blockInDemo(groupSlug, view);
+
+  const supabase = await signedIn();
+  const { data, error } = await supabase.rpc("void_cost_payment", {
+    p_id: text(formData, "paymentId"),
+    p_reason: text(formData, "reason"),
+  });
+  const result = (data as { result?: string } | null)?.result;
+  if (error || !result) back(groupSlug, view, "error");
+  back(groupSlug, view, result === "ok" ? "payment_voided" : (result as string));
+}

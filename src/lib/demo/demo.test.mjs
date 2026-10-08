@@ -206,7 +206,15 @@ for (const now of [NOW, new Date("2026-01-15T12:00:00Z"), new Date("2026-07-15T1
   yes(oct.closed === null && oct.can_close === false, "the current month is open and cannot be closed yet");
   const aug = await stmt("2026-08-01");
   yes(aug.closed !== null && aug.closed.closed_by_name === "Alex" && aug.can_close === false && aug.drift.length === 0, "an older month shows as closed by Alex");
+  yes(aug.members.every((m) => m.balance_pence === m.total_pence - m.paid_pence), "balance is the total minus what has been paid");
+  const sam = aug.members.find((m) => m.name === "Sam");
+  const jordanAug = aug.members.find((m) => m.name === "Jordan");
+  yes(sam.paid_pence === 0 && sam.balance_pence === sam.total_pence && sam.balance_pence !== 0, "in the newest closed month, Sam has not paid yet");
+  yes(jordanAug.paid_pence > 0 && jordanAug.balance_pence > 0 && jordanAug.balance_pence < jordanAug.total_pence, "...and Jordan has paid part");
+  const jul = await stmt("2026-07-01");
+  yes(jul.closed !== null && jul.members.every((m) => m.balance_pence === 0) && jul.payments.length > 0, "older months are settled, with their payments listed");
   const lastM = await stmt("2026-09-01");
+  yes(lastM.payments.length === 0 && lastM.members.every((m) => m.paid_pence === 0), "an open month has no payments");
   yes(lastM.closed === null && lastM.can_close === true, "last month is finished but open, so the visitor sees the Close button");
   yes((await stmt("2024-01-01")).closed === null && (await stmt("2024-01-01")).can_close === false, "a month without rates is never closable");
 

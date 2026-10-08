@@ -111,6 +111,13 @@ every migration there first. See `docs/systems-and-accounts.md`.
     email to the calling admin only so it can be checked first. Backwards compatible: the old three-argument call still
     works. Try it on the test project first.
 
+20. `0020_cost_payments.sql` — payment tracking: `cost_payments` (amount, date, note;
+    voided with a reason, never edited), `record_cost_payment()` (admin, closed
+    months only) and `void_cost_payment()`, and `cost_statement()` now also returns
+    every member's `paid_pence` / `balance_pence` and the month's `payments` (the
+    previous version moves to the internal `cost_statement_base()`). Backwards
+    compatible. Try it on the test project first.
+
 ## Adding members to a group
 
 Two ways now:

@@ -16,8 +16,14 @@ export type StatementPdfPerson = {
   flights: { date: string; route: string; hours: string; charge: string }[];
   expenses: { date: string; description: string; amount: string }[]; // amount already negative: "-£18.40"
   expensesTotal: string; // "" when there are none
-  totalLabel: string; // "Total for October 2026" or "Credit to you for October 2026"
+  totalLabel: string; // "Total for October 2026" or "Credit due for October 2026"
   total: string;
+  // Payments received (only when there are some): each with its date and note,
+  // then what is left. Empty means nothing is printed.
+  payments?: { date: string; note: string; amount: string }[]; // amount as a deduction: "-£185.00"
+  paymentsTotal?: string;
+  balanceLabel?: string; // "Still to pay", "Settled" or "Credit still due"
+  balance?: string;
   note: string; // "Your own rates apply: ..." or ""
 };
 
@@ -212,6 +218,13 @@ export async function buildStatementPdf(input: StatementPdfInput): Promise<Uint8
     y += 6;
     row(person.totalLabel, person.total, { font: bold, size: 12 });
     y += 6;
+    if (person.payments && person.payments.length > 0) {
+      row("Payments received", person.paymentsTotal ?? "");
+      for (const pay of person.payments) subRow(`${pay.date}${pay.note ? `  -  ${pay.note}` : ""}`, pay.amount);
+      y += 4;
+      row(person.balanceLabel ?? "", person.balance ?? "", { font: bold, size: 11 });
+      y += 6;
+    }
     if (person.note) {
       for (const l of wrap(safe(person.note), regular, 8.5, USABLE_W)) {
         room(12, title);

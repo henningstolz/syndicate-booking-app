@@ -203,6 +203,8 @@ const stmtPages = async (input) => (await PDFDocument.load(await buildStatementP
   eq((await stmtPages(stmtInput([], { summary: many }))) > 1, true, "a long summary table runs onto a second page");
   eq(await stmtPages(stmtInput([person("Zoë 🙂 Müller", 2, { expenses: [{ date: "Sat 3 Oct", description: "Fuel at Sywell — très cher ✈ " + "x".repeat(300), amount: "-£184.00" }], expensesTotal: "-£184.00", note: "Your own rates apply: £0.00 a month and £90.00 an hour." })], { closed: false, status: "Provisional: the month is still running, so these figures can still change." })), 1, "characters the font lacks and very long text do not break the statement");
   eq(await stmtPages(stmtInput([person("Bob", 0)])), 1, "a month with no flights is fine");
+  eq(await stmtPages(stmtInput([person("Bob", 3, { payments: [{ date: "Sat 5 Sep", note: "Bank transfer", amount: "-£100.00" }, { date: "Sun 20 Sep", note: "", amount: "-£95.00" }], paymentsTotal: "-£195.00", balanceLabel: "Settled", balance: "£0.00" })])), 1, "a statement with payments received still fits");
+  eq(await stmtPages(stmtInput([person("Bob", 120, { payments: [{ date: "Sat 5 Sep", note: "x", amount: "-£1.00" }], paymentsTotal: "-£1.00", balanceLabel: "Still to pay", balance: "£1.00" })])), 3, "...and a long one still paginates with payments at the end");
 }
 
 console.log(`${count} unit checks passed`);

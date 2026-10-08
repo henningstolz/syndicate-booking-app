@@ -48,6 +48,9 @@ export function statementStatus(statement: CostStatement, ctx: Pick<StatementPdf
 function toPerson(statement: CostStatement, member: StatementMember, label: string): StatementPdfPerson {
   const flights = statement.flights.filter((f) => f.user_id === member.user_id);
   const expenses = statement.expenses.filter((e) => e.user_id === member.user_id);
+  // Payments are only printed once there are some (a statement made at closing time has none).
+  const payments = (statement.payments ?? []).filter((p) => p.user_id === member.user_id);
+  const balance = member.balance_pence ?? member.total_pence;
   return {
     name: member.name,
     notAMember: !member.is_member,
@@ -65,6 +68,10 @@ function toPerson(statement: CostStatement, member: StatementMember, label: stri
     expensesTotal: expenses.length > 0 ? formatMoney(-member.credit_pence) : "",
     totalLabel: member.total_pence < 0 ? `Credit due for ${label}` : `Total for ${label}`,
     total: formatMoney(Math.abs(member.total_pence)),
+    payments: payments.map((p) => ({ date: shortDay(p.paid_on), note: p.note ?? "", amount: formatMoney(-p.amount_pence) })),
+    paymentsTotal: formatMoney(-(member.paid_pence ?? 0)),
+    balanceLabel: balance === 0 ? "Settled" : balance > 0 ? "Still to pay" : "Credit still due",
+    balance: formatMoney(Math.abs(balance)),
     note: member.custom_rates
       ? `Own rates apply: ${formatMoney(member.fee_pence)} a month and ${formatMoney(member.hourly_rate_pence)} an hour.`
       : "",
@@ -94,7 +101,7 @@ export function statementPdfInput(
           }),
         ),
         totals: {
-          name: "To collect",
+          name: "Total",
           hours: formatHoursTenths(sum((m) => m.hours_tenths)),
           fixed: formatMoney(sum((m) => m.fixed_pence)),
           flying: formatMoney(sum((m) => m.hourly_pence)),

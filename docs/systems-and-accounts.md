@@ -435,6 +435,17 @@ fuel is paid by the group's fuel card, or by a member who is then credited.
    email, with its PDF, to you only, so you can check what members will get.
    Nobody else is emailed and nothing is closed.
 
+6. **Record payments** (admins, closed months): once a month is closed, the
+   Everyone table shows who still owes what. When someone pays the whole amount,
+   press **Mark paid** on their row. For a part payment, or a different amount,
+   use **Payments** below the table: member, direction ("Member paid the group"
+   or "Group paid the member back", for a statement that came out as a credit),
+   amount, date and a note. Several payments add up. Members see their own
+   status ("Paid", "£60.00 left to pay", "£25.00 owed to them") and payments on
+   their statement. A payment can't be edited: **Void this payment** with a reason
+   and enter it again. Payments stay with the month if you reopen it. They can't
+   be recorded for an open month, because the amount isn't final yet.
+
 Each member sees **their own statement**: the fixed share, flying (with every
 flight listed), expenses they paid, and the total. Admins also see everyone's.
 Use the month arrows to go back.

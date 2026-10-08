@@ -72,6 +72,11 @@ export type StatementMember = {
   hourly_pence: number;
   credit_pence: number; // expenses they paid, taken off their total
   total_pence: number;
+  // Payments recorded against the month (cost_statement() fills these in): what
+  // has been paid so far, and what is left (above 0: still to pay, below 0: owed
+  // to the member). Not part of the live calculation, so the twin leaves them blank.
+  paid_pence: number;
+  balance_pence: number;
 };
 
 export type StatementFlight = {
@@ -112,6 +117,16 @@ export type StatementDrift = {
   now_tenths: number;
 };
 
+// A payment an admin recorded: positive = the member paid the group, negative =
+// the group paid the member.
+export type StatementPayment = {
+  id: string;
+  user_id: string;
+  amount_pence: number;
+  paid_on: string;
+  note: string | null;
+};
+
 export type CostStatement = {
   result: "ok";
   month: string;
@@ -122,6 +137,7 @@ export type CostStatement = {
   members: StatementMember[];
   flights: StatementFlight[];
   expenses: StatementExpense[];
+  payments: StatementPayment[];
   closed: StatementClosure | null;
   can_close: boolean; // an admin may close this month now
   drift: StatementDrift[];
@@ -213,6 +229,8 @@ export function computeStatement(input: StatementInput): CostStatement {
         hourly_pence: hourly,
         credit_pence: credit,
         total_pence: fixed + hourly - credit,
+        paid_pence: 0,
+        balance_pence: fixed + hourly - credit,
       };
     })
     .sort((a, b) => compareText(a.name, b.name) || compareText(a.user_id, b.user_id));
@@ -242,7 +260,8 @@ export function computeStatement(input: StatementInput): CostStatement {
       .filter((e) => visible(e.paidBy))
       .sort((a, b) => compareText(a.date, b.date) || compareText(a.id, b.id))
       .map((e) => ({ id: e.id, date: e.date, description: e.description, user_id: e.paidBy, pence: e.pence })),
-    // Closing is not part of the calculation: whoever calls this adds it.
+    // Closing and payments are not part of the calculation: whoever calls this adds them.
+    payments: [],
     closed: null,
     can_close: false,
     drift: [],

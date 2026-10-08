@@ -166,6 +166,11 @@ export default function PrivacyPage() {
               the message.
             </li>
             <li>
+              <strong>GitHub</strong> holds a private, encrypted nightly copy
+              of the database as a backup. Without the owner&apos;s passphrase
+              the copy cannot be read.
+            </li>
+            <li>
               <strong>ImprovMX</strong> forwards mail sent to
               hello@blocktime.group to the owner&apos;s inbox.
             </li>
@@ -201,7 +206,10 @@ export default function PrivacyPage() {
             group&apos;s history stays accurate. If you leave a group, or want
             your account removed, write to the address above and it will be
             deleted or anonymised, except where a group&apos;s records need to
-            stay readable for the other members.
+            stay readable for the other members. Encrypted backups of the whole
+            database are kept for up to a year (the last 30 days, then one a
+            month), so something deleted can remain in an old backup until that
+            backup expires.
           </p>
           <p>
             Notification emails are removed from the sending queue after at

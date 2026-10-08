@@ -509,6 +509,28 @@ export default async function SettingsPage({
         )}
       </section>
 
+      {/* ------------------------------------------------------- install */}
+      <section className="flex max-w-xl flex-col gap-2">
+        <h2 className={sectionTitle}>Add Blocktime to your phone</h2>
+        <p className="text-sm text-zinc-600">
+          Put Blocktime on your home screen, so it opens full screen like an app.
+        </p>
+        <ul className="flex flex-col gap-1.5 text-sm text-zinc-700">
+          <li>
+            <span className="font-medium text-zinc-900">iPhone:</span> open this site in Safari, tap the Share button,
+            then &ldquo;Add to Home Screen&rdquo;.
+          </li>
+          <li>
+            <span className="font-medium text-zinc-900">Android:</span> in Chrome, open the menu (the three dots),
+            then &ldquo;Install app&rdquo; or &ldquo;Add to Home screen&rdquo;.
+          </li>
+        </ul>
+        <p className="text-xs text-zinc-500">
+          It is the same Blocktime as in the browser, with the same sign-in, and it needs a connection to show current
+          bookings.
+        </p>
+      </section>
+
       {isAdmin && (
         <>
           {/* -------------------------------------------------- members */}

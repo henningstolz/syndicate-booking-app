@@ -467,6 +467,20 @@ flight changes the charge), then the rates and expenses listed for that month.
 If the month is closed, the page shows the saved figures; the yellow box says
 what has changed since.
 
+### The installable app (Add to Home Screen)
+
+Blocktime can be put on a phone's home screen and then opens full screen under its
+own icon: iPhone, Safari, Share, "Add to Home Screen"; Android, Chrome menu,
+"Install app". Settings, General, "Add Blocktime to your phone" says the same. It is the
+same site with the same sign-in (not an App Store app), so updates reach everyone
+as soon as you deploy. It opens on the member's group (`/open`), or the sign-in
+page if they are signed out.
+
+To change the icon: edit `src/lib/app-icon.tsx` (a few coloured boxes on a 512-unit
+square). The browser tab icon, the iPhone icon and the Android icons are all made
+from it. Phones keep a copy of the icon from when the app was added, so a new
+design only shows for people who add it again.
+
 ### Calendar subscription
 
 Every member can add the group's bookings to their own calendar app: **Settings,

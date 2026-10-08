@@ -116,6 +116,8 @@ your groups, or to `/pending` if you have none.
 | `/<group>/costs` | Hours and costs, a month at a time (`?month=YYYY-MM`): your statement with the flights behind it, the month's group totals; for admins everyone's statements, the group rates and members' own rates (with history), the expenses members paid, and closing or reopening the month |
 | `/<group>/costs/pdf` | A month's cost statement as an A4 PDF (`?month=YYYY-MM`): your own, or for admins `&member=<id>` for one member or `&member=all` for everyone with a summary page. Made from `cost_statement()`, so a closed month prints the saved figures; an open month is marked provisional. A member can only ever get their own (a request for another member's is refused) |
 | `/cal/<secret>.ics` | A member's calendar subscription (iCalendar): every confirmed booking of their group from 60 days back, their own marked "You", with who booked and the note. Public address, no login: the 64-character secret is the credential, answered by `calendar_feed()`; unknown or switched-off links get a 404 |
+| `/manifest.webmanifest`, `/pwa-icon/192.png`, `/pwa-icon/512.png`, `/apple-icon`, `/icon` | What makes Blocktime installable ("Add to Home Screen"): the manifest (`src/app/manifest.ts`) and the icons, drawn from shapes by `src/lib/app-icon.tsx` (a "b" with an amber booking block) |
+| `/open` | Where the installed app opens (the manifest's `start_url`): a signed-in member goes to their group, anyone else to sign-in |
 | `/<group>/reports` | Upcoming bookings, and "Bookings per member" donut chart |
 | `/<group>/aircraft` | Renewal and check due dates; admins can edit |
 | `/<group>/members` | Read-only member list |
@@ -518,6 +520,6 @@ either work in the demo (see `engine.ts`) or are blocked there the way
 - Supabase's free plan pauses an unused project; a paid plan would remove that risk and add its own backups.
 - Self-service account deletion (done by hand in Supabase today). Members can
   leave a group, but their login stays.
-- An installable (PWA) version for phones.
+- Installable app: done as a plain "Add to Home Screen" web app (manifest, icons, no service worker). Not built, on purpose: offline use and push notifications (a service worker, stored device subscriptions and a sending service; on iPhone push only works for an installed app).
 - Colour palette retune for red-green colour blindness (rose and lime are too
   close).

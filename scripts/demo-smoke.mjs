@@ -61,6 +61,25 @@ for (const [what, query] of [["a member's statement", `month=${month}`], ["every
   );
 }
 
+// The installable app: its manifest, its icons, and where it opens.
+{
+  const manifest = await fetch(`${BASE}/manifest.webmanifest`);
+  const json = await manifest.json().catch(() => null);
+  check(
+    manifest.status === 200 && json?.display === "standalone" && json?.start_url === "/open" && json?.icons?.some((i) => i.sizes === "192x192") && json?.icons?.some((i) => i.sizes === "512x512" && i.purpose === "maskable"),
+    "the web app manifest is served with its icons",
+    `status ${manifest.status}`,
+  );
+  for (const path of ["/pwa-icon/192.png", "/pwa-icon/512.png", "/apple-icon", "/icon"]) {
+    const icon = await fetch(`${BASE}${path}`);
+    const head = new Uint8Array(await icon.arrayBuffer()).slice(0, 4);
+    check(icon.status === 200 && icon.headers.get("content-type") === "image/png" && head[1] === 0x50 && head[2] === 0x4e && head[3] === 0x47, `${path} is a PNG`, `status ${icon.status}`);
+  }
+  check((await fetch(`${BASE}/pwa-icon/999.png`)).status === 404, "an unknown icon size is a 404");
+  const open = await fetch(`${BASE}/open`, { redirect: "manual" });
+  check(open.status === 307 && (open.headers.get("location") ?? "").endsWith("/login"), "the installed app's start page sends someone who is not signed in to sign-in", `status ${open.status} -> ${open.headers.get("location")}`);
+}
+
 // The calendar subscription address: an unknown link gets a polite 404, never an error or any data.
 for (const file of [`${"0".repeat(64)}.ics`, "nonsense.ics", `${"A".repeat(64)}.ics`]) {
   const feed = await fetch(`${BASE}/cal/${file}`, { redirect: "manual" });

@@ -38,7 +38,10 @@ structure() {
       || ':' || has_function_privilege('anon', p.oid, 'execute')::text
       || has_function_privilege('authenticated', p.oid, 'execute')::text
       || has_function_privilege('service_role', p.oid, 'execute')::text, ',' order by p.oid::regprocedure::text), ''))
-    from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public'"
+    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and not exists (select 1 from pg_depend d where d.objid = p.oid and d.deptype = 'e')  -- not the add-ons' own functions
+  "
   psql_q -c "
     select 'tables-acl ' || md5(coalesce(string_agg(c.relname || ':' || r.role || ':' || has_table_privilege(r.role, c.oid, 'select')::text
       || has_table_privilege(r.role, c.oid, 'insert')::text || has_table_privilege(r.role, c.oid, 'update')::text

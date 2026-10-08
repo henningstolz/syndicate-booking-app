@@ -31,12 +31,21 @@ structure() {
   psql_q -c "
     select 'rls ' || md5(coalesce(string_agg(c.relname || ':' || c.relrowsecurity::text, ',' order by c.relname), ''))
     from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind = 'r'"
+  # Who can actually run each function and use each table (anonymous visitors, signed-in
+  # users, and the server role), whichever way the permission was granted.
   psql_q -c "
-    select 'functions ' || md5(coalesce(string_agg(p.oid::regprocedure::text || ':' || p.prosecdef::text || ':' || coalesce(regexp_replace(p.proacl::text, '/[a-z_]+', '', 'g'), ''), ',' order by p.oid::regprocedure::text), ''))
+    select 'functions ' || md5(coalesce(string_agg(p.oid::regprocedure::text || ':' || p.prosecdef::text
+      || ':' || has_function_privilege('anon', p.oid, 'execute')::text
+      || has_function_privilege('authenticated', p.oid, 'execute')::text
+      || has_function_privilege('service_role', p.oid, 'execute')::text, ',' order by p.oid::regprocedure::text), ''))
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public'"
   psql_q -c "
-    select 'tables-acl ' || md5(coalesce(string_agg(c.relname || ':' || coalesce(regexp_replace(c.relacl::text, '/[a-z_]+', '', 'g'), ''), ',' order by c.relname), ''))
-    from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind = 'r'"
+    select 'tables-acl ' || md5(coalesce(string_agg(c.relname || ':' || r.role || ':' || has_table_privilege(r.role, c.oid, 'select')::text
+      || has_table_privilege(r.role, c.oid, 'insert')::text || has_table_privilege(r.role, c.oid, 'update')::text
+      || has_table_privilege(r.role, c.oid, 'delete')::text, ',' order by c.relname, r.role), ''))
+    from pg_class c join pg_namespace n on n.oid = c.relnamespace
+    cross join (values ('anon'), ('authenticated'), ('service_role')) as r(role)
+    where n.nspname = 'public' and c.relkind = 'r'"
   psql_q -c "
     select 'constraints ' || md5(coalesce(string_agg(conrelid::regclass::text || ':' || conname || ':' || pg_get_constraintdef(oid), ',' order by conrelid::regclass::text, conname), ''))
     from pg_constraint where connamespace = 'public'::regnamespace"

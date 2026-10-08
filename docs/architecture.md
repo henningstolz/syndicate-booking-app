@@ -5,7 +5,7 @@ and for step-by-step "how do I…" tasks, see
 [systems-and-accounts.md](systems-and-accounts.md). The original product brief
 is [project-brief.md](project-brief.md).
 
-_Last updated 5 October 2026._
+_Last updated 8 October 2026._
 
 ## In one paragraph
 
@@ -46,9 +46,12 @@ database itself refuses to show one group's rows to another group's members.
    GitHub (henningstolz/syndicate-booking-app) ── push to main ──► Vercel
 ```
 
-Nothing else runs. There is no separate API server, no background jobs, no
-analytics and no file storage. The app is a set of server-rendered pages plus
-form actions that talk to Supabase.
+There is no separate API server, no analytics and no file storage. The app is
+a set of server-rendered pages plus form actions that talk to Supabase. The
+only background work is two daily Vercel jobs (notification emails and
+reminders, see "Email notifications"), and, outside the app, GitHub's nightly
+database backup. This picture shows the live system; "Two systems: test and
+live" below adds the test side and the backups.
 
 ## Tech stack
 
@@ -243,8 +246,8 @@ These each cost a debugging round once.
 
 ## Environments and configuration
 
-Three settings drive the app. They are read from environment variables, and no
-secrets are committed to Git.
+A handful of settings drive the app. They are read from environment variables,
+and no secrets are committed to Git.
 
 | Variable | Meaning | Where it's set |
 | --- | --- | --- |
@@ -264,6 +267,97 @@ one (set in `.env.local` on your Mac, which also has `TEST_DATABASE_URL` for
 `npm run db:migrate`). The test project holds only made-up data. The live
 values are kept in `.env.live` for the rare case they are needed locally. See
 the runbook, "The test database".
+
+## Two systems: test and live
+
+There are two complete copies of the back end. The **live** one serves your
+real members. The **test** one holds only made-up data and exists so that
+changes can be tried, and broken, safely. The code is a single codebase; which
+database it talks to depends only on its environment variables (the test
+project in `.env.local` on your Mac, the live project in Vercel).
+
+```
+ TEST SIDE (safe to break)
+ ┌──────────────────┐  works against   ┌───────────────────────────┐
+ │  Your Mac        │ ───────────────► │ Supabase: blocktime-test  │
+ │  dev site, tests │                  │ made-up data only         │
+ └────────┬─────────┘                  └───────────────────────────┘
+          │ git push                                ▲
+          ▼                                         │ restore drill (by hand,
+ ┌──────────────────┐  nightly job     ┌────────────┴──────────────┐  Actions)
+ │  GitHub          │ ───────────────► │ Private backups repo      │
+ │  code + jobs     │                  │ encrypted, 30 days +      │
+ └────────┬─────────┘                  │ 12 months                 │
+          │ deploy                     └────────────▲──────────────┘
+          ▼                                         │ pg_dump, read only
+ LIVE SIDE (real members and flights)               │
+ ┌──────────────────┐  as the signed-in ┌───────────┴──────────────┐
+ │  Vercel          │ ────────────────► │ Supabase: blocktime      │
+ │  builds + hosts  │  user             │ real data                │
+ └──────────────────┘                   └───────────▲──────────────┘
+                                                    │ migrations, run by hand
+                                        ┌───────────┴──────────────┐
+                                        │ SQL editor               │
+                                        └──────────────────────────┘
+```
+
+The two sides are joined in exactly two places, both deliberate and manual:
+**running a migration's SQL on the live project** (in its SQL editor) and
+**`git push`** (which makes Vercel deploy the code). Nothing else reaches live.
+`npm run db:migrate` and `npm run db:reset-test` refuse to touch the live
+project, and the restore drill refuses to restore into it.
+
+### How a change reaches live
+
+```
+ TEST SIDE
+ 1. Write it          2. Automatic tests       3. Try on test
+    code + migration     npm test, throwaway      npm run db:migrate, then use
+                         in-memory database       the change on the local site
+                                │
+ LIVE SIDE (real data, so in this order)
+ 4. SQL on live       5. Push to GitHub        6. Check live
+    run the migration    Vercel deploys in        confirm the new objects exist,
+    by hand, FIRST       about a minute           crawl the public demo
+```
+
+1. **Write it.** The code, and, if the database changes, a numbered file in
+   `supabase/migrations/`.
+2. **Automatic tests.** `npm test` runs the unit tests and the database tests
+   (about 1,400 checks) against a throwaway in-memory Postgres. When the backup
+   tooling or a migration changes, GitHub also runs the backup self-test.
+3. **Try it on test.** `npm run db:migrate` applies the migration to the test
+   project, and the change is used on the local site. A broken migration shows
+   up here, on made-up data.
+4. **SQL on live.** The migration's SQL is run by hand in the live project's SQL
+   editor. This comes **before** the push: the new code may expect something the
+   database does not have yet.
+5. **Push.** Vercel builds and deploys the code.
+6. **Check live.** For example, ask the live API whether the new column,
+   function or table exists, and run the demo crawl against
+   `https://blocktime.group` (`BASE=… npm run test:demo`).
+
+Because step 4 happens before step 5, every migration is written to work with
+**both the old and the new code** (for example, a column is added before code
+uses it, and old objects are only dropped in a later clean-up migration, as
+0017 did for the fuel pot). That way the live site keeps working between the
+two steps.
+
+### What protects live, and what does not
+
+- A bad change to the code: Vercel keeps the previous deploy, which can be
+  restored in one click.
+- A bad migration: it is tried on the test project first. If one still goes
+  wrong on live, the latest nightly backup is the way back, and a restore has
+  been practised (see "Backups").
+- **Not covered:** step 4 is manual, so nothing stops a forgotten or wrong file
+  (it is checked afterwards, as in step 6). The test project is built from the
+  migrations rather than copied from live, so it shows whether a change is
+  correct, not how it behaves with a year of real data (the restore drill can
+  put a copy of live data there for a short while; empty it again afterwards).
+  The test project sends no notification emails, so emails can only be tried
+  live. And a Supabase free project pauses when unused, which would take the
+  site down if it happened to the live one.
 
 ## Backups
 

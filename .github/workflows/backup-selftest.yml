@@ -1,0 +1,104 @@
+name: Backup self-test
+
+# Proves the backup tooling works, with no secrets and no real data: it builds a
+# pretend live database from the project's migrations, backs it up, restores the
+# backup into a second empty database, and checks the copy matches. It runs
+# whenever the tooling or the database design changes.
+on:
+  push:
+    paths:
+      - "scripts/backup/**"
+      - "supabase/migrations/**"
+      - ".github/workflows/backup*.yml"
+  pull_request:
+    paths:
+      - "scripts/backup/**"
+      - "supabase/migrations/**"
+      - ".github/workflows/backup*.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  selftest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      source:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+      target:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5433:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      SOURCE_URL: postgres://postgres:postgres@localhost:5432/postgres
+      TARGET_URL: postgres://postgres:postgres@localhost:5433/postgres
+      BACKUP_PASSPHRASE: self-test passphrase, not a secret
+      SHOW_COUNTS: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install the Postgres 17 tools
+        run: |
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y postgresql-client-17
+          pg_dump --version
+      - name: Retention rules
+        run: node scripts/backup/retention.test.mjs
+      - name: Build a pretend live database from the migrations
+        run: |
+          psql "$SOURCE_URL" -v ON_ERROR_STOP=1 -q -f scripts/backup/container-prelude.sql -f scripts/backup/fake-auth-tables.sql
+          for f in $(ls supabase/migrations/*.sql | sort); do
+            echo "applying $f"
+            psql "$SOURCE_URL" -v ON_ERROR_STOP=1 -q -f "$f"
+          done
+          psql "$SOURCE_URL" -v ON_ERROR_STOP=1 -q -f scripts/backup/sample-data.sql
+      - name: Back it up
+        run: scripts/backup/backup.sh "$SOURCE_URL" /tmp/backup
+      - name: Encrypt and decrypt round trip
+        run: |
+          scripts/backup/encrypt.sh pack /tmp/backup /tmp/backup.tar.enc
+          ! grep -q "alice@example.test" /tmp/backup.tar.enc
+          scripts/backup/encrypt.sh unpack /tmp/backup.tar.enc /tmp/opened
+          cmp /tmp/backup/public.dump /tmp/opened/public.dump
+          cmp /tmp/backup/auth-data.sql /tmp/opened/auth-data.sql
+          (BACKUP_PASSPHRASE=wrong scripts/backup/encrypt.sh unpack /tmp/backup.tar.enc /tmp/nope 2>/dev/null && exit 1) || echo "a wrong passphrase is refused"
+      - name: Restore into an empty database and compare
+        run: |
+          psql "$TARGET_URL" -v ON_ERROR_STOP=1 -q -f scripts/backup/container-prelude.sql
+          scripts/backup/restore.sh "$TARGET_URL" /tmp/opened --with-auth-schema
+      - name: The restore refuses a database that is not empty
+        run: |
+          if scripts/backup/restore.sh "$TARGET_URL" /tmp/opened --with-auth-schema; then
+            echo "restore should have refused"; exit 1
+          fi
+      - name: Special characters and sign-in rows survived
+        run: |
+          for url in "$SOURCE_URL" "$TARGET_URL"; do
+            psql "$url" -At -c "select md5(string_agg(message, '|' order by message)) from public.squawks" >> /tmp/messages
+            psql "$url" -At -c "select md5(string_agg(email || encrypted_password || raw_user_meta_data::text, '|' order by email)) from auth.users" >> /tmp/people
+          done
+          [ "$(sort -u /tmp/messages | wc -l)" = 1 ] && [ "$(sort -u /tmp/people | wc -l)" = 1 ]
+      - name: A restored copy keeps the permissions (anonymous visitors still cannot call functions)
+        run: |
+          psql "$SOURCE_URL" -At -c "select has_function_privilege('anon', 'public.cost_statement(uuid,date)', 'execute')" | grep -x f
+          psql "$TARGET_URL" -At -c "select has_function_privilege('anon', 'public.cost_statement(uuid,date)', 'execute')" | grep -x f
+          psql "$TARGET_URL" -At -c "select has_function_privilege('authenticated', 'public.cost_statement(uuid,date)', 'execute')" | grep -x t
+      - name: The comparison notices a missing row
+        run: |
+          psql "$TARGET_URL" -v ON_ERROR_STOP=1 -q -c "delete from public.squawks where message like 'Fuel card%'"
+          if scripts/backup/fingerprint.sh "$TARGET_URL" counts | cmp -s - <(grep -E '^(public|auth)\.' /tmp/opened/fingerprint-before.txt); then
+            echo "the check missed a deleted row"; exit 1
+          fi
+          echo "a deleted row is noticed"

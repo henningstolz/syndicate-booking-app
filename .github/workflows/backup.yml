@@ -1,0 +1,89 @@
+name: Daily database backup
+
+# Every night: copies the live database, proves the copy can be restored (into a
+# throwaway database inside this job), encrypts it, and files it as a release in
+# a separate PRIVATE repository. Old ones are thinned out: the last 30 days are
+# kept, plus the oldest of each of the last 12 months.
+#
+# This repository is public, so everything printed in the logs is public too.
+# The steps below never print data, and anything that could (a database error
+# quoting a row) is filtered. See docs/systems-and-accounts.md ("Backups").
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      verify:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5433:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+      GH_TOKEN: ${{ secrets.BACKUP_REPO_TOKEN }}
+      BACKUP_REPO: ${{ secrets.BACKUP_REPO }}
+      VERIFY_URL: postgres://postgres:postgres@localhost:5433/postgres
+    steps:
+      - name: Check the settings are all there
+        run: |
+          missing=""
+          [ -n "$DATABASE_URL" ] || missing="$missing BACKUP_DATABASE_URL"
+          [ -n "$BACKUP_PASSPHRASE" ] || missing="$missing BACKUP_PASSPHRASE"
+          [ -n "$GH_TOKEN" ] || missing="$missing BACKUP_REPO_TOKEN"
+          [ -n "$BACKUP_REPO" ] || missing="$missing BACKUP_REPO"
+          if [ -n "$missing" ]; then
+            echo "These secrets are not set in this repository's settings:$missing"
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install the Postgres 17 tools
+        run: |
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y postgresql-client-17
+
+      - name: Copy the live database (read only)
+        run: scripts/backup/backup.sh "$DATABASE_URL" /tmp/backup 2>&1 | grep -v -E 'CONTEXT|DETAIL|^-rw'
+
+      - name: Prove the copy restores
+        run: |
+          # The throwaway database starts with the shape of the sign-in tables, taken from the live one.
+          psql "$VERIFY_URL" -v ON_ERROR_STOP=1 -q -f scripts/backup/container-prelude.sql
+          scripts/backup/restore.sh "$VERIFY_URL" /tmp/backup --with-auth-schema 2>&1 | grep -v -E 'CONTEXT|DETAIL'
+
+      - name: Encrypt and store in the private backups repository
+        run: |
+          tag="backup-$(date -u +%F)"
+          scripts/backup/encrypt.sh pack /tmp/backup "/tmp/$tag.tar.enc"
+          # Make sure what is stored really opens with the passphrase.
+          scripts/backup/encrypt.sh unpack "/tmp/$tag.tar.enc" /tmp/reopened
+          cmp /tmp/backup/public.dump /tmp/reopened/public.dump
+          # A second run on the same day replaces the first.
+          gh release delete "$tag" --repo "$BACKUP_REPO" --yes --cleanup-tag 2>/dev/null || true
+          gh release create "$tag" "/tmp/$tag.tar.enc" --repo "$BACKUP_REPO" \
+            --title "$tag" \
+            --notes "Encrypted database backup, verified by restoring it into a scratch database. Open it with scripts/backup/encrypt.sh unpack."
+          echo "stored $tag ($(du -h "/tmp/$tag.tar.enc" | cut -f1))"
+
+      - name: Delete backups that are no longer needed
+        run: |
+          gh release list --repo "$BACKUP_REPO" --limit 400 --json tagName,createdAt \
+            | node scripts/backup/retention.mjs > /tmp/old-tags
+          while read -r tag; do
+            [ -n "$tag" ] || continue
+            echo "deleting $tag"
+            gh release delete "$tag" --repo "$BACKUP_REPO" --yes --cleanup-tag
+          done < /tmp/old-tags

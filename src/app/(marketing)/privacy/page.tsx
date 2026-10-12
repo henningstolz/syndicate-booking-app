@@ -115,7 +115,7 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong>Your calendar link:</strong> if you create one under
-              Settings, a secret web address that shows your group&apos;s
+              Account, a secret web address that shows your group&apos;s
               bookings (times, who booked, notes) to whoever has it. You can
               replace or switch it off at any time. If you add it to a
               calendar app, that calendar provider (for example Apple, Google
@@ -173,7 +173,7 @@ export default function PrivacyPage() {
             <li>
               <strong>Resend</strong> sends the sign-up confirmation and
               password-reset emails, and the notification and reminder emails you choose
-              in Settings, so it sees the recipient&apos;s email address and
+              in your account, so it sees the recipient&apos;s email address and
               the message. When an admin closes a month, that includes your
               cost statement for it, as a PDF attachment.
             </li>
@@ -226,7 +226,7 @@ export default function PrivacyPage() {
           <p>
             Notification emails are removed from the sending queue after at
             most a month (unsent ones after a week). You choose which emails
-            you get under Settings, then Notifications, and every email links
+            you get under Account, then Notifications, and every email links
             back there.
           </p>
         </Section>

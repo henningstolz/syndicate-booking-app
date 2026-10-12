@@ -643,7 +643,7 @@ export default async function CostsPage({
                     <span>
                       Email each member their statement, with the PDF attached
                       <span className="block text-xs text-zinc-500">
-                        Each member only receives their own. Members can switch these emails off in Settings.
+                        Each member only receives their own. Members can switch these emails off under Account.
                       </span>
                     </span>
                   </label>

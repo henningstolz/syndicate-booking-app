@@ -10,6 +10,7 @@ import {
 import { buildFlightLogPdf } from "./flight-log-pdf.ts";
 import { buildStatementPdf } from "./statement-pdf.ts";
 import { buildIcs, icsTime, icsText, foldLine } from "./ical.ts";
+import { initialsOf } from "./initials.ts";
 import { runningTotals } from "./flight-totals.ts";
 import { formatMoney, parsePounds, formatHoursTenths, computeStatement, shiftMonth } from "./costs.ts";
 import { PDFDocument } from "pdf-lib";
@@ -242,5 +243,10 @@ eq(foldLine("short"), "short", "a short line is left alone");
   yes(!ics.includes("\n\n") && ics.split("\r\n").every((l) => !l.includes("\n")), "no stray line breaks inside lines");
   eq(buildIcs({ name: "Empty", events: [] }).includes("BEGIN:VEVENT"), false, "no bookings is a valid, empty calendar");
 }
+
+// --- the initials in the round account button
+eq([initialsOf("Alex Brown"), initialsOf("alex brown"), initialsOf("Alex"), initialsOf("  Mary Jane Watson  "), initialsOf("Émile Zola")], ["AB", "AB", "A", "MW", "ÉZ"], "first and last word, capitalised");
+eq([initialsOf(null, "henning@example.com"), initialsOf("", "pilot@example.com"), initialsOf(undefined, undefined), initialsOf("   ", "")], ["H", "P", "?", "?"], "with no name the email's first letter, else a question mark");
+eq(initialsOf("Zoë 🙂"), "Z🙂", "an emoji counts as one letter, not half a character");
 
 console.log(`${count} unit checks passed`);

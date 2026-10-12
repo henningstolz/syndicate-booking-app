@@ -101,9 +101,19 @@ the previous version stays live.
 2. Add one entry to `STATUS_FIELDS` in `src/lib/aircraft-status.ts`.
 3. Push.
 
+### The account menu
+
+The round button with a person's initials at the top right opens a small menu:
+**Account** (everything personal: name, password, which emails they get, their
+calendar link, putting Blocktime on the phone, leaving the group), **Settings** (the
+group's own settings; shown to admins only) and **Sign out**. The left-hand menu is
+only for the group's pages. Initials come from the name the person uses in the
+group (first and last word), or the first letter of their email if there is none.
+
 ### Add someone to a group
 
-An admin opens the group's **Settings** page, types who the invite is for,
+An admin opens the group's **Settings** page (the round initials button at the top
+right, then Settings), types who the invite is for,
 picks Member or Admin, and creates the link. They send the link to the person.
 The person signs up (or signs in) and enters their name; they set their own
 password. The link works once and expires after 14 days; an unused one can be
@@ -292,7 +302,7 @@ requested it (that is how Supabase keeps the link safe). If it fails, the
 person sees "That reset link has expired" and can ask again. For the link to
 work, `https://blocktime.group/**` must be in Supabase, Authentication, URL
 Configuration, Redirect URLs. Signed-in members can change their password
-from Settings. Passwords must be at least 8 characters.
+from Account (the round button at the top right, then Profile). Passwords must be at least 8 characters.
 
 ### Log a flight
 
@@ -326,7 +336,7 @@ paper log) re-calibrates it without losing logged flights.
 
 ### Set up email notifications
 
-One-time setup so the app can send the emails members choose in Settings,
+One-time setup so the app can send the emails members choose under Account,
 then Notifications. The code is live but sends nothing until these steps are
 done (and the database change 0013 has been run).
 
@@ -351,7 +361,7 @@ done (and the database change 0013 has been run).
    `SITE_URL` and the Supabase settings as they are.
 5. **Redeploy.** Vercel, Deployments, the latest one, Redeploy (new settings
    only apply to a new deployment).
-6. **Test it.** Settings, Notifications, **Send me a test email**. It should
+6. **Test it.** Account, Notifications, **Send me a test email**. It should
    arrive within a minute.
 7. **Try the real thing.** Invite a second address of yours (a Gmail `+test`
    alias), join with it, then post in the chat as yourself: the alias's inbox
@@ -363,7 +373,7 @@ could email real people if you ever pointed it at live data).
 
 ### Change what members are emailed about
 
-Members choose for themselves under Settings, then Notifications. To change
+Members choose for themselves under Account, then Notifications. To change
 which events exist or the defaults, edit `src/lib/notifications.ts` and the
 matching `notification_default()` in a new migration; the tests check the two
 agree. To see what is waiting or stuck, look at `notification_outbox` in
@@ -427,7 +437,7 @@ fuel is paid by the group's fuel card, or by a member who is then credited.
    closed, and neither can the current month. The close form has a box,
    ticked by default: **Email each member their statement, with the PDF
    attached**. Each member gets only their own, within a minute or so. Members
-   who switched off "Monthly statements" in Settings, Notifications, and members
+   who switched off "Monthly statements" under Account, Notifications, and members
    who have left are skipped. Closing a month again after a reopen sends the
    updated statements. Untick the box if you'd rather not email (for example for
    a month already settled). **Before the first real use,** press **Email me my
@@ -471,7 +481,7 @@ what has changed since.
 
 Blocktime can be put on a phone's home screen and then opens full screen under its
 own icon: iPhone, Safari, Share, "Add to Home Screen"; Android, Chrome menu,
-"Install app". Settings, General, "Add Blocktime to your phone" says the same. It is the
+"Install app". Account, Profile, "Add Blocktime to your phone" says the same. It is the
 same site with the same sign-in (not an App Store app), so updates reach everyone
 as soon as you deploy. It opens on the member's group (`/open`), or the sign-in
 page if they are signed out.
@@ -483,8 +493,8 @@ design only shows for people who add it again.
 
 ### Calendar subscription
 
-Every member can add the group's bookings to their own calendar app: **Settings,
-then the Calendar tab, then Create my calendar link.** The link is private and
+Every member can add the group's bookings to their own calendar app: **the round
+button at the top right, Account, the Calendar tab, then Create my calendar link.** The link is private and
 personal (a long secret address, `/cal/<secret>.ics`). It shows every booking of
 the aircraft with who booked it and the note, and the member's own bookings are
 marked "You". Cancelled bookings drop out at the calendar's next refresh.
@@ -500,7 +510,7 @@ marked "You". Cancelled bookings drop out at the calendar's next refresh.
   made and cancelled in Blocktime.
 - **If someone says it doesn't work:** open the link in a browser. A calendar
   file downloads, or a plain "not found" page means the link was replaced or
-  turned off, so they should copy the current one from Settings.
+  turned off, so they should copy the current one from Account.
 
 ### Reminders
 
@@ -510,7 +520,7 @@ everyone gets aircraft reminders when a check, renewal or other due date is 30 o
 the limit). Each reminder is sent once. They go out every evening around 17:00
 to 18:00 UK time (Vercel's free plan runs a job once a day at a fixed time).
 
-- **To send them straight away** (to test, or after fixing a date): Settings,
+- **To send them straight away** (to test, or after fixing a date): Account,
   Notifications, **Send due reminders now** (admins). Pressing it again changes
   nothing, because each reminder is only sent once.
 - **A reminder did not come:** the booking must start tomorrow (UK date), be
@@ -521,7 +531,7 @@ to 18:00 UK time (Vercel's free plan runs a job once a day at a fixed time).
 
 ### Notification emails are not arriving
 
-1. Settings, Notifications, **Send me a test email**. If that fails, the
+1. Account, Notifications, **Send me a test email**. If that fails, the
    server settings (step 4 above) are wrong or missing, or Resend refused.
 2. If the test works but real emails don't: check the person has the event
    switched on, and remember nobody is emailed about their own action.

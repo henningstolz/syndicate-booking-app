@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LAST_GROUP_COOKIE } from "@/lib/pick-group";
 import { GroupSwitcher, type GroupOption } from "./GroupSwitcher";
+import { UserMenu } from "./UserMenu";
 
 const NAV_ITEMS = [
   { path: "", label: "Dashboard" },
@@ -15,7 +16,6 @@ const NAV_ITEMS = [
   { path: "/reports", label: "Reports" },
   { path: "/aircraft", label: "Aircraft" },
   { path: "/members", label: "Members" },
-  { path: "/settings", label: "Settings" },
 ];
 
 function NavLinks({
@@ -56,6 +56,7 @@ export function AppShell({
   groupName,
   groups,
   signOutAction,
+  user,
   demo = false,
   children,
 }: {
@@ -63,6 +64,8 @@ export function AppShell({
   groupName: string;
   groups: GroupOption[];
   signOutAction: () => void;
+  // Who is signed in, for the round account button and its menu.
+  user: { name: string | null; email: string | null; isAdmin: boolean };
   // The invented demo group: show a banner and "Exit demo" instead of "Sign out".
   demo?: boolean;
   children: React.ReactNode;
@@ -112,23 +115,14 @@ export function AppShell({
             currentName={groupName}
           />
         </div>
-        {demo ? (
-          <Link
-            href="/"
-            className="flex min-h-9 items-center rounded-full border border-zinc-300 px-3.5 text-sm text-zinc-700 transition-colors hover:bg-zinc-100 hover:text-zinc-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
-          >
-            Exit demo
-          </Link>
-        ) : (
-          <form action={signOutAction}>
-            <button
-              type="submit"
-              className="flex min-h-9 items-center rounded-full border border-zinc-300 px-3.5 text-sm text-zinc-700 transition-colors hover:bg-zinc-100 hover:text-zinc-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
-            >
-              Sign out
-            </button>
-          </form>
-        )}
+        <UserMenu
+          groupSlug={groupSlug}
+          name={user.name}
+          email={user.email}
+          isAdmin={user.isAdmin}
+          demo={demo}
+          signOutAction={signOutAction}
+        />
       </header>
 
       <div className="flex flex-1">

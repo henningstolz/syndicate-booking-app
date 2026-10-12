@@ -40,7 +40,7 @@ export async function flushQueue(
         ...email,
         ...(attachment ? { attachments: [attachment] } : {}),
         to: item.recipient_email,
-        unsubscribeUrl: `${deps.siteUrl.replace(/\/+$/, "")}/${encodeURIComponent(item.group_slug)}/settings?tab=notifications`,
+        unsubscribeUrl: `${deps.siteUrl.replace(/\/+$/, "")}/${encodeURIComponent(item.group_slug)}/account?tab=notifications`,
       });
       if (result.ok) {
         await deps.markSent(item.id);

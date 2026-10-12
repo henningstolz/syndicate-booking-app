@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ResetPasswordForm } from "./ResetPasswordForm";
 
 // Reached from the reset email (the link signs the person in first) or from
-// "Change password" in Settings. Without a signed-in session there is
+// "Change password" in Account. Without a signed-in session there is
 // nothing to change, so send them to request a link.
 export default async function ResetPasswordPage() {
   const supabase = await createClient();

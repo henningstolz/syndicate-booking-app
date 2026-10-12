@@ -58,8 +58,22 @@ export default async function GroupLayout({
     redirect(await homePathFor(supabase, user.id));
   }
 
+  // The person's name in this group and their role, for the account button and menu.
+  const { data: membership } = await supabase
+    .from("group_members")
+    .select("display_name, role")
+    .eq("group_id", group.id)
+    .eq("user_id", user.id)
+    .is("removed_at", null)
+    .maybeSingle<{ display_name: string | null; role: string }>();
+
   return (
     <AppShell
+      user={{
+        name: membership?.display_name ?? null,
+        email: user.email ?? null,
+        isAdmin: membership?.role === "admin",
+      }}
       demo={await isDemoRequest()}
       groupSlug={groupSlug}
       groupName={group.name}

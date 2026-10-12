@@ -250,7 +250,7 @@ export function renderNotification(n: QueuedNotification, siteUrl: string): Rend
   const base = siteUrl.replace(/\/+$/, "");
   const c = content(n);
   const url = `${base}${c.link.path}`;
-  const settingsUrl = `${base}/${encodeURIComponent(n.group_slug)}/settings?tab=notifications`;
+  const settingsUrl = `${base}/${encodeURIComponent(n.group_slug)}/account?tab=notifications`;
   const reason = `You are getting this because you are a member of ${n.group_name} on Blocktime.`;
 
   const text = [
@@ -294,7 +294,7 @@ export function renderNotification(n: QueuedNotification, siteUrl: string): Rend
   return { subject: c.subject.replace(/\s+/g, " ").trim(), text, html };
 }
 
-// Used by "Send me a test email" in Settings.
+// Used by "Send me a test email" under Account.
 export function renderTestEmail(groupName: string, siteUrl: string): RenderedEmail {
   const base = siteUrl.replace(/\/+$/, "");
   return renderNotification(

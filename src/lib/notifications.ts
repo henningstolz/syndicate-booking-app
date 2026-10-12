@@ -1,4 +1,4 @@
-// The events a member can be emailed about. One list, used by the Settings
+// The events a member can be emailed about. One list, used by the Account
 // tab (labels, descriptions) and checked by the database tests against the
 // database's own defaults (notification_default in migration 0013), so the
 // two cannot drift apart. No imports, so the tests can load it in plain Node.

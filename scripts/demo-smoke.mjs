@@ -22,9 +22,10 @@ const pages = [
   "/demo/reports?view=distribution&metric=days&year=all",
   "/demo/aircraft",
   "/demo/members",
+  "/demo/account",
+  "/demo/account?tab=notifications",
+  "/demo/account?tab=calendar",
   "/demo/settings",
-  "/demo/settings?tab=notifications",
-  "/demo/settings?tab=calendar",
   "/demo/costs",
   `/demo/costs?month=${lastMonth}`,
 ];
@@ -59,6 +60,12 @@ for (const [what, query] of [["a member's statement", `month=${month}`], ["every
     `the demo's cost statement PDF downloads (${what})`,
     `status ${statement.status}`,
   );
+}
+
+// Old links (in earlier emails, bookmarks) to the personal settings tabs still work.
+for (const tab of ["notifications", "calendar"]) {
+  const old = await fetch(`${BASE}/demo/settings?tab=${tab}`, { redirect: "manual" });
+  check(old.status === 307 && (old.headers.get("location") ?? "").endsWith(`/demo/account?tab=${tab}`), `the old Settings ${tab} link goes to Account`, `status ${old.status} -> ${old.headers.get("location")}`);
 }
 
 // The installable app: its manifest, its icons, and where it opens.

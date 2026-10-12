@@ -104,7 +104,7 @@ your groups, or to `/pending` if you have none.
 | `/login` | Sign in / sign up (email and password) |
 | `/auth/callback` | Receives the `?code=` from a confirmation or password-reset email and turns it into a session. Only follows a plain site path in `?next=` (see `src/lib/safe-next-path.ts`) |
 | `/forgot-password` | Asks for an email and sends a reset link. Always answers the same, whether or not the address has an account |
-| `/reset-password` | Choose a new password. Reached from the reset email, or from "Change password" in Settings. Signs out every other device |
+| `/reset-password` | Choose a new password. Reached from the reset email, or from "Change password" under Account. Signs out every other device |
 | `/pending` | Signed in but not in any group yet |
 | `/groups/new` | Create a group (you become its admin) |
 | `/join/<inviteId>` | Accept an invitation link |
@@ -121,7 +121,8 @@ your groups, or to `/pending` if you have none.
 | `/<group>/reports` | Upcoming bookings, and "Bookings per member" donut chart |
 | `/<group>/aircraft` | Renewal and check due dates; admins can edit |
 | `/<group>/members` | Read-only member list |
-| `/<group>/settings` | **General** tab: your name and "leave group" (everyone); admins also change roles, remove members, create and cancel invite links, edit the group's details. **Notifications** tab (`?tab=notifications`): choose which events email you, and send yourself a test email |
+| `/<group>/account` | Everything personal, behind the round initials button at the top right (menu: Account, Settings for admins, Sign out). **Profile** tab: your name, password, putting Blocktime on your phone, starting another group, leaving the group. **Notifications** tab (`?tab=notifications`): choose which events email you, and send yourself a test email (admins also "Send due reminders now"). **Calendar** tab (`?tab=calendar`): your private calendar link |
+| `/<group>/settings` | The group's own settings, admins only (other members see a short note pointing to Members and Account): change roles, remove members, create and cancel invite links, edit the group's details. The old `?tab=notifications` and `?tab=calendar` addresses (still in earlier emails) redirect to Account |
 | `/api/cron/notify` | Called each morning by Vercel (needs the `CRON_SECRET` setting) to send any email left in the queue |
 | `/api/cron/reminders` | Called each evening by Vercel (about 17:00-18:00 UK): queues the reminders that are due and sends them |
 

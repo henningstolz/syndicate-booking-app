@@ -25,9 +25,18 @@ function settingsUrl(groupSlug: string, notice: string, extra = "") {
   return `/${groupSlug}/settings?notice=${notice}${extra}`;
 }
 
+// The personal pages (name, emails, calendar link) are the Account page.
+function accountUrl(groupSlug: string, notice: string, extra = "") {
+  return `/${groupSlug}/account?notice=${notice}${extra}`;
+}
+
 // In the demo group nothing here is saved: say so instead of failing.
 async function blockInDemo(groupSlug: string, extra = "") {
   if (await isDemoRequest()) redirect(settingsUrl(groupSlug, "demo", extra));
+}
+
+async function blockInDemoAccount(groupSlug: string, extra = "") {
+  if (await isDemoRequest()) redirect(accountUrl(groupSlug, "demo", extra));
 }
 
 async function signedInClient() {
@@ -48,7 +57,7 @@ function text(formData: FormData, key: string) {
 export async function updateDisplayName(formData: FormData) {
   const groupId = text(formData, "groupId");
   const groupSlug = text(formData, "groupSlug");
-  await blockInDemo(groupSlug);
+  await blockInDemoAccount(groupSlug);
 
   const supabase = await signedInClient();
   const { data, error } = await supabase.rpc("set_my_display_name", {
@@ -57,15 +66,15 @@ export async function updateDisplayName(formData: FormData) {
   });
   const result = (data as RpcResult | null)?.result;
 
-  if (error || !result) redirect(settingsUrl(groupSlug, "error"));
-  if (result === "ok") redirect(settingsUrl(groupSlug, "name_saved"));
-  redirect(settingsUrl(groupSlug, result));
+  if (error || !result) redirect(accountUrl(groupSlug, "error"));
+  if (result === "ok") redirect(accountUrl(groupSlug, "name_saved"));
+  redirect(accountUrl(groupSlug, result));
 }
 
 export async function leaveGroup(formData: FormData) {
   const groupId = text(formData, "groupId");
   const groupSlug = text(formData, "groupSlug");
-  await blockInDemo(groupSlug);
+  await blockInDemoAccount(groupSlug);
 
   const supabase = await signedInClient();
   const { data, error } = await supabase.rpc("leave_group", {
@@ -73,7 +82,7 @@ export async function leaveGroup(formData: FormData) {
   });
   const result = (data as RpcResult | null)?.result;
 
-  if (error || !result) redirect(settingsUrl(groupSlug, "error"));
+  if (error || !result) redirect(accountUrl(groupSlug, "error"));
   if (result === "ok") {
     // On to another of their groups if they have one.
     const {
@@ -81,7 +90,7 @@ export async function leaveGroup(formData: FormData) {
     } = await supabase.auth.getUser();
     redirect(user ? await homePathFor(supabase, user.id) : "/pending");
   }
-  redirect(settingsUrl(groupSlug, result));
+  redirect(accountUrl(groupSlug, result));
 }
 
 export async function setMemberRole(formData: FormData) {
@@ -208,7 +217,7 @@ const NOTIFICATIONS_TAB = "&tab=notifications";
 export async function saveNotificationPreferences(formData: FormData) {
   const groupId = text(formData, "groupId");
   const groupSlug = text(formData, "groupSlug");
-  await blockInDemo(groupSlug, NOTIFICATIONS_TAB);
+  await blockInDemoAccount(groupSlug, NOTIFICATIONS_TAB);
 
   // An unticked box is simply absent from the form, so every known event is
   // saved explicitly: ticked = on, absent = off.
@@ -223,9 +232,9 @@ export async function saveNotificationPreferences(formData: FormData) {
   });
   const result = (data as RpcResult | null)?.result;
 
-  if (error || !result) redirect(settingsUrl(groupSlug, "error", NOTIFICATIONS_TAB));
-  if (result === "ok") redirect(settingsUrl(groupSlug, "notifications_saved", NOTIFICATIONS_TAB));
-  redirect(settingsUrl(groupSlug, result, NOTIFICATIONS_TAB));
+  if (error || !result) redirect(accountUrl(groupSlug, "error", NOTIFICATIONS_TAB));
+  if (result === "ok") redirect(accountUrl(groupSlug, "notifications_saved", NOTIFICATIONS_TAB));
+  redirect(accountUrl(groupSlug, result, NOTIFICATIONS_TAB));
 }
 
 // Send the member a sample email, to check that notifications reach them.
@@ -233,9 +242,9 @@ export async function saveNotificationPreferences(formData: FormData) {
 export async function sendTestEmail(formData: FormData) {
   const groupId = text(formData, "groupId");
   const groupSlug = text(formData, "groupSlug");
-  await blockInDemo(groupSlug, NOTIFICATIONS_TAB);
+  await blockInDemoAccount(groupSlug, NOTIFICATIONS_TAB);
 
-  const back = (notice: string) => redirect(settingsUrl(groupSlug, notice, NOTIFICATIONS_TAB));
+  const back = (notice: string) => redirect(accountUrl(groupSlug, notice, NOTIFICATIONS_TAB));
   if (!notifyConfigured()) back("not_configured");
 
   const store = await cookies();
@@ -269,10 +278,10 @@ export async function sendTestEmail(formData: FormData) {
 export async function sendRemindersNow(formData: FormData) {
   const groupId = text(formData, "groupId");
   const groupSlug = text(formData, "groupSlug");
-  await blockInDemo(groupSlug, NOTIFICATIONS_TAB);
+  await blockInDemoAccount(groupSlug, NOTIFICATIONS_TAB);
 
   const back = (notice: string, extra = "") =>
-    redirect(settingsUrl(groupSlug, notice, `${NOTIFICATIONS_TAB}${extra}`));
+    redirect(accountUrl(groupSlug, notice, `${NOTIFICATIONS_TAB}${extra}`));
   if (!notifyConfigured()) back("not_configured");
 
   const supabase = await signedInClient();
@@ -303,24 +312,24 @@ const CALENDAR_TAB = "&tab=calendar";
 export async function createCalendarFeed(formData: FormData) {
   const groupId = text(formData, "groupId");
   const groupSlug = text(formData, "groupSlug");
-  await blockInDemo(groupSlug, CALENDAR_TAB);
+  await blockInDemoAccount(groupSlug, CALENDAR_TAB);
 
   const supabase = await signedInClient();
   const { data, error } = await supabase.rpc("create_calendar_feed", { p_group_id: groupId });
   const result = (data as RpcResult | null)?.result;
-  if (error || result !== "ok") redirect(settingsUrl(groupSlug, "error", CALENDAR_TAB));
-  redirect(settingsUrl(groupSlug, "calendar_created", CALENDAR_TAB));
+  if (error || result !== "ok") redirect(accountUrl(groupSlug, "error", CALENDAR_TAB));
+  redirect(accountUrl(groupSlug, "calendar_created", CALENDAR_TAB));
 }
 
 // Turn the member's calendar link off: the old address stops working at once.
 export async function revokeCalendarFeed(formData: FormData) {
   const groupId = text(formData, "groupId");
   const groupSlug = text(formData, "groupSlug");
-  await blockInDemo(groupSlug, CALENDAR_TAB);
+  await blockInDemoAccount(groupSlug, CALENDAR_TAB);
 
   const supabase = await signedInClient();
   const { data, error } = await supabase.rpc("revoke_calendar_feed", { p_group_id: groupId });
   const result = (data as RpcResult | null)?.result;
-  if (error || (result !== "ok" && result !== "no_feed")) redirect(settingsUrl(groupSlug, "error", CALENDAR_TAB));
-  redirect(settingsUrl(groupSlug, "calendar_off", CALENDAR_TAB));
+  if (error || (result !== "ok" && result !== "no_feed")) redirect(accountUrl(groupSlug, "error", CALENDAR_TAB));
+  redirect(accountUrl(groupSlug, "calendar_off", CALENDAR_TAB));
 }

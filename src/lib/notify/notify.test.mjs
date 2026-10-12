@@ -29,7 +29,7 @@ const booking = renderNotification(item("booking_created", { who: "Sam", starts_
 eq(booking.subject, "New booking: Sam, Sat 10 Oct, 08:00–12:00", "booking subject");
 yes(booking.text.includes("Sam booked the aircraft") && booking.text.includes("Note: Fly-out lunch"), "booking text says who and the note");
 yes(booking.text.includes("https://blocktime.group/demo/calendar?view=list&start=2026-10-10"), "booking links to the calendar on that day (single slash, no doubled)");
-yes(booking.text.includes("https://blocktime.group/demo/settings?tab=notifications"), "every email links to the notification settings");
+yes(booking.text.includes("https://blocktime.group/demo/account?tab=notifications"), "every email links to the notification settings");
 yes(booking.html.includes("Demo Flying Group") && booking.html.includes("Choose which emails you get"), "html has the group and the settings link");
 
 const cancelledByAdmin = renderNotification(item("booking_cancelled", { who: "Bob", cancelled_by: "Alice", starts_at: "2026-10-10T07:00:00Z", ends_at: "2026-10-10T11:00:00Z" }), SITE);
@@ -124,7 +124,7 @@ function deps(overrides = {}) {
   eq(log.posted.map((m) => m.to), ["a@x.test", "b@x.test", "c@x.test"], "each to its own recipient");
   eq(log.slept.length, 2, "a pause between sends (not before the first)");
   eq(log.limit, 15, "asks for at most 15 at a time");
-  yes(log.posted[0].unsubscribeUrl.endsWith("/demo/settings?tab=notifications"), "the unsubscribe link goes to the settings tab");
+  yes(log.posted[0].unsubscribeUrl.endsWith("/demo/account?tab=notifications"), "the unsubscribe link goes to the settings tab");
 }
 {
   let call = 0;
@@ -156,13 +156,13 @@ function deps(overrides = {}) {
   delete process.env.NOTIFY_FROM;
   let seen;
   const fake = async (url, init) => { seen = { url, init }; return { ok: true, status: 200, text: async () => "" }; };
-  const email = { to: "cara@example.test", subject: "Hello", text: "plain", html: "<p>html</p>", unsubscribeUrl: "https://blocktime.group/demo/settings?tab=notifications" };
+  const email = { to: "cara@example.test", subject: "Hello", text: "plain", html: "<p>html</p>", unsubscribeUrl: "https://blocktime.group/demo/account?tab=notifications" };
   eq(await sendEmail(email, fake), { ok: true }, "a successful send");
   eq(seen.url, "https://api.resend.com/emails", "sent to Resend");
   eq(seen.init.headers.Authorization, "Bearer re_test_key", "with the key");
   const body = JSON.parse(seen.init.body);
   eq([body.from, body.to, body.reply_to, body.subject], ["Blocktime <notifications@mail.blocktime.group>", ["cara@example.test"], "hello@blocktime.group", "Hello"], "from, to, reply-to and subject");
-  eq(body.headers["List-Unsubscribe"], "<https://blocktime.group/demo/settings?tab=notifications>", "a List-Unsubscribe header");
+  eq(body.headers["List-Unsubscribe"], "<https://blocktime.group/demo/account?tab=notifications>", "a List-Unsubscribe header");
   process.env.NOTIFY_FROM = "Club <club@mail.blocktime.group>";
   await sendEmail(email, fake);
   eq(JSON.parse(seen.init.body).from, "Club <club@mail.blocktime.group>", "the sender can be set");

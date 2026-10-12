@@ -437,6 +437,7 @@ class Engine {
         paidBy: c.paid_by as string,
         paidByName: nameOf(c.paid_by as string),
         pence: c.amount_pence as number,
+        documentId: (c.document_id as string | null) ?? null,
       }));
 
     const ownRates = DEMO_MEMBERS.flatMap((m) => {

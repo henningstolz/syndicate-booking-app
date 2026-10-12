@@ -34,6 +34,15 @@ export function createHarness() {
           $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
         grant usage on schema auth to anon, authenticated;
         grant usage on schema public to anon, authenticated;
+        -- A stand-in for Supabase's file store (the real one adds more columns).
+        create schema storage;
+        create table storage.buckets (id text primary key, name text, public boolean default false, file_size_limit bigint, allowed_mime_types text[]);
+        create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text, name text, owner uuid, owner_id text, metadata jsonb, created_at timestamptz default now());
+        alter table storage.objects enable row level security;
+        create function storage.foldername(name text) returns text[] language plpgsql immutable as
+          $$ declare _parts text[]; begin select string_to_array(name, '/') into _parts; return _parts[1 : array_length(_parts, 1) - 1]; end $$;
+        grant usage on schema storage to anon, authenticated;
+        grant select, insert, update, delete on storage.objects to authenticated;
       `);
     },
 

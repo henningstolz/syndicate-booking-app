@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { isDemoRequest } from "@/lib/demo/mode";
 import { getGroupBySlug } from "@/lib/groups";
 import { londonDateKey } from "@/lib/datetime";
 import { formatMonthKey } from "@/lib/flight-times";
@@ -9,6 +10,7 @@ import {
   shiftMonth,
   type CostStatement,
 } from "@/lib/costs";
+import { ReceiptPicker } from "./ReceiptPicker";
 import {
   addCostExpense,
   closeCostMonth,
@@ -37,6 +39,7 @@ type ExpenseRow = {
   amount_pence: number;
   voided_at: string | null;
   void_reason: string | null;
+  document_id: string | null;
 };
 
 const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -59,6 +62,8 @@ const NOTICES: Record<string, { ok: boolean; text: string }> = {
   already_closed: { ok: false, text: "That month is already closed." },
   not_closed: { ok: false, text: "That month is not closed." },
   note_too_long: { ok: false, text: "That note is too long (300 characters at most)." },
+  receipt_failed: { ok: false, text: "The receipt couldn't be saved, so the expense wasn't added. Please try again." },
+  document_invalid: { ok: false, text: "That receipt isn't available any more. Please attach it again." },
   expense_added: { ok: true, text: "Expense added. It is credited to the member." },
   expense_voided: { ok: true, text: "Expense voided. It no longer counts." },
   demo: { ok: false, text: "This is a demo, so changes to costs aren't saved." },
@@ -114,6 +119,7 @@ export default async function CostsPage({
   const { groupSlug } = await params;
   const { month: monthParam, notice: noticeCode } = await searchParams;
   const supabase = await createClient();
+  const demo = await isDemoRequest();
 
   const group = await getGroupBySlug(supabase, groupSlug);
   if (!group) {
@@ -201,7 +207,7 @@ export default async function CostsPage({
         .returns<RateRow[]>(),
       supabase
         .from("cost_expenses")
-        .select("id, paid_by, incurred_on, description, amount_pence, voided_at, void_reason")
+        .select("id, paid_by, incurred_on, description, amount_pence, voided_at, void_reason, document_id")
         .eq("group_id", group.id)
         .gte("incurred_on", `${monthKey}-01`)
         .lt("incurred_on", `${nextMonth}-01`)
@@ -337,6 +343,17 @@ export default async function CostsPage({
                       <li key={expense.id} className="flex items-baseline justify-between gap-3 text-xs text-zinc-500">
                         <span>
                           {shortDay(expense.date)} · {expense.description}
+                          {expense.document_id && (
+                            <>
+                              {" · "}
+                              <a
+                                href={`/${groupSlug}/documents/${expense.document_id}/file`}
+                                className="text-zinc-700 underline underline-offset-4"
+                              >
+                                Receipt
+                              </a>
+                            </>
+                          )}
                         </span>
                         <span className="font-mono">{formatMoney(-expense.pence)}</span>
                       </li>
@@ -846,6 +863,7 @@ export default async function CostsPage({
                 Amount (£)
                 <input type="text" name="amount" required inputMode="decimal" placeholder="184.00" className={inputClass} />
               </label>
+              <ReceiptPicker groupId={group.id} demo={demo} />
               <button type="submit" className={`${primaryButton} self-start`}>
                 Add expense
               </button>
@@ -874,6 +892,17 @@ export default async function CostsPage({
                     </div>
                     <p className="text-xs text-zinc-500">
                       {shortDay(expense.incurred_on)} · paid by {nameOf(expense.paid_by)}
+                      {expense.document_id && (
+                        <>
+                          {" · "}
+                          <a
+                            href={`/${groupSlug}/documents/${expense.document_id}/file`}
+                            className="text-zinc-700 underline underline-offset-4"
+                          >
+                            Receipt
+                          </a>
+                        </>
+                      )}
                       {expense.voided_at && ` · Voided: ${expense.void_reason}`}
                     </p>
                     {!expense.voided_at && !s.closed && (

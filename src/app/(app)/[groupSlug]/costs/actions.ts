@@ -105,14 +105,39 @@ export async function addCostExpense(formData: FormData) {
   if (amount === null || amount < 1) back(groupSlug, view, "amount_invalid");
 
   const supabase = await signedIn();
+
+  // A receipt, if one was attached: it is already in the file store; register it as a
+  // document (category Receipts, titled with what the expense was) before the expense.
+  let documentId: string | null = null;
+  const receiptPath = text(formData, "receiptPath");
+  if (receiptPath !== "") {
+    const { data: doc } = await supabase.rpc("add_document", {
+      p_group_id: groupId,
+      p_title: text(formData, "description") || "Receipt",
+      p_category: "receipts",
+      p_path: receiptPath,
+      p_file_name: text(formData, "receiptName") || "receipt",
+    });
+    const registered = doc as { result?: string; id?: string } | null;
+    if (registered?.result !== "ok" || !registered.id) back(groupSlug, view, "receipt_failed");
+    documentId = registered!.id as string;
+  }
+
   const { data, error } = await supabase.rpc("add_cost_expense", {
     p_group_id: groupId,
     p_paid_by: text(formData, "memberId"),
     p_date: text(formData, "date"),
     p_description: text(formData, "description"),
     p_amount_pence: amount,
+    p_document_id: documentId,
   });
   const result = (data as { result?: string } | null)?.result;
+  if (result !== "ok" && documentId) {
+    // The expense was refused (for example a closed month): do not leave the receipt behind.
+    const { data: removed } = await supabase.rpc("delete_document", { p_id: documentId });
+    const path = (removed as { path?: string } | null)?.path;
+    if (path) await supabase.storage.from("documents").remove([path]);
+  }
   if (error || !result) back(groupSlug, view, "error");
   back(groupSlug, view, result === "ok" ? "expense_added" : (result as string));
 }

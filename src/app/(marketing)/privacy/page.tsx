@@ -96,8 +96,12 @@ export default function PrivacyPage() {
               and due dates, bookings (times, notes and who made them), the
               flight log (for each flight: the captain&apos;s name, where it
               went, times, fuel, oil and any defect noted, and who entered
-              it), messages in the group&apos;s chat, and the invitations an
-              admin has created.
+              it), messages in the group&apos;s chat, the files members upload
+              under Documents (and receipts attached to expenses), and the
+              invitations an admin has created. Uploaded files are kept in
+              private storage in the same London data centre as the database;
+              only members of the group can open them, and the uploader or an
+              admin can delete them.
             </li>
             <li>
               <strong>Costs:</strong> the group&apos;s monthly share and hourly
@@ -221,7 +225,8 @@ export default function PrivacyPage() {
             stay readable for the other members. Encrypted backups of the whole
             database are kept for up to a year (the last 30 days, then one a
             month), so something deleted can remain in an old backup until that
-            backup expires.
+            backup expires. The same applies to uploaded files, which are
+            included in the backups.
           </p>
           <p>
             Notification emails are removed from the sending queue after at

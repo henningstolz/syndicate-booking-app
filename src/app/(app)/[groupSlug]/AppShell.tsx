@@ -16,6 +16,7 @@ const NAV_ITEMS = [
   { path: "/costs", label: "Costs" },
   { path: "/reports", label: "Reports" },
   { path: "/aircraft", label: "Aircraft" },
+  { path: "/documents", label: "Documents" },
   { path: "/members", label: "Members" },
 ];
 

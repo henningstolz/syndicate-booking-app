@@ -7,7 +7,8 @@ name: Daily database backup
 #
 # This repository is public, so everything printed in the logs is public too.
 # The steps below never print data, and anything that could (a database error
-# quoting a row) is filtered. See docs/systems-and-accounts.md ("Backups").
+# quoting a row) is filtered. The uploaded files (documents and receipts) are copied
+# too once the BACKUP_S3_* secrets exist; until then the job says so in a warning. See docs/systems-and-accounts.md ("Backups").
 on:
   schedule:
     - cron: "17 3 * * *"
@@ -58,6 +59,20 @@ jobs:
 
       - name: Copy the live database (read only)
         run: scripts/backup/backup.sh "$DATABASE_URL" /tmp/backup 2>&1 | grep -v -E 'CONTEXT|DETAIL|^-rw'
+
+      - name: Copy the stored files (documents and receipts)
+        env:
+          S3_ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_SECRET }}
+          AWS_DEFAULT_REGION: ${{ secrets.BACKUP_S3_REGION }}
+        run: |
+          if [ -z "$S3_ENDPOINT" ] || [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ]; then
+            echo "::warning title=The stored files are NOT being backed up::Add the BACKUP_S3_* secrets (see docs/systems-and-accounts.md, Backups) so documents and receipts are included."
+            exit 0
+          fi
+          [ -n "$AWS_DEFAULT_REGION" ] || export AWS_DEFAULT_REGION=eu-west-2
+          scripts/backup/backup-files.sh "$DATABASE_URL" /tmp/backup 2>&1 | grep -v -E 'CONTEXT|DETAIL'
 
       - name: Prove the copy restores
         run: |

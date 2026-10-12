@@ -125,6 +125,16 @@ every migration there first. See `docs/systems-and-accounts.md`.
     a current member). Backwards compatible: nothing live uses it yet. Try it on
     the test project first.
 
+22. `0022_documents.sql` — documents and receipts (database side): `documents`
+    (title, category, who, size and type taken from the file store), `add_document()`
+    and `delete_document()`, the helpers the storage rules use, a `document_id` on
+    expenses (`add_cost_expense()` takes an optional receipt; the old five-argument
+    call still works) and `cost_statement_live()` returning each expense's receipt.
+    Run it before 0023 and before pushing the code.
+23. `0023_documents_storage.sql` — the file store: the private `documents` bucket
+    (10 MB, photos/PDF/Office/text only) and the rules on who may read, upload and
+    delete. Safe to run again; run it again after restoring into a fresh project.
+
 ## Adding members to a group
 
 Two ways now:

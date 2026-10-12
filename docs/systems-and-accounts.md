@@ -101,6 +101,39 @@ the previous version stays live.
 2. Add one entry to `STATUS_FIELDS` in `src/lib/aircraft-status.ts`.
 3. Push.
 
+### Documents and receipts
+
+**Documents** (left menu) is the group's shared file store: insurance, manuals,
+scans, photos. Any member uploads (a photo from the library or camera, a PDF, a
+Word or Excel file, plain text; up to 10 MB), gives it a title and a category, and
+everyone in the group can open or download it. The uploader or an admin can delete
+it. Photos are shrunk automatically before they upload (a 5 MB photo becomes a few
+hundred KB). Each group has **200 MB** of space; the free Supabase plan has 1 GB in
+total across all groups.
+
+**Receipts:** when an admin adds an expense on the Costs page, the form has an
+optional **Receipt** field. The photo or PDF is kept in Documents (category
+Receipts, titled with the expense's description) and the expense shows a
+**Receipt** link, for admins and on the payer's own statement. Deleting the document
+removes the file, and the link then says it is gone.
+
+If an upload is refused, the message says why: too large, a kind of file that isn't
+allowed, or the group's space is used up (delete something old).
+
+**Backing up the files:** the nightly backup copies the files too, but needs the file
+store's S3 access key once (Supabase, Project Settings, Storage, S3 access keys, New
+access key; note the endpoint and region on the same page). Add four Actions secrets
+to the code repository (Settings, Secrets and variables, Actions): `BACKUP_S3_ENDPOINT`,
+`BACKUP_S3_KEY_ID`, `BACKUP_S3_SECRET`, `BACKUP_S3_REGION` (for example `eu-west-2`).
+Until then the nightly job shows a yellow warning "The stored files are NOT being
+backed up". After the next run the backup holds a `files` folder, checked against the
+database's own list.
+
+**Restoring the files** (after restoring the database into a fresh Supabase project):
+run migration `0023_documents_storage.sql` again in the new project (it recreates the
+bucket and its rules), then, with the new project's S3 key,
+`aws s3 sync /tmp/restore/files s3://documents --endpoint-url <endpoint>`.
+
 ### The account menu
 
 The round button with a person's initials at the top right opens a small menu:

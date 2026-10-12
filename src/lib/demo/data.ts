@@ -35,6 +35,7 @@ export type DemoDb = {
   cost_rates: Row[];
   cost_expenses: Row[];
   calendar_feeds: Row[];
+  documents: Row[];
 };
 
 // Columns of each table, so a query that asks for one that does not exist
@@ -63,9 +64,13 @@ export const TABLE_COLUMNS: Record<keyof DemoDb, string[]> = {
   notification_preferences: ["group_id", "user_id", "event", "enabled", "updated_at"],
   cost_rates: ["id", "group_id", "user_id", "effective_month", "monthly_fee_pence", "hourly_rate_pence", "created_by", "created_at"],
   calendar_feeds: ["id", "group_id", "user_id", "token", "created_at", "revoked_at"],
+  documents: [
+    "id", "group_id", "uploaded_by", "title", "category", "file_name", "content_type",
+    "size_bytes", "storage_path", "created_at", "deleted_at", "deleted_by",
+  ],
   cost_expenses: [
     "id", "group_id", "paid_by", "incurred_on", "description", "amount_pence",
-    "created_by", "created_at", "voided_at", "voided_by", "void_reason",
+    "created_by", "created_at", "voided_at", "voided_by", "void_reason", "document_id",
   ],
 };
 
@@ -481,13 +486,13 @@ export function buildDb(now: Date, overlay: DemoOverlay): DemoDb {
     created_by: DEMO_USER.id,
     created_at: iso(at(monthStart(monthsAgo as number), "09:00")),
   }));
-  // Fuel a member bought away from home, credited to them.
+  // Fuel a member bought away from home, credited to them (two of them with a receipt).
   const costExpenses: Row[] = [
-    [-3, "demo-sam", "Fuel at Sywell", 18400],
-    [-21, "demo-jordan", "Fuel at Shobdon", 15250],
-    [-36, "demo-sam", "Fuel at Sywell", 20100],
-    [-52, "demo-taylor", "Landing fee, Old Warden", 2500],
-  ].map(([offset, paidBy, description, amount], index) => ({
+    [-3, "demo-sam", "Fuel at Sywell", 18400, "demo-d-4"],
+    [-21, "demo-jordan", "Fuel at Shobdon", 15250, "demo-d-5"],
+    [-36, "demo-sam", "Fuel at Sywell", 20100, null],
+    [-52, "demo-taylor", "Landing fee, Old Warden", 2500, null],
+  ].map(([offset, paidBy, description, amount, documentId], index) => ({
     id: `demo-x-${index + 1}`,
     group_id: DEMO_GROUP_ID,
     paid_by: paidBy,
@@ -499,6 +504,30 @@ export function buildDb(now: Date, overlay: DemoOverlay): DemoDb {
     voided_at: null,
     voided_by: null,
     void_reason: null,
+    document_id: documentId,
+  }));
+
+  // The document store: a few files, as if uploaded over time. (No real files exist in
+  // the demo; opening one gives a one-page sample.)
+  const documents: Row[] = [
+    ["demo-d-1", "demo-alex", "Insurance certificate 2026", "insurance", "insurance-2026.pdf", "application/pdf", 188_000, -60],
+    ["demo-d-2", "demo-sam", "Pilot's operating handbook, PA-28R", "manuals", "poh-pa28r.pdf", "application/pdf", 8_600_000, -200],
+    ["demo-d-3", "demo-alex", "Weight and balance sheet", "aircraft", "weight-and-balance.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 41_000, -120],
+    ["demo-d-4", "demo-alex", "Fuel at Sywell", "receipts", "IMG_4821.jpg", "image/jpeg", 412_000, -3],
+    ["demo-d-5", "demo-alex", "Fuel at Shobdon", "receipts", "bill.jpg", "image/jpeg", 356_000, -21],
+  ].map(([id, by, title, category, fileName, type, size, offset]) => ({
+    id,
+    group_id: DEMO_GROUP_ID,
+    uploaded_by: by,
+    title,
+    category,
+    file_name: fileName,
+    content_type: type,
+    size_bytes: size,
+    storage_path: `${DEMO_GROUP_ID}/${id}`,
+    created_at: iso(at(dayKey(offset as number), "10:30")),
+    deleted_at: null,
+    deleted_by: null,
   }));
 
   return {
@@ -514,5 +543,6 @@ export function buildDb(now: Date, overlay: DemoOverlay): DemoDb {
     cost_expenses: costExpenses,
     // Nobody has a calendar link in the demo; creating one says it is a demo.
     calendar_feeds: [],
+    documents,
   };
 }

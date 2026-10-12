@@ -114,6 +114,8 @@ your groups, or to `/pending` if you have none.
 | `/<group>/tech-log` | The flight log: one entry per flight added with "+ Entry", with calculated flight/block time and running airframe hours. "Monthly PDF" picks a month and downloads it |
 | `/<group>/tech-log/pdf?month=YYYY-MM` | The monthly flight log as an A4 landscape PDF (route handler, members only). Built by `src/lib/flight-log-pdf.ts` with the `pdf-lib` library |
 | `/<group>/costs` | Hours and costs, a month at a time (`?month=YYYY-MM`): your statement with the flights behind it, the month's group totals; for admins everyone's statements, the group rates and members' own rates (with history), the expenses members paid, and closing or reopening the month |
+| `/<group>/documents` | The group's shared files: upload a photo, PDF, Word/Excel or text file (up to 10 MB; photos are shrunk in the browser), choose a category, filter by category, open or download, delete (the uploader or an admin). Receipts attached to expenses show here too (category Receipts) |
+| `/<group>/documents/<id>/file` | Opens or downloads one document: the database only shows it to members of its group, then a signed link to the file that expires after 5 minutes is made and the browser is redirected to it. `?download=1` forces a download |
 | `/<group>/costs/pdf` | A month's cost statement as an A4 PDF (`?month=YYYY-MM`): your own, or for admins `&member=<id>` for one member or `&member=all` for everyone with a summary page. Made from `cost_statement()`, so a closed month prints the saved figures; an open month is marked provisional. A member can only ever get their own (a request for another member's is refused) |
 | `/cal/<secret>.ics` | A member's calendar subscription (iCalendar): every confirmed booking of their group from 60 days back, their own marked "You", with who booked and the note. Public address, no login: the 64-character secret is the credential, answered by `calendar_feed()`; unknown or switched-off links get a 404 |
 | `/manifest.webmanifest`, `/pwa-icon/192.png`, `/pwa-icon/512.png`, `/apple-icon`, `/icon` | What makes Blocktime installable ("Add to Home Screen"): the manifest (`src/app/manifest.ts`) and the icons, drawn from shapes by `src/lib/app-icon.tsx` (a three-blade propeller seen from the front, with an amber spinner) |
@@ -142,6 +144,7 @@ is scoped to a group.
 | `squawks` | The chat's messages: author, message, time | The table keeps its original name; only the screens say "Chat". |
 | `flight_entries` | The flight log: date, from/to, category (PV/TG/PT), captain, fuel in each tank, oil, the four clock times, defects, who entered it | **Never edited or deleted** (like paper): an admin *voids* a wrong entry with a reason, and it stops counting. Block and flight minutes and their decimal hours are generated columns, so every screen agrees. Each entry also remembers the check limit that applied when it was logged (`check_limit_hours`), so "hours to check" stays right after a check resets the limit. A database rule makes overlapping flights impossible. |
 | `cost_rates` | The fixed monthly share and the hourly rate (whole pence), each valid from a month. A row with no `user_id` is the group's default; a row with a `user_id` is that member's own (an empty part follows the group's, 0 is a real zero) | Append-only: a new row for a month replaces older ones from then on, old rows stay as history. A statement uses the rates in force for ITS month. Members read the group's rows and their own, never other members'. |
+| `documents` | What an uploaded file is: title, category (general, aircraft, insurance, manuals, receipts, other), original file name, type, size, who uploaded it, and where it is in the file store (`<group id>/<random id>.<ext>`) | Members of the group read it, minus deleted ones (RLS); written only by `add_document` (checks the file really is in the store and was uploaded by the caller; size and type come from the store) and `delete_document` (uploader or admin; the record is hidden and the server removes the file). Expenses link a receipt through `cost_expenses.document_id`. |
 | `calendar_feeds` | A member's private calendar link for a group: the secret (64 hex characters), created, revoked | A member reads only their own row (RLS); written only by `create_calendar_feed` (revokes the old one) and `revoke_calendar_feed`. Stops working when the member leaves the group. The secret is stored as is (members need to see it again); it is in the encrypted backups only. |
 | `cost_payments` | A payment recorded against a member and a CLOSED month: amount in whole pence (positive = the member paid the group, negative = paid back), the date, an optional note | Admins read all, a member reads their own (RLS); written only by `record_cost_payment` / `void_cost_payment`; voided with a reason, never edited. A member's balance is their statement total minus their payments. |
 | `cost_month_closures` | A closed month: the statement saved exactly as it stood (everyone's numbers, flights and expenses, as JSON), who closed it, when, an optional note, and, if reopened, who/when/why | Admins read it (RLS); written only by `close_cost_month` / `reopen_cost_month`. One open closure per group and month; a reopened one stays as history. |
@@ -188,7 +191,7 @@ every migration to a throwaway in-memory Postgres; the pure helpers in
 `npm test` runs both. `npm run test:demo` crawls every demo page on a running dev server. Run them after changing a migration or those helpers.
 
 The database change history is the numbered files in `supabase/migrations/`
-(0001 to 0021).
+(0001 to 0023).
 
 ## Code map
 
@@ -275,6 +278,33 @@ one (set in `.env.local` on your Mac, which also has `TEST_DATABASE_URL` for
 `npm run db:migrate`). The test project holds only made-up data. The live
 values are kept in `.env.live` for the rare case they are needed locally. See
 the runbook, "The test database".
+
+## File storage (documents and receipts)
+
+Files live in **Supabase Storage**, in a private bucket called `documents`
+(migration 0023): 10 MB per file, only photos (JPEG, PNG, WebP, HEIC), PDF, Word,
+Excel, plain text and CSV. A file's name is `<group id>/<random id>.<ext>`, so the
+first folder says which group it belongs to, and the storage rules use that:
+
+- members of the group may **read** (list and make signed links) and **upload**
+  into their group's folder, one level deep, while the group has room (200 MB per
+  group, counted over everything in its folder); nobody can overwrite or rename a
+  file (there is no update rule);
+- the member who uploaded a file, or an admin of the group, may **delete** it.
+
+The browser uploads **straight to the store** with the member's own session (the
+server could not take a big file through Vercel's request limit), after shrinking a
+photo to at most 2400 pixels (`src/lib/upload-document.ts`). It then calls
+`add_document()`. Downloads go through `/<group>/documents/<id>/file`, which makes a
+five-minute signed link, so the file itself never passes through our server.
+Expense receipts are uploaded the same way when chosen on the Add expense form and
+registered by the server when the expense is added; if the expense is refused the
+receipt is removed again. A file uploaded but never registered (a closed tab) stays
+in the store and counts toward the group's space; it is not shown anywhere.
+
+The storage rules are not in the database backup. Migration 0023 can be run again
+safely (it replaces the bucket settings and the rules), and the nightly backup also
+copies the files themselves (see "Backups").
 
 ## Two systems: test and live
 
@@ -370,7 +400,7 @@ two steps.
 ## Backups
 
 A GitHub Actions job (`.github/workflows/backup.yml`, nightly) reads the live
-database with `scripts/backup/backup.sh` (`pg_dump` of the `public` schema, plus
+database with `scripts/backup/backup.sh` (and, once the `BACKUP_S3_*` secrets exist, copies the stored files with `backup-files.sh` and checks the count and total size against the database) (`pg_dump` of the `public` schema, plus
 the sign-in tables `auth.users` and `auth.identities`), restores it into a
 throwaway Postgres inside the job with `scripts/backup/restore.sh`, and compares
 the copy with the original using `scripts/backup/fingerprint.sh` (row counts and
@@ -514,6 +544,7 @@ either work in the demo (see `engine.ts`) or are blocked there the way
 - Structured defects (open/resolved, rectification, engineer sign-off): defects are free text on a flight entry for now.
 - On the PDF: the lower defects/rectification/engineer section of the paper sheet (not printed).
 - Calendar subscription: it is read-only (bookings are made in the app); two-way sync and a choice between "everyone's bookings" and "mine only" are not built.
+- Documents: no folders, search, renaming, or editing of a title after upload (delete and upload again); no previews or thumbnails in the list; a file uploaded but never registered is not cleaned up.
 - Costs, chosen to keep on the list: **payment reminders** (an email to members who haven't paid a closed month, by hand or automatically after some days) and **bank details** on the statement and its email. Also: a visible history of voided payments, charging a pilot extra for something specific (landing fees by flight), pro-rata fixed shares for part months, carrying a late correction into the next month as an adjustment (today a closed month is reopened instead).
 - A daily summary email instead of one email per event.
 - **Pilot currency reminders** (rating, medical, licence, 90-day currency), chosen to keep on the list: needs each pilot's own dates stored.

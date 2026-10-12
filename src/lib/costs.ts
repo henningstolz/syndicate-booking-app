@@ -95,6 +95,7 @@ export type StatementExpense = {
   description: string;
   user_id: string;
   pence: number;
+  document_id?: string | null; // the receipt, if one was attached (a document in the group's store)
 };
 
 // Set when the admin has closed the month: the figures shown are the ones saved
@@ -171,6 +172,7 @@ export type StatementInput = {
     paidBy: string;
     paidByName: string;
     pence: number;
+    documentId?: string | null;
   }[];
   viewer: { userId: string; isAdmin: boolean };
 };
@@ -259,7 +261,7 @@ export function computeStatement(input: StatementInput): CostStatement {
     expenses: input.expenses
       .filter((e) => visible(e.paidBy))
       .sort((a, b) => compareText(a.date, b.date) || compareText(a.id, b.id))
-      .map((e) => ({ id: e.id, date: e.date, description: e.description, user_id: e.paidBy, pence: e.pence })),
+      .map((e) => ({ id: e.id, date: e.date, description: e.description, user_id: e.paidBy, pence: e.pence, document_id: e.documentId ?? null })),
     // Closing and payments are not part of the calculation: whoever calls this adds them.
     payments: [],
     closed: null,

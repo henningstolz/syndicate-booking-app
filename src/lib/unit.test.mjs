@@ -11,6 +11,7 @@ import { buildFlightLogPdf } from "./flight-log-pdf.ts";
 import { buildStatementPdf } from "./statement-pdf.ts";
 import { buildIcs, icsTime, icsText, foldLine } from "./ical.ts";
 import { initialsOf } from "./initials.ts";
+import { checkFile, contentTypeOf, storagePath, formatBytes, titleFromFileName, typeBadge, scaledSize, extensionOf, opensInBrowser, MAX_FILE_BYTES } from "./documents.ts";
 import { runningTotals } from "./flight-totals.ts";
 import { formatMoney, parsePounds, formatHoursTenths, computeStatement, shiftMonth } from "./costs.ts";
 import { PDFDocument } from "pdf-lib";
@@ -248,5 +249,17 @@ eq(foldLine("short"), "short", "a short line is left alone");
 eq([initialsOf("Alex Brown"), initialsOf("alex brown"), initialsOf("Alex"), initialsOf("  Mary Jane Watson  "), initialsOf("Émile Zola")], ["AB", "AB", "A", "MW", "ÉZ"], "first and last word, capitalised");
 eq([initialsOf(null, "henning@example.com"), initialsOf("", "pilot@example.com"), initialsOf(undefined, undefined), initialsOf("   ", "")], ["H", "P", "?", "?"], "with no name the email's first letter, else a question mark");
 eq(initialsOf("Zoë 🙂"), "Z🙂", "an emoji counts as one letter, not half a character");
+
+// --- the document store's helpers
+eq([extensionOf("Report.PDF"), extensionOf("photo.jpeg"), extensionOf("noext"), extensionOf("archive.tar.gz")], ["pdf", "jpeg", "", "gz"], "file extensions");
+eq([contentTypeOf({ name: "a.pdf", type: "application/pdf" }), contentTypeOf({ name: "IMG_1.HEIC", type: "" }), contentTypeOf({ name: "x.docx", type: "" }), contentTypeOf({ name: "evil.exe", type: "application/x-msdownload" }), contentTypeOf({ name: "x.svg", type: "image/svg+xml" }), contentTypeOf({ name: "x.html", type: "text/html" })], ["application/pdf", "image/heic", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", null, null, null], "the type of a file: its own, from the extension when the phone gives none, and never programs, SVG or HTML");
+eq([checkFile({ name: "a.pdf", type: "application/pdf", size: 1000 }), checkFile({ name: "a.pdf", type: "application/pdf", size: MAX_FILE_BYTES + 1 })?.includes("too large"), checkFile({ name: "a.pdf", type: "application/pdf", size: 0 }), checkFile({ name: "a.exe", type: "", size: 10 })?.includes("isn't allowed")], [null, true, "That file is empty.", true], "files are checked: size, empty, kind");
+eq([checkFile({ name: "p.jpg", type: "image/jpeg", size: 15 * 1024 * 1024 }), checkFile({ name: "p.jpg", type: "image/jpeg", size: 50 * 1024 * 1024 })?.includes("too large")], [null, true], "a big phone photo is fine (it is shrunk), an enormous one is not");
+eq([storagePath("g1", "abc", "image/jpeg"), storagePath("g1", "abc", "application/pdf"), storagePath("g1", "abc", "text/csv")], ["g1/abc.jpg", "g1/abc.pdf", "g1/abc.csv"], "the stored name is an id with a safe extension, one folder deep");
+eq([formatBytes(900), formatBytes(2048), formatBytes(1536 * 1024), formatBytes(25 * 1024 * 1024)], ["900 B", "2 KB", "1.5 MB", "25 MB"], "sizes in plain words");
+eq([titleFromFileName("cert_2026  final.pdf"), titleFromFileName("IMG_4812.JPG"), titleFromFileName("x".repeat(300) + ".pdf").length], ["cert 2026 final", "IMG 4812", 120], "a suggested title from the file name");
+eq([typeBadge("application/pdf"), typeBadge("image/jpeg"), typeBadge("image/heic"), typeBadge("application/vnd.ms-excel"), typeBadge("text/csv")], ["PDF", "JPG", "IMG", "XLS", "CSV"], "type badges");
+eq([scaledSize(4000, 3000), scaledSize(3000, 4000), scaledSize(1200, 800), scaledSize(2400, 2400)], [{ width: 2400, height: 1800 }, { width: 1800, height: 2400 }, { width: 1200, height: 800 }, { width: 2400, height: 2400 }], "photos are shrunk to at most 2400 pixels, same shape, never enlarged");
+eq([opensInBrowser("application/pdf"), opensInBrowser("image/png"), opensInBrowser("image/heic"), opensInBrowser("text/csv")], [true, true, false, false], "what opens in the browser and what downloads");
 
 console.log(`${count} unit checks passed`);

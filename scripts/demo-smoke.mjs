@@ -21,6 +21,8 @@ const pages = [
   "/demo/reports?view=distribution",
   "/demo/reports?view=distribution&metric=days&year=all",
   "/demo/aircraft",
+  "/demo/documents",
+  "/demo/documents?category=receipts",
   "/demo/members",
   "/demo/account",
   "/demo/account?tab=notifications",
@@ -60,6 +62,15 @@ for (const [what, query] of [["a member's statement", `month=${month}`], ["every
     `the demo's cost statement PDF downloads (${what})`,
     `status ${statement.status}`,
   );
+}
+
+// Opening a document in the demo gives a sample PDF; an unknown or malformed id a 404.
+{
+  const doc = await fetch(`${BASE}/demo/documents/demo-d-1/file`, { redirect: "manual" });
+  const bytes = new Uint8Array(await doc.arrayBuffer());
+  check(doc.status === 200 && doc.headers.get("content-type") === "application/pdf" && String.fromCharCode(...bytes.slice(0, 5)) === "%PDF-", "a demo document opens as a sample PDF", `status ${doc.status}`);
+  check((await fetch(`${BASE}/demo/documents/not%20an%20id/file`)).status === 404, "a malformed document id is a 404");
+  check((await fetch(`${BASE}/demo/documents/00000000-0000-0000-0000-000000000000/file`)).status === 404, "an unknown document is a 404");
 }
 
 // Old links (in earlier emails, bookmarks) to the personal settings tabs still work.

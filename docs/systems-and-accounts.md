@@ -476,8 +476,8 @@ same site with the same sign-in (not an App Store app), so updates reach everyon
 as soon as you deploy. It opens on the member's group (`/open`), or the sign-in
 page if they are signed out.
 
-To change the icon: edit `src/lib/app-icon.tsx` (a few coloured boxes on a 512-unit
-square). The browser tab icon, the iPhone icon and the Android icons are all made
+To change the icon: edit `src/lib/app-icon.tsx` (a propeller drawn as three blade shapes and a circle on a
+512-unit square). The browser tab icon, the iPhone icon and the Android icons are all made
 from it. Phones keep a copy of the icon from when the app was added, so a new
 design only shows for people who add it again.
 

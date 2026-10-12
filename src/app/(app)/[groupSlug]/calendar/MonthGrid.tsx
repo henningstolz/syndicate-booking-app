@@ -31,6 +31,7 @@ export function MonthGrid({
   groupSlug,
   year,
   monthIndex,
+  todayKey,
   bookingsByDay,
   memberIndex,
   memberName,
@@ -38,6 +39,8 @@ export function MonthGrid({
   groupSlug: string;
   year: number;
   monthIndex: number;
+  // Today's date in UK time, "2026-10-12": that day is highlighted.
+  todayKey: string;
   bookingsByDay: Map<string, BookingRow[]>;
   memberIndex: Map<string, number>;
   memberName: (userId: string) => string;
@@ -71,7 +74,18 @@ export function MonthGrid({
         >
           ← Prev
         </Link>
-        <h2 className="text-sm font-medium text-zinc-900">{monthLabel}</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-sm font-medium text-zinc-900">{monthLabel}</h2>
+          {/* When another month is showing, a way back to the current one. */}
+          {todayKey.slice(0, 7) !== `${year}-${pad(monthIndex + 1)}` && (
+            <Link
+              href={`/${groupSlug}/calendar?view=month`}
+              className="rounded-full border border-zinc-300 px-2.5 py-0.5 text-xs text-zinc-600 hover:bg-zinc-100"
+            >
+              Today
+            </Link>
+          )}
+        </div>
         <Link
           href={`/${groupSlug}/calendar?view=month&month=${nextParam}`}
           className="rounded-full border border-zinc-300 px-3 py-1 text-sm text-zinc-600 hover:bg-zinc-100"
@@ -93,14 +107,27 @@ export function MonthGrid({
           }
           const dateKey = `${year}-${pad(monthIndex + 1)}-${pad(day)}`;
           const dayBookings = bookingsByDay.get(dateKey) ?? [];
+          const isToday = dateKey === todayKey;
 
           return (
             <Link
               key={dateKey}
               href={`/${groupSlug}/calendar?view=list&start=${dateKey}`}
-              className="flex min-h-16 flex-col gap-1 rounded-md border border-zinc-200 bg-white p-1 hover:border-zinc-400"
+              aria-current={isToday ? "date" : undefined}
+              className={`flex min-h-16 flex-col gap-1 rounded-md border p-1 ${
+                isToday
+                  ? "border-zinc-900 bg-amber-50 hover:border-zinc-700"
+                  : "border-zinc-200 bg-white hover:border-zinc-400"
+              }`}
             >
-              <span className="font-mono text-xs text-zinc-500">{day}</span>
+              {isToday ? (
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-zinc-900 font-mono text-xs font-medium text-white">
+                  {day}
+                  <span className="sr-only"> (today)</span>
+                </span>
+              ) : (
+                <span className="font-mono text-xs text-zinc-500">{day}</span>
+              )}
               <div className="flex flex-col gap-0.5">
                 {dayBookings.map((booking) => (
                   <div key={booking.id} className="flex items-center gap-1">

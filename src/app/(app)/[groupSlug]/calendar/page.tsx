@@ -70,6 +70,7 @@ export default async function CalendarPage({
   } = await supabase.auth.getUser();
 
   const today = new Date();
+  const todayKey = londonDateKey(today);
   const { year, monthIndex } = parseMonthParam(month);
   // Anchors the List view's rolling window — "today" by default, or a
   // specific date when arriving from a Month-view day click, so List
@@ -183,6 +184,7 @@ export default async function CalendarPage({
           groupSlug={groupSlug}
           year={year}
           monthIndex={monthIndex}
+          todayKey={todayKey}
           bookingsByDay={bookingsByDay}
           memberIndex={memberIndex}
           memberName={memberName}
@@ -194,6 +196,7 @@ export default async function CalendarPage({
           days={Array.from({ length: DAYS_AHEAD }, (_, i) =>
             addLondonCalendarDays(listAnchor, i),
           )}
+          todayKey={todayKey}
           bookingsByDay={bookingsByDay}
           memberIndex={memberIndex}
           memberName={memberName}

@@ -31,6 +31,7 @@ export function ListView({
   groupSlug,
   groupId,
   days,
+  todayKey,
   bookingsByDay,
   memberIndex,
   memberName,
@@ -40,6 +41,8 @@ export function ListView({
   groupSlug: string;
   groupId: string;
   days: Date[];
+  // Today's date in UK time: that day is highlighted.
+  todayKey: string;
   bookingsByDay: Map<string, BookingRow[]>;
   memberIndex: Map<string, number>;
   memberName: (userId: string) => string;
@@ -61,10 +64,21 @@ export function ListView({
         >
           ← Prev
         </Link>
-        <span className="text-sm font-medium text-zinc-900">
-          {rangeLabelFormat.format(days[0])} –{" "}
-          {rangeLabelFormat.format(days[days.length - 1])}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-zinc-900">
+            {rangeLabelFormat.format(days[0])} –{" "}
+            {rangeLabelFormat.format(days[days.length - 1])}
+          </span>
+          {/* When today is not in this window, a way back to it. */}
+          {!days.some((d) => londonDateKey(d) === todayKey) && (
+            <Link
+              href={`/${groupSlug}/calendar?view=list`}
+              className="rounded-full border border-zinc-300 px-2.5 py-0.5 text-xs text-zinc-600 hover:bg-zinc-100"
+            >
+              Today
+            </Link>
+          )}
+        </div>
         <Link
           href={`/${groupSlug}/calendar?view=list&start=${nextStart}`}
           className="rounded-full border border-zinc-300 px-3 py-1 text-sm text-zinc-600 hover:bg-zinc-100"
@@ -88,9 +102,18 @@ export function ListView({
           return start <= dayWindowStart && end >= dayWindowEnd;
         });
 
+        const isToday = key === todayKey;
+
         return (
-          <section key={key} className="flex flex-col gap-2">
-            <h2 className="font-mono text-xs tracking-wide text-zinc-500 uppercase">
+          <section key={key} className="flex flex-col gap-2" aria-current={isToday ? "date" : undefined}>
+            <h2
+              className={`flex items-center gap-2 font-mono text-xs tracking-wide uppercase ${
+                isToday ? "font-semibold text-zinc-900" : "text-zinc-500"
+              }`}
+            >
+              {isToday && (
+                <span className="rounded-full bg-zinc-900 px-2 py-0.5 text-[10px] tracking-wide text-white">Today</span>
+              )}
               {formatDayHeading(day)}
             </h2>
 

@@ -70,7 +70,12 @@ for (const [what, query] of [["a member's statement", `month=${month}`], ["every
   const bytes = new Uint8Array(await doc.arrayBuffer());
   check(doc.status === 200 && doc.headers.get("content-type") === "application/pdf" && String.fromCharCode(...bytes.slice(0, 5)) === "%PDF-", "a demo document opens as a sample PDF", `status ${doc.status}`);
   check((await fetch(`${BASE}/demo/documents/not%20an%20id/file`)).status === 404, "a malformed document id is a 404");
-  check((await fetch(`${BASE}/demo/documents/00000000-0000-0000-0000-000000000000/file`)).status === 404, "an unknown document is a 404");
+  const unknown = await fetch(`${BASE}/demo/documents/00000000-0000-0000-0000-000000000000/file`);
+  const page = await unknown.text();
+  check(unknown.status === 404 && (unknown.headers.get("content-type") ?? "").startsWith("text/html") && page.includes("/demo/documents") && page.includes("Back to Documents"), "an unknown or deleted document is a readable page with a way back, not bare JSON", `status ${unknown.status}`);
+  const noStatement = await fetch(`${BASE}/demo/costs/pdf?month=2020-01`);
+  const noStatementPage = await noStatement.text();
+  check(noStatement.status === 404 && noStatementPage.includes("Back to Costs"), "a statement that does not exist is a readable page with a way back");
 }
 
 // Old links (in earlier emails, bookmarks) to the personal settings tabs still work.

@@ -5,6 +5,7 @@ import { LONDON_TZ, formatTime } from "@/lib/datetime";
 import { formatMonthKey } from "@/lib/flight-times";
 import { buildFlightLogPdf, type PdfRow } from "@/lib/flight-log-pdf";
 import { runningTotals } from "@/lib/flight-totals";
+import { fileErrorPage } from "@/lib/file-error-page";
 
 // The monthly flight log as a printable A4 landscape PDF:
 //   /<group>/tech-log/pdf?month=2026-10
@@ -55,7 +56,7 @@ export async function GET(
   const month = request.nextUrl.searchParams.get("month") ?? "";
   const match = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(month);
   if (!match) {
-    return NextResponse.json({ error: "Choose a month as YYYY-MM." }, { status: 400 });
+    return fileErrorPage("Please choose a month as YYYY-MM.", { href: `/${groupSlug}/tech-log`, label: "Back to the tech log" }, 400);
   }
 
   const supabase = await createClient();
@@ -69,7 +70,7 @@ export async function GET(
   // Row-level security only returns groups, and their log, to their members.
   const group = await getGroupBySlug(supabase, groupSlug);
   if (!group) {
-    return NextResponse.json({ error: "Group not found." }, { status: 404 });
+    return fileErrorPage("That group was not found.", { href: "/", label: "Back to Blocktime" }, 404);
   }
 
   const year = Number(match[1]);
@@ -95,7 +96,7 @@ export async function GET(
       .range(from, from + 999)
       .returns<FlightRow[]>();
     if (error) {
-      return NextResponse.json({ error: "Could not read the flight log." }, { status: 500 });
+      return fileErrorPage("The flight log could not be read. Please try again.", { href: `/${groupSlug}/tech-log`, label: "Back to the tech log" }, 500);
     }
     all.push(...(data ?? []));
     if ((data ?? []).length < 1000) break;

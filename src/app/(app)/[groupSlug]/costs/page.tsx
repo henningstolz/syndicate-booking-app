@@ -228,6 +228,9 @@ export default async function CostsPage({
     ].filter((id): id is string => Boolean(id))),
   ];
   const receiptHref = new Map<string, string>();
+  // Receipts that still exist (a deleted document is no longer visible to the database's
+  // rules): the others are shown as removed instead of as a link to nowhere.
+  const receiptExists = new Set<string>(demo ? receiptIds : []);
   if (receiptIds.length > 0 && !demo) {
     const { data: docs } = await supabase
       .from("documents")
@@ -236,6 +239,7 @@ export default async function CostsPage({
       .returns<{ id: string; storage_path: string }[]>();
     const links = await directFileLinks(supabase, (docs ?? []).map((d) => d.storage_path));
     for (const d of docs ?? []) {
+      receiptExists.add(d.id);
       const link = links.get(d.storage_path);
       if (link) receiptHref.set(d.id, link);
     }
@@ -375,12 +379,16 @@ export default async function CostsPage({
                           {expense.document_id && (
                             <>
                               {" · "}
-                              <a
-                                href={receiptLink(expense.document_id)}
-                                className="text-zinc-700 underline underline-offset-4"
-                              >
-                                Receipt
-                              </a>
+                              {receiptExists.has(expense.document_id) ? (
+                                <a
+                                  href={receiptLink(expense.document_id)}
+                                  className="text-zinc-700 underline underline-offset-4"
+                                >
+                                  Receipt
+                                </a>
+                              ) : (
+                                <span className="text-zinc-400">Receipt removed</span>
+                              )}
                             </>
                           )}
                         </span>
@@ -926,12 +934,16 @@ export default async function CostsPage({
                       {expense.document_id && (
                         <>
                           {" · "}
-                          <a
-                            href={receiptLink(expense.document_id)}
-                            className="text-zinc-700 underline underline-offset-4"
-                          >
-                            Receipt
-                          </a>
+                          {receiptExists.has(expense.document_id) ? (
+                            <a
+                              href={receiptLink(expense.document_id)}
+                              className="text-zinc-700 underline underline-offset-4"
+                            >
+                              Receipt
+                            </a>
+                          ) : (
+                            <span className="text-zinc-400">Receipt removed</span>
+                          )}
                         </>
                       )}
                       {expense.voided_at && ` · Voided: ${expense.void_reason}`}

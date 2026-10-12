@@ -5,6 +5,7 @@ import { LONDON_TZ, londonDateKey } from "@/lib/datetime";
 import { type CostStatement } from "@/lib/costs";
 import { buildStatementPdf } from "@/lib/statement-pdf";
 import { statementPdfInput } from "@/lib/statement-pdf-input";
+import { fileErrorPage } from "@/lib/file-error-page";
 
 // A month's cost statement as a printable A4 PDF:
 //   /<group>/costs/pdf?month=2026-10                 your own
@@ -31,7 +32,7 @@ export async function GET(
   const month = request.nextUrl.searchParams.get("month") ?? "";
   const who = request.nextUrl.searchParams.get("member") ?? "";
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
-    return NextResponse.json({ error: "Choose a month as YYYY-MM." }, { status: 400 });
+    return fileErrorPage("Please choose a month as YYYY-MM.", { href: `/${groupSlug}/costs`, label: "Back to Costs" }, 400);
   }
 
   const supabase = await createClient();
@@ -45,7 +46,7 @@ export async function GET(
   // Row-level security only returns groups to their members.
   const group = await getGroupBySlug(supabase, groupSlug);
   if (!group) {
-    return NextResponse.json({ error: "Group not found." }, { status: 404 });
+    return fileErrorPage("That group was not found.", { href: "/", label: "Back to Blocktime" }, 404);
   }
 
   const { data: raw } = await supabase.rpc("cost_statement", {
@@ -54,18 +55,18 @@ export async function GET(
   });
   const s = raw as CostStatement | { result: string } | null;
   if (!s || s.result !== "ok") {
-    return NextResponse.json({ error: "No statement for that month." }, { status: 404 });
+    return fileErrorPage("There is no statement for that month.", { href: `/${groupSlug}/costs`, label: "Back to Costs" }, 404);
   }
   const statement = s as CostStatement;
 
   // Who gets a statement. A member only ever gets their own.
   const everyone = who === "all";
   if ((everyone || (who !== "" && who !== user.id)) && !statement.is_admin) {
-    return NextResponse.json({ error: "Only admins can print other members' statements." }, { status: 403 });
+    return fileErrorPage("Only admins can print other members' statements.", { href: `/${groupSlug}/costs`, label: "Back to Costs" }, 403);
   }
   const wanted = everyone ? statement.members : statement.members.filter((m) => m.user_id === (who || user.id));
   if (wanted.length === 0) {
-    return NextResponse.json({ error: "No statement for that member and month." }, { status: 404 });
+    return fileErrorPage("There is no statement for that member and month.", { href: `/${groupSlug}/costs`, label: "Back to Costs" }, 404);
   }
 
   const bytes = await buildStatementPdf(

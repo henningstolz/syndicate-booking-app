@@ -3,6 +3,7 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { createClient } from "@/lib/supabase/server";
 import { isDemoRequest } from "@/lib/demo/mode";
 import { opensInBrowser } from "@/lib/documents";
+import { fileErrorPage } from "@/lib/file-error-page";
 
 // Opens or downloads a document: /<group>/documents/<id>/file. The database only shows
 // a document to members of its group, and only then is a link made: a signed link to
@@ -10,10 +11,13 @@ import { opensInBrowser } from "@/lib/documents";
 // through our server.
 export const dynamic = "force-dynamic";
 
-const NOT_FOUND = () => NextResponse.json({ error: "That document was not found, or it was deleted." }, { status: 404 });
-
 export async function GET(request: NextRequest, { params }: { params: Promise<{ groupSlug: string; id: string }> }) {
-  const { id } = await params;
+  const { groupSlug, id } = await params;
+  const NOT_FOUND = () =>
+    fileErrorPage("This document was deleted or is no longer available.", {
+      href: `/${groupSlug}/documents`,
+      label: "Back to Documents",
+    });
   // Real ids are UUIDs (the demo has short ones); anything else cannot exist.
   if (!/^[A-Za-z0-9-]{1,40}$/.test(id)) return NOT_FOUND();
 

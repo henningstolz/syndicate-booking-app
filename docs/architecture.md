@@ -306,6 +306,24 @@ The storage rules are not in the database backup. Migration 0023 can be run agai
 safely (it replaces the bucket settings and the rules), and the nightly backup also
 copies the files themselves (see "Backups").
 
+### Opening files in the installed phone app
+
+The app on a phone's home screen has no browser bar and no back button, so a PDF or
+photo that simply opens would take over the screen with no way back. Two things
+prevent that (`src/lib/open-file.ts`, `src/components/FileLink.tsx`,
+`src/lib/file-links.ts`):
+
+- **Generated PDFs** (statements, the monthly flight log): in the installed app the
+  file is fetched and handed to the phone's share sheet (Save to Files, Print, Mail,
+  WhatsApp...), a popup that returns to the app. In a normal browser these are plain
+  links. If the phone only allows the share sheet right after a tap, the button turns
+  into "Tap to save or share" and a second tap opens it.
+- **Uploaded documents and receipts:** the page links straight to the file store's own
+  address (a signed link made when the page is built, valid for an hour), not through
+  our address. A link to another address opens in the phone's in-app browser with a
+  Done button. The `/documents/<id>/file` route remains for downloads, the demo and
+  anything that has no direct link.
+
 ## Two systems: test and live
 
 There are two complete copies of the back end. The **live** one serves your

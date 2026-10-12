@@ -6,6 +6,7 @@ import { LONDON_TZ, londonDateKey } from "@/lib/datetime";
 import { hoursStatus } from "@/lib/aircraft-status";
 import { formatMonthKey, monthKeysDescending } from "@/lib/flight-times";
 import { FlightEntryCard, type FlightRow } from "./FlightEntryCard";
+import { PdfMonthForm } from "./PdfMonthForm";
 import { FlightForm } from "./FlightForm";
 
 type MemberRow = {
@@ -226,35 +227,12 @@ export default async function TechLogPage({
         <summary className="w-fit text-zinc-500 underline underline-offset-4">
           Monthly PDF
         </summary>
-        <form
-          method="get"
+        <PdfMonthForm
           action={`/${groupSlug}/tech-log/pdf`}
-          className="mt-2 flex flex-wrap items-end gap-2"
-        >
-          <label className="flex flex-col gap-1 text-xs text-zinc-600">
-            Month
-            <select
-              name="month"
-              defaultValue={thisMonth}
-              className="rounded-md border border-zinc-300 px-2 py-1.5 text-base text-zinc-900"
-            >
-              {pdfMonths.map((key) => (
-                <option key={key} value={key}>
-                  {formatMonthKey(key)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            type="submit"
-            className="rounded-full border border-zinc-300 px-4 py-1.5 text-sm text-zinc-700 hover:bg-zinc-100"
-          >
-            Download PDF
-          </button>
-          <p className="basis-full text-xs text-zinc-500">
-            A4 landscape, laid out like the paper log, to print for the folder.
-          </p>
-        </form>
+          months={pdfMonths.map((key) => ({ key, label: formatMonthKey(key) }))}
+          defaultMonth={thisMonth}
+          registration={group.aircraft_registration}
+        />
       </details>
 
       {entries.length === 0 ? (

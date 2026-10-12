@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { isDemoRequest } from "@/lib/demo/mode";
+import { directFileLinks } from "@/lib/file-links";
 import { getGroupBySlug } from "@/lib/groups";
 import { londonDateKey } from "@/lib/datetime";
 import { formatMonthKey } from "@/lib/flight-times";
@@ -10,6 +11,7 @@ import {
   shiftMonth,
   type CostStatement,
 } from "@/lib/costs";
+import { FileLink } from "@/components/FileLink";
 import { ReceiptPicker } from "./ReceiptPicker";
 import {
   addCostExpense,
@@ -217,6 +219,29 @@ export default async function CostsPage({
     rates = ratesResult.data ?? [];
     expenses = expensesResult.data ?? [];
   }
+  // Receipt links: straight to the file in the store (see lib/file-links.ts), so that in the
+  // installed phone app they open with a way back. The demo has no file store.
+  const receiptIds = [
+    ...new Set([
+      ...expenses.map((e) => e.document_id),
+      ...s.expenses.map((e) => e.document_id),
+    ].filter((id): id is string => Boolean(id))),
+  ];
+  const receiptHref = new Map<string, string>();
+  if (receiptIds.length > 0 && !demo) {
+    const { data: docs } = await supabase
+      .from("documents")
+      .select("id, storage_path")
+      .in("id", receiptIds)
+      .returns<{ id: string; storage_path: string }[]>();
+    const links = await directFileLinks(supabase, (docs ?? []).map((d) => d.storage_path));
+    for (const d of docs ?? []) {
+      const link = links.get(d.storage_path);
+      if (link) receiptHref.set(d.id, link);
+    }
+  }
+  const receiptLink = (id: string) => receiptHref.get(id) ?? `/${groupSlug}/documents/${id}/file`;
+
   const groupRates = rates.filter((rate) => rate.user_id === null);
   const memberRates = rates.filter((rate) => rate.user_id !== null);
   const nameOf = (userId: string) => s.members.find((member) => member.user_id === userId)?.name ?? "Member";
@@ -292,9 +317,13 @@ export default async function CostsPage({
         <div className="flex items-baseline justify-between gap-3">
           <h2 className={sectionTitle}>Your statement</h2>
           {me && (
-            <a href={`/${groupSlug}/costs/pdf?month=${monthKey}`} className="text-xs text-zinc-600 underline underline-offset-4">
+            <FileLink
+              href={`/${groupSlug}/costs/pdf?month=${monthKey}`}
+              fileName={`${group.aircraft_registration}-statement-${monthKey}.pdf`}
+              className="text-xs text-zinc-600 underline underline-offset-4"
+            >
               Download PDF
-            </a>
+            </FileLink>
           )}
         </div>
         <div className={`${card} flex flex-col gap-3 p-4`}>
@@ -347,7 +376,7 @@ export default async function CostsPage({
                             <>
                               {" · "}
                               <a
-                                href={`/${groupSlug}/documents/${expense.document_id}/file`}
+                                href={receiptLink(expense.document_id)}
                                 className="text-zinc-700 underline underline-offset-4"
                               >
                                 Receipt
@@ -434,12 +463,13 @@ export default async function CostsPage({
           <section className="flex flex-col gap-2">
             <div className="flex items-baseline justify-between gap-3">
               <h2 className={sectionTitle}>Everyone, {formatMonthKey(monthKey)}</h2>
-              <a
+              <FileLink
                 href={`/${groupSlug}/costs/pdf?month=${monthKey}&member=all`}
+                fileName={`${group.aircraft_registration}-statements-${monthKey}.pdf`}
                 className="text-xs text-zinc-600 underline underline-offset-4"
               >
                 Download everyone (PDF)
-              </a>
+              </FileLink>
             </div>
             <div className={`${card} overflow-x-auto`}>
               <table className="w-full min-w-[520px] text-sm">
@@ -485,13 +515,14 @@ export default async function CostsPage({
                         </td>
                       )}
                       <td className="px-3 py-2 text-right font-sans text-xs">
-                        <a
+                        <FileLink
                           href={`/${groupSlug}/costs/pdf?month=${monthKey}&member=${member.user_id}`}
+                          fileName={`${group.aircraft_registration}-statement-${monthKey}-${member.name}.pdf`.replace(/[^A-Za-z0-9._-]/g, "_")}
                           className="text-zinc-600 underline underline-offset-4"
-                          aria-label={`PDF statement for ${member.name}`}
+                          label={`PDF statement for ${member.name}`}
                         >
                           PDF
-                        </a>
+                        </FileLink>
                       </td>
                     </tr>
                   ))}
@@ -896,7 +927,7 @@ export default async function CostsPage({
                         <>
                           {" · "}
                           <a
-                            href={`/${groupSlug}/documents/${expense.document_id}/file`}
+                            href={receiptLink(expense.document_id)}
                             className="text-zinc-700 underline underline-offset-4"
                           >
                             Receipt

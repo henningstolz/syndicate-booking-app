@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { isDemoRequest } from "@/lib/demo/mode";
 import { getGroupBySlug } from "@/lib/groups";
+import { directFileLinks } from "@/lib/file-links";
 import { LONDON_TZ } from "@/lib/datetime";
 import { DOCUMENT_CATEGORIES, categoryLabel, formatBytes, typeBadge } from "@/lib/documents";
 import { deleteDocument } from "./actions";
@@ -16,6 +17,7 @@ type DocumentRow = {
   size_bytes: number;
   uploaded_by: string;
   created_at: string;
+  storage_path: string;
 };
 
 const NOTICES: Record<string, { ok: boolean; text: string }> = {
@@ -54,7 +56,7 @@ export default async function DocumentsPage({
   const [{ data: rows }, { data: members }] = await Promise.all([
     supabase
       .from("documents")
-      .select("id, title, category, file_name, content_type, size_bytes, uploaded_by, created_at")
+      .select("id, title, category, file_name, content_type, size_bytes, uploaded_by, created_at, storage_path")
       .eq("group_id", group.id)
       .order("created_at", { ascending: false })
       .returns<DocumentRow[]>(),
@@ -66,6 +68,8 @@ export default async function DocumentsPage({
   ]);
 
   const all = rows ?? [];
+  // Straight links to the files (see lib/file-links.ts); the demo has no file store.
+  const direct = demo ? new Map<string, string>() : await directFileLinks(supabase, all.map((d) => d.storage_path));
   const shown = category ? all.filter((d) => d.category === category) : all;
   const nameOf = (userId: string) => members?.find((m) => m.user_id === userId)?.display_name ?? "A member";
   const isAdmin = members?.find((m) => m.user_id === user?.id)?.role === "admin";
@@ -127,7 +131,7 @@ export default async function DocumentsPage({
                     </span>
                     <div className="min-w-0 flex-1">
                       <a
-                        href={`/${groupSlug}/documents/${doc.id}/file`}
+                        href={direct.get(doc.storage_path) ?? `/${groupSlug}/documents/${doc.id}/file`}
                         className="block truncate text-sm font-medium text-zinc-900 underline-offset-4 hover:underline"
                       >
                         {doc.title}

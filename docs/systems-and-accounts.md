@@ -134,6 +134,15 @@ run migration `0023_documents_storage.sql` again in the new project (it recreate
 bucket and its rules), then, with the new project's S3 key,
 `aws s3 sync /tmp/restore/files s3://documents --endpoint-url <endpoint>`.
 
+### Opening PDFs and documents from the home-screen app
+
+In the app installed on a phone, PDFs (statements, the monthly flight log) open the
+phone's **share sheet**: choose Save to Files, Print, Mail, WhatsApp and so on, and
+you are back in the app. If the button changes to "Tap to save or share", tap it once
+more (the phone wants a fresh tap). Uploaded documents and receipts open in the
+phone's small in-app browser, which has a **Done** button at the top. In an ordinary
+browser tab everything opens as a normal link.
+
 ### The account menu
 
 The round button with a person's initials at the top right opens a small menu:

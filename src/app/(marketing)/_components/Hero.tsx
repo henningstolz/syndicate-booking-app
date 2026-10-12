@@ -16,7 +16,7 @@ export function Hero() {
         aria-hidden="true"
       />
 
-      <div className="relative">
+      <div className="relative pt-[env(safe-area-inset-top)]">
         <header>
           <div className="mx-auto flex max-w-[1160px] flex-wrap items-center justify-between gap-4 px-6 py-[22px]">
             <p className="flex items-center gap-2.5 font-mono text-xl font-semibold tracking-[0.01em]">

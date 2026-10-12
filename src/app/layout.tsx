@@ -23,6 +23,9 @@ export const metadata: Metadata = {
 // The colour of the browser bar and the phone's status bar.
 export const viewport: Viewport = {
   themeColor: "#16242c",
+  // Lets the page use the whole screen when it runs full screen from the home screen;
+  // pages then keep clear of the status bar with env(safe-area-inset-top).
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

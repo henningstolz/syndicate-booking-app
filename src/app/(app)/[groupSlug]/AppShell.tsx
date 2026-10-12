@@ -84,7 +84,7 @@ export function AppShell({
       {demo && (
         <div
           role="note"
-          className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-900"
+          className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-amber-200 bg-amber-50 px-4 pt-[calc(env(safe-area-inset-top)+8px)] pb-2 text-xs text-amber-900"
         >
           <p>
             <strong className="font-semibold">Demo.</strong> Made-up data. What
@@ -100,7 +100,11 @@ export function AppShell({
           </p>
         </div>
       )}
-      <header className="flex items-center justify-between border-b border-zinc-200 px-4 py-3">
+      {/* From the home screen the page runs under the phone's status bar, so the header
+          starts below it (the safe-area padding) and stays put while the page scrolls:
+          content never slides up into the faded strip at the top. In a browser tab it
+          is an ordinary header. */}
+      <header className="standalone:sticky standalone:top-0 standalone:z-30 flex items-center justify-between border-b border-zinc-200 bg-white px-4 pt-[calc(env(safe-area-inset-top)+12px)] pb-3">
         <div className="flex items-center gap-3">
           <button
             type="button"

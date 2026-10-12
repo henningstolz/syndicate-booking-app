@@ -1,5 +1,18 @@
 @import "tailwindcss";
 
+/* "standalone:" styles apply only when Blocktime runs from the phone's home screen
+   (full screen, no browser bar), not in an ordinary browser tab. */
+@custom-variant standalone (@media (display-mode: standalone));
+
+/* The page extends under the phone's status bar and rounded corners (viewport-fit:
+   cover in the root layout), so keep content clear of the sides and the home bar. The
+   top is handled by each page's own header. All of these are 0 in a normal browser tab. */
+body {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;

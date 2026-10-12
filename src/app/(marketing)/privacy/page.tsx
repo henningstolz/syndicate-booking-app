@@ -31,7 +31,7 @@ function Section({
 export default function PrivacyPage() {
   return (
     <>
-      <header className="border-b border-bt-line bg-white">
+      <header className="border-b border-bt-line bg-white pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex max-w-[1160px] items-center justify-between gap-4 px-6 py-[18px]">
           <Link
             href="/"

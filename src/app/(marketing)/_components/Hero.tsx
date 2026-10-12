@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandMark } from "@/components/BrandMark";
 import { Eyebrow } from "./Eyebrow";
 import { HeroFilm } from "./HeroFilm";
 import { LinkButton } from "./LinkButton";
@@ -18,8 +19,11 @@ export function Hero() {
       <div className="relative">
         <header>
           <div className="mx-auto flex max-w-[1160px] flex-wrap items-center justify-between gap-4 px-6 py-[22px]">
-            <p className="font-mono text-xl font-semibold tracking-[0.01em]">
-              blocktime<span className="font-normal text-[#c9d2cf]">.group</span>
+            <p className="flex items-center gap-2.5 font-mono text-xl font-semibold tracking-[0.01em]">
+              <BrandMark size={30} className="shrink-0 ring-1 ring-white/25 rounded-[7px]" />
+              <span>
+                blocktime<span className="font-normal text-[#c9d2cf]">.group</span>
+              </span>
             </p>
             <nav
               aria-label="Account"

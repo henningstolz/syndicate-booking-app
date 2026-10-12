@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LAST_GROUP_COOKIE } from "@/lib/pick-group";
+import { BrandMark } from "@/components/BrandMark";
 import { GroupSwitcher, type GroupOption } from "./GroupSwitcher";
 import { UserMenu } from "./UserMenu";
 
@@ -109,6 +110,13 @@ export function AppShell({
           >
             ☰
           </button>
+          <Link
+            href={`/${groupSlug}`}
+            aria-label="Blocktime home"
+            className="shrink-0 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
+          >
+            <BrandMark size={28} />
+          </Link>
           <GroupSwitcher
             groups={groups}
             currentSlug={groupSlug}

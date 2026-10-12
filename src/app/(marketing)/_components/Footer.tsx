@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandMark } from "@/components/BrandMark";
 
 const CONTACT_EMAIL = "hello@blocktime.group";
 
@@ -6,8 +7,11 @@ export function Footer() {
   return (
     <footer className="mx-auto max-w-[1160px] px-6 pt-8 pb-10">
       <div className="mb-3.5 flex flex-wrap justify-between gap-4">
-        <p className="font-mono text-sm font-semibold">
-          blocktime<span className="font-normal text-bt-muted">.group</span>
+        <p className="flex items-center gap-2 font-mono text-sm font-semibold">
+          <BrandMark size={22} className="shrink-0" />
+          <span>
+            blocktime<span className="font-normal text-bt-muted">.group</span>
+          </span>
         </p>
         <div className="flex flex-wrap gap-[22px] text-sm text-bt-muted">
           <Link

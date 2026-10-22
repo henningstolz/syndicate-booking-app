@@ -1,0 +1,55 @@
+name: Schema check (LIVE against TEST)
+
+# Answers "does the live database have the same structure as the migrations in this
+# repository?" The TEST project is built from the migration files only, so if the live
+# project's structure matches TEST's, a migration was not forgotten or changed by hand.
+# It compares columns, security policies, row security, who may call which function, table
+# permissions and constraints, and prints only WHICH of those differ, never any data.
+# Both databases are only read.
+#
+# Run it after every live migration, and before a phase starts. Started by hand only.
+# TEST must be up to date first: npm run db:migrate. (After a restore drill TEST holds a copy
+# of the live data and passes trivially: rebuild it with db:reset-test and db:migrate first.)
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      LIVE_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+      TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+    steps:
+      - name: Check the settings are there
+        run: |
+          missing=""
+          [ -n "$LIVE_DATABASE_URL" ] || missing="$missing BACKUP_DATABASE_URL"
+          [ -n "$TEST_DATABASE_URL" ] || missing="$missing TEST_DATABASE_URL"
+          if [ -n "$missing" ]; then echo "These secrets are not set:$missing"; exit 1; fi
+          case "$TEST_DATABASE_URL" in
+            *trdtqhkbxssujcwmvham*) echo "TEST_DATABASE_URL points at the LIVE project."; exit 1 ;;
+          esac
+      - uses: actions/checkout@v4
+      - name: Install the Postgres 17 tools
+        run: |
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y postgresql-client-17
+          echo /usr/lib/postgresql/17/bin >> "$GITHUB_PATH"
+      - name: Compare the structure
+        run: |
+          scripts/backup/fingerprint.sh "$LIVE_DATABASE_URL" structure > /tmp/live.txt
+          scripts/backup/fingerprint.sh "$TEST_DATABASE_URL" structure > /tmp/test.txt
+          [ -s /tmp/live.txt ] && [ -s /tmp/test.txt ] || { echo "A fingerprint came back empty."; exit 1; }
+          if diff -q /tmp/live.txt /tmp/test.txt > /dev/null; then
+            echo "The live structure matches the migrations (as built in TEST)."
+            exit 0
+          fi
+          echo "These parts of the structure DIFFER between live and test:"
+          diff /tmp/live.txt /tmp/test.txt | grep '^[<>]' | cut -d' ' -f2 | sort -u
+          echo "(columns = tables or columns; policies = row security rules; rls = row security on/off;"
+          echo " functions = functions or who may call them; tables-acl = table permissions; constraints = checks and keys)"
+          exit 1

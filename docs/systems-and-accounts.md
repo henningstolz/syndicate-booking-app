@@ -598,6 +598,12 @@ to 18:00 UK time (Vercel's free plan runs a job once a day at a fixed time).
 4. Resend's free plan limits (about 100 a day, 3,000 a month) apply: its
    dashboard shows what was sent and any refusals.
 
+### Runbooks
+
+- Restoring from a backup (drill and real recovery): `docs/runbook-restore.md`.
+- Changing the live database safely: `docs/runbook-migrations.md`. The **Schema check**
+  workflow (Actions) says whether live still matches the migrations.
+
 ### Monitoring (errors and uptime)
 
 - **Is it up?** `https://blocktime.group/api/health` answers `{"ok":true}` (200) when

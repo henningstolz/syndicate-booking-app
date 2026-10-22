@@ -6,12 +6,12 @@ const FEATURES: { status: Status; title: string; text: string }[] = [
   {
     status: "Live",
     title: "Booking calendar",
-    text: "See the whole week at a glance. Book a slot in seconds, and clashes are caught before they happen.",
+    text: "See the whole month at a glance. Book a slot in seconds, and clashes are caught before they happen.",
   },
   {
     status: "Live",
     title: "Tech log",
-    text: "One shared record of the aircraft: defects, hours and fixes. The next pilot knows its state before walking out to it.",
+    text: "Log every flight in a minute: times, fuel, oil and any defect. One shared record of the aircraft, so the next pilot knows its state before walking out to it.",
   },
   {
     status: "Live",

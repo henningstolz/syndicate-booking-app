@@ -1,34 +1,60 @@
+import Link from "next/link";
+import { MonthGrid } from "@/app/(app)/[groupSlug]/calendar/MonthGrid";
+import { londonDateKey } from "@/lib/datetime";
+import { memberColor } from "@/lib/member-colors";
 import { Eyebrow } from "./Eyebrow";
 
-const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri"];
-const HOURS = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00"];
-
-// Illustrative sample data, not real bookings. Rows 2..9 are the hours
-// (row 1 is the day header), columns 2..6 are Mon..Fri.
-const BOOKINGS = [
-  { column: 3, from: 3, to: 6, label: "09–12", background: "#e4edf0", color: "#1f5673" },
-  { column: 4, from: 7, to: 9, label: "13–15", background: "#ebe5ed", color: "#5a3f66" },
-  { column: 5, from: 6, to: 9, label: "12–15", background: "#e7efe6", color: "#2f5e43" },
-  { column: 6, from: 3, to: 5, label: "09–11", background: "#f5e9d9", color: "#8a5316" },
+// Made-up people and bookings for the picture. The calendar below is the app's own
+// month view (the same component the signed-in calendar uses), so it always looks
+// like the real thing, and it shows the current month with today marked. The days
+// are the same in every month (all within 1 to 28), so the picture always looks full.
+const PEOPLE = ["Alex", "Sam", "Jordan", "Taylor"];
+const BOOKING_DAYS: [number, number][] = [
+  [2, 0], [3, 2], [5, 1], [6, 1], [8, 3], [10, 0], [11, 2], [13, 1], [14, 1],
+  [16, 3], [17, 0], [19, 2], [20, 2], [22, 1], [24, 0], [25, 3], [27, 2], [28, 1],
 ];
 
 export function BoardSection() {
+  const todayKey = londonDateKey(new Date());
+  const [year, month] = todayKey.split("-").map(Number);
+  const monthIndex = month - 1;
+  const pad = (n: number) => String(n).padStart(2, "0");
+
+  const bookingsByDay = new Map<
+    string,
+    { id: string; member_id: string; starts_at: string; ends_at: string; note: string | null }[]
+  >();
+  for (const [day, person] of BOOKING_DAYS) {
+    const key = `${year}-${pad(month)}-${pad(day)}`;
+    bookingsByDay.set(key, [
+      { id: `sample-${day}`, member_id: PEOPLE[person], starts_at: `${key}T09:00:00Z`, ends_at: `${key}T12:00:00Z`, note: null },
+    ]);
+  }
+  const memberIndex = new Map(PEOPLE.map((name, i) => [name, i]));
+
   return (
     <section className="mx-auto flex max-w-[1160px] flex-wrap items-center gap-14 px-6 pt-[88px] pb-24">
       <div className="min-w-0 flex-[1_1_300px]">
         <Eyebrow>THE BOARD</Eyebrow>
         <h2 className="mb-[18px] text-[clamp(30px,3.6vw,42px)] leading-[1.1] font-bold tracking-[-0.015em]">
-          One board for the whole week.
+          One board for the whole month.
         </h2>
         <p className="max-w-[420px] text-bt-muted">
           Every booking and every open entry in the tech log, visible to
           everyone in the group, so nobody has to ask who has the aircraft.
         </p>
+        <p className="mt-5">
+          <Link
+            href="/demo/calendar"
+            className="text-[15px] text-bt-ink underline underline-offset-4 hover:text-bt-blue"
+          >
+            Open the calendar in the demo
+          </Link>
+        </p>
       </div>
 
       <figure
-        role="img"
-        aria-label="Illustration of a booking board for G-ABCD: four bookings between Tuesday and Friday and one open tech log entry about an intermittent transponder fault."
+        aria-label="The calendar for G-ABCD: a month with the days other people have booked, each in the colour of the person who booked it, and today marked."
         className="min-w-0 flex-[1_1_440px]"
       >
         <div className="border border-bt-ink bg-white">
@@ -42,55 +68,30 @@ export function BoardSection() {
             </p>
           </div>
 
-          <div className="grid grid-cols-[44px_repeat(5,minmax(0,1fr))] grid-rows-[repeat(9,34px)] font-mono text-[11px] text-bt-muted">
-            <div style={{ gridColumn: 1, gridRow: 1 }} className="border-b border-bt-grid" />
-            {DAYS.map((day, i) => (
-              <div
-                key={day}
-                style={{ gridColumn: i + 2, gridRow: 1 }}
-                className="border-b border-l border-bt-grid pt-[9px] pl-2"
-              >
-                {day}
-              </div>
-            ))}
-
-            {HOURS.map((hour, i) => (
-              <div
-                key={hour}
-                style={{ gridColumn: 1, gridRow: i + 2 }}
-                className="border-b border-bt-grid pt-1 pr-2 text-right"
-              >
-                {hour}
-              </div>
-            ))}
-
-            {/* Grid lines under the bookings. */}
-            <div
-              style={{
-                gridColumn: "2 / 7",
-                gridRow: "2 / 10",
-                backgroundImage:
-                  "linear-gradient(to right, #d9dbd2 1px, transparent 1px), linear-gradient(to bottom, #d9dbd2 1px, transparent 1px)",
-                backgroundSize: "20% 100%, 100% 34px",
-              }}
-              className="pointer-events-none"
+          <div className="flex flex-col gap-3 p-3 sm:p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <ul className="flex flex-wrap gap-x-3 gap-y-1">
+                {PEOPLE.map((name, i) => (
+                  <li key={name} className="flex items-center gap-1.5 text-[13px] text-zinc-600">
+                    <span className={`h-2.5 w-2.5 rounded-full ${memberColor(i).dot}`} />
+                    {name}
+                  </li>
+                ))}
+              </ul>
+              <p className="flex gap-1.5 text-xs font-medium" aria-hidden="true">
+                <span className="rounded-full bg-zinc-900 px-3 py-1 text-white">Month</span>
+                <span className="rounded-full border border-zinc-300 px-3 py-1 text-zinc-600">List</span>
+              </p>
+            </div>
+            <MonthGrid
+              groupSlug="demo"
+              year={year}
+              monthIndex={monthIndex}
+              todayKey={todayKey}
+              bookingsByDay={bookingsByDay}
+              memberIndex={memberIndex}
+              memberName={(id) => id}
             />
-
-            {BOOKINGS.map((booking) => (
-              <div
-                key={`${booking.column}-${booking.from}`}
-                style={{
-                  gridColumn: booking.column,
-                  gridRow: `${booking.from} / ${booking.to}`,
-                  background: booking.background,
-                  color: booking.color,
-                }}
-                className="m-0.5 min-w-0 p-1 font-medium sm:px-[7px] sm:py-1.5"
-              >
-                {booking.label}
-                <div className="text-[10.5px] font-normal">booked</div>
-              </div>
-            ))}
           </div>
 
           <div className="flex flex-wrap items-center gap-3 border-t border-bt-ink bg-bt-paper px-4 py-3">

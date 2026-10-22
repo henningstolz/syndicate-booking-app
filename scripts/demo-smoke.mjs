@@ -78,6 +78,14 @@ for (const [what, query] of [["a member's statement", `month=${month}`], ["every
   check(noStatement.status === 404 && noStatementPage.includes("Back to Costs"), "a statement that does not exist is a readable page with a way back");
 }
 
+// The public homepage: the calendar picture and its wording.
+{
+  const home = await fetch(`${BASE}/`);
+  const html = await home.text();
+  check(home.status === 200 && html.includes("One board for the whole month") && html.includes("whole month at a glance") && html.includes("Log every flight"), "the homepage has the month calendar section and the updated feature text", `status ${home.status}`);
+  check(html.includes('aria-current="date"') && html.includes("/demo/calendar"), "the homepage calendar marks today and links into the demo");
+}
+
 // Old links (in earlier emails, bookmarks) to the personal settings tabs still work.
 for (const tab of ["notifications", "calendar"]) {
   const old = await fetch(`${BASE}/demo/settings?tab=${tab}`, { redirect: "manual" });

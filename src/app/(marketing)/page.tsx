@@ -13,6 +13,10 @@ export const metadata: Metadata = {
     "One calendar everyone trusts, for the people you share an aircraft with. Built for a phone in one hand at the airfield.",
 };
 
+// The calendar picture shows the current month with today marked, so the page is
+// rebuilt at least hourly rather than once at deploy time.
+export const revalidate = 3600;
+
 export default function HomePage() {
   return (
     <>

@@ -135,6 +135,10 @@ every migration there first. See `docs/systems-and-accounts.md`.
     (10 MB, photos/PDF/Office/text only) and the rules on who may read, upload and
     delete. Safe to run again; run it again after restoring into a fresh project.
 
+24. `0024_feedback.sql` — feedback from members: `feedback` (nobody reads it through
+    the app), `submit_feedback()` (members only, 5 an hour each) and
+    `mark_feedback_emailed()`. Nothing live uses it yet.
+
 ## Adding members to a group
 
 Two ways now:

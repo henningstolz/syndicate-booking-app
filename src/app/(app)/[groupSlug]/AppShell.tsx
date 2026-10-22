@@ -7,6 +7,7 @@ import { LAST_GROUP_COOKIE } from "@/lib/pick-group";
 import { BrandMark } from "@/components/BrandMark";
 import { GroupSwitcher, type GroupOption } from "./GroupSwitcher";
 import { UserMenu } from "./UserMenu";
+import { FeedbackButton } from "./FeedbackButton";
 
 const NAV_ITEMS = [
   { path: "", label: "Dashboard" },
@@ -54,6 +55,7 @@ function NavLinks({
 }
 
 export function AppShell({
+  groupId,
   groupSlug,
   groupName,
   groups,
@@ -62,6 +64,7 @@ export function AppShell({
   demo = false,
   children,
 }: {
+  groupId: string;
   groupSlug: string;
   groupName: string;
   groups: GroupOption[];
@@ -141,6 +144,10 @@ export function AppShell({
       <div className="flex flex-1">
         <nav className="hidden w-44 shrink-0 flex-col gap-1 border-r border-zinc-200 p-4 md:flex">
           <NavLinks groupSlug={groupSlug} />
+          {/* Just under the last menu item, so it is always in view (the page itself may be long). */}
+          <div className="mt-4 border-t border-zinc-200 pt-4">
+            <FeedbackButton groupId={groupId} groupSlug={groupSlug} />
+          </div>
         </nav>
 
         {navOpen && (
@@ -150,6 +157,9 @@ export function AppShell({
                 groupSlug={groupSlug}
                 onNavigate={() => setNavOpen(false)}
               />
+              <div className="mt-auto pt-4">
+                <FeedbackButton groupId={groupId} groupSlug={groupSlug} />
+              </div>
             </nav>
             <div
               className="flex-1 bg-black/30"

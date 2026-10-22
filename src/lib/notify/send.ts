@@ -37,11 +37,11 @@ export async function sendEmail(
       body: JSON.stringify({
         from: process.env.NOTIFY_FROM || DEFAULT_FROM,
         to: [email.to],
-        reply_to: REPLY_TO,
+        reply_to: email.replyTo ?? REPLY_TO,
         subject: email.subject,
         text: email.text,
         html: email.html,
-        headers: { "List-Unsubscribe": `<${email.unsubscribeUrl}>` },
+        ...(email.unsubscribeUrl ? { headers: { "List-Unsubscribe": `<${email.unsubscribeUrl}>` } } : {}),
         ...(email.attachments?.length ? { attachments: email.attachments } : {}),
       }),
     });

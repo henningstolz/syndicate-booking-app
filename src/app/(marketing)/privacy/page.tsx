@@ -118,6 +118,13 @@ export default function PrivacyPage() {
               emails still to be sent to you.
             </li>
             <li>
+              <strong>Feedback you send:</strong> if you use the Feedback
+              button, your message, your name, your email address, the page you
+              were on and your device type. It is emailed to the address at the
+              bottom of this page and a copy is kept so it can be followed up;
+              ask for it to be deleted at any time.
+            </li>
+            <li>
               <strong>Your calendar link:</strong> if you create one under
               Account, a secret web address that shows your group&apos;s
               bookings (times, who booked, notes) to whoever has it. You can

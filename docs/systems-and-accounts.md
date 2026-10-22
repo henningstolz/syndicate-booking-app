@@ -101,6 +101,19 @@ the previous version stays live.
 2. Add one entry to `STATUS_FIELDS` in `src/lib/aircraft-status.ts`.
 3. Push.
 
+### Feedback from members
+
+The **Feedback** button under the side menu lets any member tell you about a bug or
+an idea. It arrives at **hello@blocktime.group** (which ImprovMX forwards to your
+inbox) with a subject like `[Blocktime] Bug: ...`. The email shows who sent it, which
+group, which page and what device (for example "iPhone, Safari, home-screen app"),
+and **replying to the email answers the member directly**. Each person can send up to
+five messages an hour. A copy of every message is kept in the `feedback` table
+(Supabase, Table Editor), with whether the email went out; if feedback ever stops
+arriving, look there first (a row with an empty `emailed_at` means the email failed:
+check Resend's logs and the sender settings). It uses the same Resend key as the
+notification emails.
+
 ### Documents and receipts
 
 **Documents** (left menu) is the group's shared file store: insurance, manuals,

@@ -92,6 +92,12 @@ for (const tab of ["notifications", "calendar"]) {
   check(old.status === 307 && (old.headers.get("location") ?? "").endsWith(`/demo/account?tab=${tab}`), `the old Settings ${tab} link goes to Account`, `status ${old.status} -> ${old.headers.get("location")}`);
 }
 
+// The feedback button at the bottom of the side menu.
+{
+  const html = await (await fetch(`${BASE}/demo`)).text();
+  check(html.includes("Feedback") && html.includes("Send feedback") === false, "the side menu has the Feedback button (the panel opens on a tap)");
+}
+
 // The installable app: its manifest, its icons, and where it opens.
 {
   const manifest = await fetch(`${BASE}/manifest.webmanifest`);

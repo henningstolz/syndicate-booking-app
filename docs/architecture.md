@@ -145,6 +145,7 @@ is scoped to a group.
 | `flight_entries` | The flight log: date, from/to, category (PV/TG/PT), captain, fuel in each tank, oil, the four clock times, defects, who entered it | **Never edited or deleted** (like paper): an admin *voids* a wrong entry with a reason, and it stops counting. Block and flight minutes and their decimal hours are generated columns, so every screen agrees. Each entry also remembers the check limit that applied when it was logged (`check_limit_hours`), so "hours to check" stays right after a check resets the limit. A database rule makes overlapping flights impossible. |
 | `cost_rates` | The fixed monthly share and the hourly rate (whole pence), each valid from a month. A row with no `user_id` is the group's default; a row with a `user_id` is that member's own (an empty part follows the group's, 0 is a real zero) | Append-only: a new row for a month replaces older ones from then on, old rows stay as history. A statement uses the rates in force for ITS month. Members read the group's rows and their own, never other members'. |
 | `documents` | What an uploaded file is: title, category (general, aircraft, insurance, manuals, receipts, other), original file name, type, size, who uploaded it, and where it is in the file store (`<group id>/<random id>.<ext>`) | Members of the group read it, minus deleted ones (RLS); written only by `add_document` (checks the file really is in the store and was uploaded by the caller; size and type come from the store) and `delete_document` (uploader or admin; the record is hidden and the server removes the file). Expenses link a receipt through `cost_expenses.document_id`. |
+| `feedback` | A message a member sent with the Feedback button: type (bug, idea, other), message (3 to 2000 characters), the page and device it came from, when, and whether the email went out | Nobody can read it through the app (RLS on, no policy; the owner reads it in the Supabase dashboard); written only by `submit_feedback` (members of the group; at most 5 an hour each) and `mark_feedback_emailed`. |
 | `calendar_feeds` | A member's private calendar link for a group: the secret (64 hex characters), created, revoked | A member reads only their own row (RLS); written only by `create_calendar_feed` (revokes the old one) and `revoke_calendar_feed`. Stops working when the member leaves the group. The secret is stored as is (members need to see it again); it is in the encrypted backups only. |
 | `cost_payments` | A payment recorded against a member and a CLOSED month: amount in whole pence (positive = the member paid the group, negative = paid back), the date, an optional note | Admins read all, a member reads their own (RLS); written only by `record_cost_payment` / `void_cost_payment`; voided with a reason, never edited. A member's balance is their statement total minus their payments. |
 | `cost_month_closures` | A closed month: the statement saved exactly as it stood (everyone's numbers, flights and expenses, as JSON), who closed it, when, an optional note, and, if reopened, who/when/why | Admins read it (RLS); written only by `close_cost_month` / `reopen_cost_month`. One open closure per group and month; a reopened one stays as history. |
@@ -191,7 +192,7 @@ every migration to a throwaway in-memory Postgres; the pure helpers in
 `npm test` runs both. `npm run test:demo` crawls every demo page on a running dev server. Run them after changing a migration or those helpers.
 
 The database change history is the numbered files in `supabase/migrations/`
-(0001 to 0023).
+(0001 to 0024).
 
 ## Code map
 
@@ -278,6 +279,18 @@ one (set in `.env.local` on your Mac, which also has `TEST_DATABASE_URL` for
 `npm run db:migrate`). The test project holds only made-up data. The live
 values are kept in `.env.live` for the rare case they are needed locally. See
 the runbook, "The test database".
+
+## Feedback
+
+A **Feedback** button sits under the last item of the side menu (and in the phone's
+menu drawer). It opens a small panel: choose "Something's wrong", "I have an idea" or
+"Something else", write, send. The server action (`feedback-actions.ts`) first saves
+the message with `submit_feedback()` (members only, at most 5 an hour each, so nobody
+can flood the inbox), then emails it to **hello@blocktime.group** through Resend
+(`src/lib/feedback-email.ts` builds the email: the message first, then who, group,
+page, device, time), with the member's own address as the **reply-to**, so replying
+to the email answers them. If the email cannot be sent, the member is told to write to
+hello@ and the saved copy remains. In the demo nothing is saved or sent.
 
 ## File storage (documents and receipts)
 

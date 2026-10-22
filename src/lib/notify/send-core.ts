@@ -6,7 +6,12 @@ import { statementAttachment } from "./statement-email.ts";
 
 export type EmailAttachment = { filename: string; content: string }; // content is base64
 
-export type OutgoingEmail = RenderedEmail & { to: string; unsubscribeUrl: string; attachments?: EmailAttachment[] };
+export type OutgoingEmail = RenderedEmail & {
+  to: string;
+  unsubscribeUrl?: string; // for emails a member can switch off; not for emails to us
+  replyTo?: string; // where a reply goes (default hello@blocktime.group)
+  attachments?: EmailAttachment[];
+};
 
 export type FlushDeps = {
   claim: (limit: number) => Promise<QueuedNotification[]>;

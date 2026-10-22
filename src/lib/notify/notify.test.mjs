@@ -163,6 +163,10 @@ function deps(overrides = {}) {
   const body = JSON.parse(seen.init.body);
   eq([body.from, body.to, body.reply_to, body.subject], ["Blocktime <notifications@mail.blocktime.group>", ["cara@example.test"], "hello@blocktime.group", "Hello"], "from, to, reply-to and subject");
   eq(body.headers["List-Unsubscribe"], "<https://blocktime.group/demo/account?tab=notifications>", "a List-Unsubscribe header");
+  const feedbackMail = { to: "hello@blocktime.group", subject: "S", text: "t", html: "h", replyTo: "alex@example.test" };
+  await sendEmail(feedbackMail, fake);
+  const feedbackBody = JSON.parse(seen.init.body);
+  eq([feedbackBody.reply_to, feedbackBody.to, "headers" in feedbackBody], ["alex@example.test", ["hello@blocktime.group"], false], "a feedback email replies to the member and has no unsubscribe header");
   process.env.NOTIFY_FROM = "Club <club@mail.blocktime.group>";
   await sendEmail(email, fake);
   eq(JSON.parse(seen.init.body).from, "Club <club@mail.blocktime.group>", "the sender can be set");

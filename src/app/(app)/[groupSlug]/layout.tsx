@@ -69,6 +69,7 @@ export default async function GroupLayout({
 
   return (
     <AppShell
+      groupId={group.id}
       user={{
         name: membership?.display_name ?? null,
         email: user.email ?? null,

@@ -11,6 +11,7 @@ import { buildFlightLogPdf } from "./flight-log-pdf.ts";
 import { buildStatementPdf } from "./statement-pdf.ts";
 import { buildIcs, icsTime, icsText, foldLine } from "./ical.ts";
 import { initialsOf } from "./initials.ts";
+import { buildFeedbackEmail, describeDevice, FEEDBACK_CATEGORIES } from "./feedback-email.ts";
 import { checkFile, contentTypeOf, storagePath, formatBytes, titleFromFileName, typeBadge, scaledSize, extensionOf, opensInBrowser, MAX_FILE_BYTES } from "./documents.ts";
 import { runningTotals } from "./flight-totals.ts";
 import { formatMoney, parsePounds, formatHoursTenths, computeStatement, shiftMonth } from "./costs.ts";
@@ -261,5 +262,21 @@ eq([titleFromFileName("cert_2026  final.pdf"), titleFromFileName("IMG_4812.JPG")
 eq([typeBadge("application/pdf"), typeBadge("image/jpeg"), typeBadge("image/heic"), typeBadge("application/vnd.ms-excel"), typeBadge("text/csv")], ["PDF", "JPG", "IMG", "XLS", "CSV"], "type badges");
 eq([scaledSize(4000, 3000), scaledSize(3000, 4000), scaledSize(1200, 800), scaledSize(2400, 2400)], [{ width: 2400, height: 1800 }, { width: 1800, height: 2400 }, { width: 1200, height: 800 }, { width: 2400, height: 2400 }], "photos are shrunk to at most 2400 pixels, same shape, never enlarged");
 eq([opensInBrowser("application/pdf"), opensInBrowser("image/png"), opensInBrowser("image/heic"), opensInBrowser("text/csv")], [true, true, false, false], "what opens in the browser and what downloads");
+
+// --- the feedback email
+eq([describeDevice("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1 | home-screen app"), describeDevice("Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/126.0 Mobile Safari/537.36"), describeDevice("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/17.0 Safari/605.1.15"), describeDevice("")], ["iPhone, Safari, home-screen app", "Android, Chrome", "Mac, Safari", "unknown device, unknown browser"], "the device in plain words");
+{
+  const input = { category: "bug", message: "The  calendar<script>alert(1)</script>\nshows  the wrong day", name: "Alex", email: "alex@example.test", groupName: "G-BBFD Syndicate", groupSlug: "g-bbfd", page: "/g-bbfd/calendar", userAgent: "Mozilla/5.0 (iPhone) Safari/604", sentAt: new Date("2026-10-22T09:30:00Z") };
+  const mail = buildFeedbackEmail(input, "https://blocktime.group/");
+  eq(mail.subject, "[Blocktime] Bug: The calendar<script>alert(1)</script> shows the wrong day", "the subject says the type and starts with the message, on one line");
+  yes(mail.text.includes("From: Alex <alex@example.test>") && mail.text.includes("Group: G-BBFD Syndicate (g-bbfd)") && mail.text.includes("Page: https://blocktime.group/g-bbfd/calendar") && mail.text.includes("Device: iPhone, Safari") && mail.text.includes("Sent: 2026-10-22 09:30 UTC"), "the text has who, group, page, device and time");
+  yes(mail.text.startsWith("The  calendar<script>"), "the message comes first, as typed");
+  yes(!mail.html.includes("<script>") && mail.html.includes("&lt;script&gt;"), "anything typed is escaped in the html");
+  yes(!buildFeedbackEmail({ ...input, name: "A\nBcc: x@y.z", message: "m\nBcc: x@y.z" }, "https://blocktime.group").subject.includes("\n"), "a line break cannot add email headers through the subject");
+  const long = buildFeedbackEmail({ ...input, message: "word ".repeat(100) }, "https://blocktime.group");
+  yes(long.subject.length < 90 && long.subject.endsWith("..."), "a long message is shortened in the subject");
+  eq(FEEDBACK_CATEGORIES.map((c) => c.key), ["bug", "idea", "other"], "the kinds of message");
+  eq([buildFeedbackEmail({ ...input, category: "idea" }, "https://x.test").subject.startsWith("[Blocktime] Idea:"), buildFeedbackEmail({ ...input, category: "other" }, "https://x.test").subject.startsWith("[Blocktime] Feedback:")], [true, true], "ideas and other messages are labelled too");
+}
 
 console.log(`${count} unit checks passed`);

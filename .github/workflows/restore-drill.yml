@@ -6,6 +6,10 @@ name: Restore drill (into the TEST project)
 # included): empty it again with `npm run db:reset-test -- --yes` and rebuild it
 # with `npm run db:migrate`.
 #
+# It only restores the DATABASE. The stored files (documents and receipts) are copied
+# across separately in a real recovery: see docs/runbook-restore.md. The time the job
+# takes is printed at the end, and in the run's summary.
+#
 # Started by hand only. It refuses to run against the live project.
 on:
   workflow_dispatch:
@@ -42,7 +46,12 @@ jobs:
             *trdtqhkbxssujcwmvham*) echo "REFUSING: TEST_DATABASE_URL points at the LIVE project."; exit 1 ;;
           esac
           echo "Safety checks passed."
+          echo "DRILL_STARTED=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm ci --ignore-scripts
       - name: Install the Postgres 17 tools
         run: |
           sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
@@ -63,9 +72,16 @@ jobs:
       - name: Restore the backup into it and compare with the original
         run: |
           scripts/backup/with-diagnostics.sh bash -c "set -o pipefail; scripts/backup/restore.sh \"\$TEST_DATABASE_URL\" /tmp/restore 2>&1 | grep -v -E 'CONTEXT|DETAIL|INSERT INTO|^COPY'"
+      - name: Is the restored copy usable (no data is printed)
+        run: node scripts/db/verify-restore.mjs --public --skip-files
       - name: Spot checks
         run: |
           psql "$TEST_DATABASE_URL" -At -c "select 'people who can sign in: ' || (count(*) > 0)::text from auth.users"
           psql "$TEST_DATABASE_URL" -At -c "select 'anonymous visitors may run cost_statement: ' || has_function_privilege('anon', 'public.cost_statement(uuid,date)', 'execute')::text"
           psql "$TEST_DATABASE_URL" -At -c "select 'signed-in users may run cost_statement: ' || has_function_privilege('authenticated', 'public.cost_statement(uuid,date)', 'execute')::text"
           echo "::notice title=The test project now holds a copy of the real data::Empty it again with: npm run db:reset-test -- --yes   then rebuild with: npm run db:migrate"
+      - name: How long it took
+        run: |
+          seconds=$(( $(date +%s) - DRILL_STARTED ))
+          echo "Whole drill, from the first check to here: $((seconds / 60)) min $((seconds % 60)) s"
+          echo "### Restore drill took $((seconds / 60)) min $((seconds % 60)) s (database only)" >> "$GITHUB_STEP_SUMMARY"

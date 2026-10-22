@@ -92,6 +92,15 @@ for (const tab of ["notifications", "calendar"]) {
   check(old.status === 307 && (old.headers.get("location") ?? "").endsWith(`/demo/account?tab=${tab}`), `the old Settings ${tab} link goes to Account`, `status ${old.status} -> ${old.headers.get("location")}`);
 }
 
+// The health endpoint the uptime monitor asks: 200 and exactly {"ok":true}, nothing else.
+{
+  const health = await fetch(`${BASE}/api/health`);
+  const body = await health.text();
+  check(health.status === 200 && body === '{"ok":true}' && health.headers.get("cache-control") === "no-store", "the health endpoint answers 200 and only {\"ok\":true}", `status ${health.status} body ${body.slice(0, 80)}`);
+  const head = await fetch(`${BASE}/api/health`, { method: "HEAD" });
+  check(head.status === 200, "...and answers a HEAD request the same way");
+}
+
 // The feedback button at the bottom of the side menu.
 {
   const html = await (await fetch(`${BASE}/demo`)).text();

@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs/config";
 
 const nextConfig: NextConfig = {
   async redirects() {
@@ -25,4 +26,13 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// Error monitoring (Sentry). The readable-stack-trace upload only happens at build time,
+// and only when the build has an auth token; nothing is uploaded from a local machine.
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: true,
+  telemetry: false,
+  sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN },
+});

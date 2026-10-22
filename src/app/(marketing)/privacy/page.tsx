@@ -60,7 +60,7 @@ export default function PrivacyPage() {
           track you around the web.
         </p>
         <p className="mt-4 font-mono text-[13px] text-bt-muted">
-          Last updated 8 October 2026
+          Last updated 22 October 2026
         </p>
 
         <Section title="Who is responsible">
@@ -137,7 +137,11 @@ export default function PrivacyPage() {
               <strong>Technical data:</strong> like any website, the hosting
               provider sees your IP address and browser type when you load a
               page, and keeps short-lived server logs to keep the service
-              running and secure.
+              running and secure. If something breaks, an error report is also
+              sent to our error monitoring service. It holds the technical
+              details of the fault (what failed and where in the code) and
+              the type of browser or device. Names, email addresses, what you
+              typed, cookies and secret links are removed before it is sent.
             </li>
           </ul>
           <p>
@@ -180,6 +184,11 @@ export default function PrivacyPage() {
             <li>
               <strong>Vercel</strong> hosts the website and sees ordinary
               request data such as IP addresses.
+            </li>
+            <li>
+              <strong>Sentry</strong> receives the error reports described
+              above, so faults can be found and fixed. Reports are held in the
+              European Union and kept for a short time.
             </li>
             <li>
               <strong>Resend</strong> sends the sign-up confirmation and

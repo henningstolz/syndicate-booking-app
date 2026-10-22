@@ -15,6 +15,7 @@ import { buildFeedbackEmail, describeDevice, FEEDBACK_CATEGORIES } from "./feedb
 import { checkFile, contentTypeOf, storagePath, formatBytes, titleFromFileName, typeBadge, scaledSize, extensionOf, opensInBrowser, MAX_FILE_BYTES } from "./documents.ts";
 import { runningTotals } from "./flight-totals.ts";
 import { formatMoney, parsePounds, formatHoursTenths, computeStatement, shiftMonth } from "./costs.ts";
+import { scrubText, scrubUrl, scrubEvent, scrubBreadcrumb } from "./sentry-scrub.ts";
 import { PDFDocument } from "pdf-lib";
 
 let count = 0;
@@ -277,6 +278,37 @@ eq([describeDevice("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Apple
   yes(long.subject.length < 90 && long.subject.endsWith("..."), "a long message is shortened in the subject");
   eq(FEEDBACK_CATEGORIES.map((c) => c.key), ["bug", "idea", "other"], "the kinds of message");
   eq([buildFeedbackEmail({ ...input, category: "idea" }, "https://x.test").subject.startsWith("[Blocktime] Idea:"), buildFeedbackEmail({ ...input, category: "other" }, "https://x.test").subject.startsWith("[Blocktime] Feedback:")], [true, true], "ideas and other messages are labelled too");
+}
+
+// --- Sentry scrubber: error reports carry no people and no secret links
+{
+  const hex = "a".repeat(64);
+  const jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV";
+  eq(scrubUrl(`https://blocktime.group/cal/${hex}.ics?x=1`), "https://blocktime.group/cal/[removed]", "the calendar link secret is removed");
+  eq(scrubUrl("https://blocktime.group/join/3f2b8c1e-aaaa-bbbb-cccc-123456789abc"), "https://blocktime.group/join/[removed]", "the invitation id is removed");
+  eq(scrubUrl("https://blocktime.group/g-bbfd/calendar?month=2026-10#top"), "https://blocktime.group/g-bbfd/calendar", "query string and fragment are dropped");
+  eq(scrubUrl("https://abc.supabase.co/storage/v1/object/sign/documents/GROUP/file.pdf?token=zzz"), "https://abc.supabase.co/storage/v1/object/sign/[removed]", "signed file links are removed");
+  eq(scrubText(`mail alex@example.test failed with ${jwt}`), "mail [email] failed with [token]", "emails and tokens in text");
+  eq(scrubText(`key ${hex} and id 3f2b8c1e-aaaa-bbbb-cccc-123456789abc`), "key [token] and id [id]", "long hex and ids in text");
+  eq(scrubText("Bearer abcdefghijklmnop1234"), "Bearer [token]", "bearer headers in text");
+  eq(scrubText("failed ?token=abc123&x=1"), "failed ?token=[removed]&x=1", "secret parameters in text");
+  const event = scrubEvent({
+    user: { email: "a@b.test", ip_address: "1.2.3.4" }, server_name: "host", extra: { body: "secret" },
+    request: { url: `https://blocktime.group/cal/${hex}.ics?x=1`, method: "GET", headers: { cookie: "sb=1" }, cookies: { sb: "1" }, data: { name: "Alex" }, query_string: "x=1" },
+    message: "Problem for alex@example.test", transaction: `GET /cal/${hex}.ics`,
+    exception: { values: [{ type: "Error", value: "bad row for alex@example.test", stacktrace: { frames: [{ filename: "app.js" }] } }] },
+    breadcrumbs: [{ category: "ui.input", message: "typed" }, { category: "fetch", data: { url: `https://x.test/cal/${hex}.ics?a=b`, method: "GET" } }],
+    contexts: { request: { x: 1 }, runtime: { name: "node" }, nextjs: { request_path: `/cal/${hex}.ics?email=alex%40example.test&token=abc` } }, tags: { who: "alex@example.test" },
+  });
+  eq([event.user, event.server_name, event.extra], [undefined, undefined, undefined], "no user, host name or extras");
+  eq(event.request, { url: "https://blocktime.group/cal/[removed]", method: "GET" }, "the request keeps only a scrubbed address and the method");
+  eq([event.message, event.transaction], ["Problem for [email]", "GET /cal/[removed]"], "message and transaction name are scrubbed");
+  eq(event.exception.values[0].value, "bad row for [email]", "exception text is scrubbed");
+  eq(event.exception.values[0].stacktrace.frames[0].filename, "app.js", "the stack trace is kept");
+  eq(event.breadcrumbs, [{ category: "fetch", data: { url: "https://x.test/cal/[removed]", method: "GET" } }], "typing breadcrumbs dropped, addresses scrubbed");
+  eq([event.contexts, event.tags], [{ runtime: { name: "node" }, nextjs: { request_path: "/cal/[removed]" } }, { who: "[email]" }], "request and user contexts dropped, the requested path scrubbed, tags scrubbed");
+  eq(scrubBreadcrumb({ category: "ui.input" }), null, "input breadcrumbs are dropped");
+  eq(JSON.stringify(event).includes(hex) || JSON.stringify(event).includes("example.test"), false, "no secret or email anywhere in the report");
 }
 
 console.log(`${count} unit checks passed`);

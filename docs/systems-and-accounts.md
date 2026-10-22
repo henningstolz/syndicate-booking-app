@@ -22,6 +22,8 @@ where each one is stored.
 | 6 | **Gmail** (your personal account) | Receives `hello@` mail and sends as it. | gmail.com | Holds the "send as" Resend key. |
 | 8 | **GitHub, a second private repository** (`blocktime-backups`) | Holds the nightly encrypted database backups (as releases). Nothing else. | github.com | A token in the code repository's Actions secrets (`BACKUP_REPO_TOKEN`), and the backup passphrase, which also lives in your password manager. |
 | 9 | **Supabase, a second project** (`blocktime-test`, ref `ojxvrtlttppyjygjfapm`) | The test database: where new changes are tried before they touch the live one. Holds only made-up data. | supabase.com/dashboard | Its connection string is `TEST_DATABASE_URL` in `.env.local` on your Mac. |
+| 10 | **Sentry** (EU region) | Receives error reports from the server and the browser, with names, emails, cookies and secret links removed first (`src/lib/sentry-scrub.ts`). Off until its keys exist. | sentry.io | `SENTRY_DSN` and `NEXT_PUBLIC_SENTRY_DSN` (not secret, but only set in Vercel), `SENTRY_AUTH_TOKEN` (secret, build time), `SENTRY_ORG`, `SENTRY_PROJECT`, all in Vercel. |
+| 11 | **UptimeRobot** (free) | Calls `https://blocktime.group/api/health` every 5 minutes and emails you when the database does not answer. As a side effect it keeps the free Supabase project from pausing. | uptimerobot.com | Account login only. |
 | 7 | **Domain registrar for `blocktime.group`** | Owns the domain name and renews it every year. | _Write down where you registered it_ | Account login only. |
 
 **To fill in yourself** (I can't see these, and they are what you'd lose track
@@ -596,8 +598,23 @@ to 18:00 UK time (Vercel's free plan runs a job once a day at a fixed time).
 4. Resend's free plan limits (about 100 a day, 3,000 a month) apply: its
    dashboard shows what was sent and any refusals.
 
+### Monitoring (errors and uptime)
+
+- **Is it up?** `https://blocktime.group/api/health` answers `{"ok":true}` (200) when
+  the app can reach the database, and `{"ok":false}` (503) when it cannot. Nothing
+  else is shown. UptimeRobot checks it every 5 minutes and emails you.
+- **What broke?** Sentry lists errors from the server and the browser. A report holds
+  what failed and where in the code, never names, emails, cookies, request bodies or
+  secret links (calendar link, invitations, signed file links). Without the
+  `SENTRY_DSN` settings nothing is sent, which is also the case on your Mac.
+- **Test it:** with the settings in place, a deliberate server error comes from
+  `curl -H "Authorization: Bearer $CRON_SECRET" https://blocktime.group/api/monitoring-check`
+  (it needs the same `CRON_SECRET` as the daily jobs, and nothing happens without it).
+  It should appear in Sentry within a minute, with no email or token anywhere in it.
+
 ### Something is down
 
+0. **First look:** `https://blocktime.group/api/health` and the Sentry issue list.
 1. **Site shows an error or is blank:** check Vercel, then Deployments, for a
    failed deploy; roll back to the previous one if needed.
 2. **Everyone is signed out or sees errors loading data:** check Supabase

@@ -32,6 +32,9 @@ export function createHarness() {
         create table auth.users (id uuid primary key default gen_random_uuid(), email text);
         create function auth.uid() returns uuid language sql stable as
           $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
+        -- The signed-in person's token claims (Supabase puts the sign-in strength in "aal").
+        create function auth.jwt() returns jsonb language sql stable as
+          $$ select coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb $$;
         grant usage on schema auth to anon, authenticated;
         grant usage on schema public to anon, authenticated;
         -- A stand-in for Supabase's file store (the real one adds more columns).
@@ -71,14 +74,19 @@ export function createHarness() {
       }
     },
 
-    // Act as a signed-in user (by name), or as an anonymous visitor (null).
+    // Act as a signed-in user (by name), or as an anonymous visitor (null). A name can end in
+    // "@aal1" or "@aal2" to say how strongly the person signed in ("alice@aal2" = with a second
+    // factor); with no ending the token carries no such claim.
     async as(user) {
       await db.exec("reset role");
       if (user) {
-        await db.query("select set_config('request.jwt.claim.sub', $1, false)", [U[user]]);
+        const [name, aal] = user.split("@");
+        await db.query("select set_config('request.jwt.claim.sub', $1, false)", [U[name]]);
+        await db.query("select set_config('request.jwt.claims', $1, false)", [aal ? JSON.stringify({ sub: U[name], aal }) : ""]);
         await db.exec("set role authenticated");
       } else {
         await db.query("select set_config('request.jwt.claim.sub', '', false)");
+        await db.query("select set_config('request.jwt.claims', '', false)");
         await db.exec("set role anon");
       }
     },

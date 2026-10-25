@@ -139,6 +139,16 @@ every migration there first. See `docs/systems-and-accounts.md`.
     the app), `submit_feedback()` (members only, 5 an hour each) and
     `mark_feedback_emailed()`. Nothing live uses it yet.
 
+25. `0025_platform_foundations.sql` — beta readiness, phase A. Database only; nothing in
+    the app reads it yet and billing is not enforced. `group_plans` (one row per group:
+    plan, billing status, cohort, trial and paid-until dates, discount; group admins can
+    read their own, nobody writes it from the app), `plan_events` (append-only history of
+    every change, no foreign keys), `platform_settings` (five switches, enforcement off),
+    `platform_admins` (added by hand in the SQL editor) and `terms_acceptances`. The
+    `admin_*` functions need a platform admin signed in with a second factor (aal2). A
+    trigger gives every new group its plan row, and the migration backfills the existing
+    groups (founding, `founding-2026`). Tested by `supabase/tests/platform.test.mjs`.
+
 ## Adding members to a group
 
 Two ways now:

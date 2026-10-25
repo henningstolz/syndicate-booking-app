@@ -45,6 +45,33 @@ Note any change to them in `docs/systems-and-accounts.md`.
 | Supabase / GitHub / Vercel | Account logins and plans | The same inventory |
 | (later) the first platform admin | A one-off insert after the admin migration | Named in that phase's hand-over |
 
+## Migration 0025 (platform foundations): checks and the one-off admin
+
+It only adds tables and functions, so the live app is unaffected whether the code or the
+migration goes first. After pasting it into the live SQL editor, check it took:
+
+```sql
+select
+  (select count(*) from public.groups) as groups,
+  (select count(*) from public.group_plans) as plans,
+  (select count(*) from public.plan_events where event_type = 'group_created') as history_entries,
+  (select count(*) from public.platform_settings) as settings;
+```
+
+`groups`, `plans` and `history_entries` must be the same number, and `settings` must be 5.
+(The migration itself undoes everything if the first two differ.) Then run **Schema check**.
+
+Becoming a platform admin is a separate, deliberate, one-off step. Run this in the SQL editor,
+with your own sign-in address in place of the placeholder:
+
+```sql
+insert into public.platform_admins (user_id)
+select id from auth.users where email = 'YOUR-EMAIL-HERE';
+```
+
+It changes nothing you can see: every admin function also needs a sign-in with an authenticator
+app (a second factor), which comes with the admin page. To remove an admin, delete their row.
+
 ## Rolling back
 
 Migrations only go forward. To undo one, write the next numbered migration that reverses

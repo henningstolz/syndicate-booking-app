@@ -16,6 +16,9 @@ import { checkFile, contentTypeOf, storagePath, formatBytes, titleFromFileName, 
 import { runningTotals } from "./flight-totals.ts";
 import { formatMoney, parsePounds, formatHoursTenths, computeStatement, shiftMonth } from "./costs.ts";
 import { scrubText, scrubUrl, scrubEvent, scrubBreadcrumb } from "./sentry-scrub.ts";
+import { computeMode, ukDate, addDays, memberLimitReached, aircraftLimitReached } from "./entitlements/compute-mode.ts";
+import { evaluateEntitlements } from "./entitlements/evaluate.ts";
+import { PLAN_DEFINITIONS } from "./entitlements/plans.ts";
 import { PDFDocument } from "pdf-lib";
 
 let count = 0;
@@ -309,6 +312,65 @@ eq([describeDevice("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Apple
   eq([event.contexts, event.tags], [{ runtime: { name: "node" }, nextjs: { request_path: "/cal/[removed]" } }, { who: "[email]" }], "request and user contexts dropped, the requested path scrubbed, tags scrubbed");
   eq(scrubBreadcrumb({ category: "ui.input" }), null, "input breadcrumbs are dropped");
   eq(JSON.stringify(event).includes(hex) || JSON.stringify(event).includes("example.test"), false, "no secret or email anywhere in the report");
+}
+
+// --- entitlements: may this group write right now? (the rules are in docs/entitlements.md)
+{
+  const now = new Date("2026-12-10T12:00:00Z");
+  const on = { billingEnforcementEnabled: true, graceDays: 14 };
+  const off = { billingEnforcementEnabled: false, graceDays: 14 };
+  const base = { plan: "standard", billingStatus: "active", trialEndsAt: null, paidUntil: null, priceLockedUntil: null };
+  const run = (changes, settings = on) => computeMode({ ...base, ...changes }, settings, now);
+  const is = (changes, mode, reason, settings = on) => { const r = run(changes, settings); return [r.mode, r.reasons[0]]; };
+
+  eq(ukDate(new Date("2026-06-30T23:30:00Z")), "2026-07-01", "a late evening in UTC is already the next day in the UK in summer");
+  eq(ukDate(new Date("2026-12-31T23:30:00Z")), "2026-12-31", "...but not in winter");
+  eq([addDays("2026-12-31", 1), addDays("2026-03-01", -1), addDays("2028-02-28", 1)], ["2027-01-01", "2026-02-28", "2028-02-29"], "adding days across month, year and leap day");
+
+  eq(is({ billingStatus: "cancelled", paidUntil: "2020-01-01" }, "", "", off), ["full", "enforcement_off"], "with enforcement off nothing is ever blocked");
+  eq(is({ plan: "complimentary", billingStatus: "cancelled" }), ["full", "complimentary"], "a complimentary group is never blocked");
+  eq(is({ plan: "founding", billingStatus: "past_due", priceLockedUntil: "2026-12-10" }), ["full", "price_locked"], "a founding group is safe up to and including the last day of its price lock");
+  eq(is({ plan: "founding", billingStatus: "past_due", priceLockedUntil: "2026-12-09" }), ["read_only", "payment_overdue"], "...but not after it");
+  eq(is({ plan: "standard", billingStatus: "past_due", priceLockedUntil: "2027-12-31" }), ["read_only", "payment_overdue"], "a price lock only protects founding groups");
+  eq(is({ billingStatus: "none" }), ["full", "not_billed"], "a group that is not billed is never blocked (the free beta)");
+  eq(is({ billingStatus: "cancelled" }), ["read_only", "cancelled"], "a cancelled group is read-only");
+
+  eq([is({ paidUntil: "2026-12-10" }), is({ paidUntil: "2026-12-09" })], [["full", "paid"], ["full", "paid_grace_period"]], "paid up to today is fine, and a day late is inside the grace period");
+  eq([is({ paidUntil: "2026-11-26" }), is({ paidUntil: "2026-11-25" })], [["full", "paid_grace_period"], ["read_only", "payment_overdue"]], "the grace period is 14 days: the last day inside, the first day outside");
+  eq(is({ paidUntil: "2026-11-25" }, "", "", { billingEnforcementEnabled: true, graceDays: 15 }), ["full", "paid_grace_period"], "a longer grace period from the settings is respected");
+  eq(is({ paidUntil: "2026-12-09" }, "", "", { billingEnforcementEnabled: true, graceDays: 0 }), ["read_only", "payment_overdue"], "no grace period: the day after is out");
+  eq([is({ paidUntil: "2026-11-25" }, "", "", { billingEnforcementEnabled: true, graceDays: -1 }), is({ paidUntil: "2026-11-25" }, "", "", { billingEnforcementEnabled: true, graceDays: 1.5 })], [["read_only", "payment_overdue"], ["read_only", "payment_overdue"]], "a nonsense grace period falls back to 14 days");
+
+  eq([is({ billingStatus: "trial", trialEndsAt: "2026-12-31T00:00:00Z" }), is({ billingStatus: "trial", trialEndsAt: "2026-12-05T10:00:00Z" })], [["full", "trial"], ["full", "trial_grace_period"]], "a running trial, and one that just ended, are fine");
+  eq([is({ billingStatus: "trial", trialEndsAt: "2026-11-26T10:00:00Z" }), is({ billingStatus: "trial", trialEndsAt: "2026-11-25T10:00:00Z" })], [["full", "trial_grace_period"], ["read_only", "trial_ended"]], "a trial that ended: the last day inside the grace period, the first day outside");
+  eq(is({ billingStatus: "trial", trialEndsAt: "2026-11-01T10:00:00Z", paidUntil: "2027-01-31" }), ["full", "paid"], "a trial that ended but was paid for is fine");
+  eq(is({ billingStatus: "trial" }), ["full", "trial_without_end_date"], "a trial with no end date is not guessed at");
+  eq(is({ billingStatus: "trial", trialEndsAt: "2026-06-30T23:30:00Z" }, "", "", { billingEnforcementEnabled: true, graceDays: 0 }), ["read_only", "trial_ended"], "trial days are UK days");
+  eq([is({ billingStatus: "active" }), is({ billingStatus: "active", paidUntil: "2026-01-01" })], [["full", "active_without_end_date"], ["read_only", "payment_overdue"]], "active with no end date is fine; with an old one it is overdue");
+  eq([is({ billingStatus: "past_due" }), is({ billingStatus: "past_due", paidUntil: "2027-01-01" })], [["read_only", "payment_overdue"], ["full", "paid"]], "past due is read-only unless a paid-until date still covers it");
+  eq([is({ paidUntil: "next week" }), is({ trialEndsAt: "soon" }), is({ priceLockedUntil: "2026-02-30" }), is({ paidUntil: "2026-1-5" })], Array(4).fill(["full", "unreadable_date"]), "a date that cannot be read never blocks");
+  eq(run({ plan: "founding", billingStatus: "none" }).limits, { maxMembers: null, maxAircraft: null }, "every plan is unlimited until the numbers are decided");
+
+  // Made-up limits, to test the helpers and that each plan gets its own.
+  const defs = { founding: { name: "F", maxMembers: 5, maxAircraft: 1 }, standard: { name: "S", maxMembers: 10, maxAircraft: 2 }, complimentary: { name: "C", maxMembers: null, maxAircraft: null } };
+  const lim = (plan) => computeMode({ ...base, plan }, on, now, defs).limits;
+  eq([lim("founding"), lim("standard"), lim("complimentary")], [{ maxMembers: 5, maxAircraft: 1 }, { maxMembers: 10, maxAircraft: 2 }, { maxMembers: null, maxAircraft: null }], "each plan carries its own limits");
+  eq([memberLimitReached(lim("founding"), 4), memberLimitReached(lim("founding"), 5), memberLimitReached(lim("complimentary"), 9999)], [false, true, false], "the member limit: room for the fifth, not the sixth; null is unlimited");
+  eq([aircraftLimitReached(lim("founding"), 0), aircraftLimitReached(lim("founding"), 1), aircraftLimitReached(lim("complimentary"), 50)], [false, true, false], "the aircraft limit works the same way");
+
+  // From the database's answer to a result. Anything odd allows the write.
+  const answer = (plan, settings = { billing_enforcement_enabled: true, grace_period_days: 14 }) => ({ result: "ok", plan, settings });
+  const overdue = { plan: "standard", billing_status: "active", trial_ends_at: null, paid_until: "2026-01-01", price_locked_until: null };
+  const ev = (a) => { const r = evaluateEntitlements(a, now); return [r.mode, r.reasons[0]]; };
+  eq(ev(answer(overdue)), ["read_only", "payment_overdue"], "the database's answer, with enforcement on, is evaluated");
+  eq(ev(answer(overdue, { billing_enforcement_enabled: false })), ["full", "enforcement_off"], "...and with enforcement off, allowed");
+  eq([ev(answer(overdue, {})), ev(answer(overdue, { billing_enforcement_enabled: "true" })), ev(answer(overdue, { billing_enforcement_enabled: 1 })), ev({ ...answer(overdue), settings: null })], Array(4).fill(["full", "enforcement_off"]), "enforcement is on only for a real true; missing settings mean off");
+  eq(ev(answer(overdue, { billing_enforcement_enabled: true })), ["read_only", "payment_overdue"], "a missing grace period falls back to the default");
+  eq([ev(null), ev(undefined), ev("x"), ev([]), ev({ result: "not_allowed" }), ev({ result: "ok" })].slice(0, 5), Array(5).fill(["full", "unavailable"]), "no answer, a wrong answer or a refusal allows the write");
+  eq([ev(answer(null)), ev({ result: "ok", plan: undefined })], Array(2).fill(["full", "no_plan_row"]), "a group with no plan row is allowed everything");
+  eq([ev(answer({ ...overdue, plan: "platinum" })), ev(answer({ ...overdue, billing_status: "paid" })), ev(answer("standard")), ev(answer([]))], Array(4).fill(["full", "unknown_plan"]), "an unknown plan or status allows the write");
+  eq([ev(answer({ ...overdue, paid_until: 20260101 })), ev(answer({ ...overdue, trial_ends_at: {} }))], Array(2).fill(["full", "unreadable_date"]), "dates of the wrong kind allow the write");
+  eq(PLAN_DEFINITIONS.founding.name, "Founding group", "the plan names live in one table");
 }
 
 console.log(`${count} unit checks passed`);

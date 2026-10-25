@@ -3,10 +3,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { isDemoRequest } from "@/lib/demo/mode";
 import type { Entitlements } from "./compute-mode.ts";
 import { evaluateEntitlements, unavailable } from "./evaluate.ts";
+import { READ_ONLY_MESSAGE } from "./messages.ts";
 
 // The one place the app asks "may this group write?" See docs/entitlements.md.
 
-export const READ_ONLY_MESSAGE = "This group is read-only at the moment. Please contact your group admin.";
+export { READ_ONLY_MESSAGE };
 
 export async function getEntitlements(supabase: SupabaseClient, groupId: string): Promise<Entitlements> {
   // The demo runs on invented data and never limits anyone.

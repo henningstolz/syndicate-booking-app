@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { homePathFor } from "@/lib/user-home";
 import { isDemoRequest } from "@/lib/demo/mode";
+import { assertCanWrite } from "@/lib/entitlements";
 import { NOTIFICATION_EVENTS } from "@/lib/notifications";
 import { renderTestEmail } from "@/lib/notify/email";
 import {
@@ -150,6 +151,8 @@ export async function createInvite(formData: FormData) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  if (await assertCanWrite(supabase, groupId)) redirect(settingsUrl(groupSlug, "read_only"));
 
   // Row-level security allows this only for admins of the group.
   const { error } = await supabase.from("invites").insert({

@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isDemoRequest } from "@/lib/demo/mode";
 import { parsePounds } from "@/lib/costs";
 import { flushSoon } from "@/lib/notify/flush";
+import { assertCanWrite } from "@/lib/entitlements";
 
 // Admins keep the money side: the group's rates, members' own rates, the
 // expenses members paid out of their own pocket, and closing a month. Every action ends by
@@ -105,6 +106,13 @@ export async function addCostExpense(formData: FormData) {
   if (amount === null || amount < 1) back(groupSlug, view, "amount_invalid");
 
   const supabase = await signedIn();
+
+  if (await assertCanWrite(supabase, groupId)) {
+    // A receipt chosen on the form is already in the file store; do not leave it behind.
+    const attached = text(formData, "receiptPath");
+    if (attached !== "") await supabase.storage.from("documents").remove([attached]);
+    back(groupSlug, view, "read_only");
+  }
 
   // A receipt, if one was attached: it is already in the file store; register it as a
   // document (category Receipts, titled with what the expense was) before the expense.

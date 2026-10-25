@@ -149,6 +149,12 @@ every migration there first. See `docs/systems-and-accounts.md`.
     trigger gives every new group its plan row, and the migration backfills the existing
     groups (founding, `founding-2026`). Tested by `supabase/tests/platform.test.mjs`.
 
+26. `0026_group_entitlement_inputs.sql` — beta readiness, phase B. One function,
+    `get_group_entitlement_inputs(group_id)`, that any current member may call: the group's
+    plan, billing status, trial end, paid-until and price lock, plus the platform settings.
+    The app's entitlement check (`src/lib/entitlements`, `docs/entitlements.md`) uses it;
+    billing is not enforced yet. Tested by `supabase/tests/entitlements.test.mjs`.
+
 ## Adding members to a group
 
 Two ways now:

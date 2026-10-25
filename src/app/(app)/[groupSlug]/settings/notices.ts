@@ -1,5 +1,6 @@
 // What each ?notice= code from the Account and Settings actions means, and whether
 // it is good news. Shared by both pages.
+import { READ_ONLY_MESSAGE } from "@/lib/entitlements/messages";
 
 // What each ?notice= code from the actions means, and whether it is good news.
 export const NOTICES: Record<string, { ok: boolean; text: string }> = {
@@ -7,6 +8,7 @@ export const NOTICES: Record<string, { ok: boolean; text: string }> = {
     ok: false,
     text: "This is a demo, so changes in Settings aren't saved. Create your own group to use them.",
   },
+  read_only: { ok: false, text: READ_ONLY_MESSAGE },
   name_saved: { ok: true, text: "Your name was updated." },
   calendar_created: { ok: true, text: "Your calendar link is ready. Copy it into your calendar app." },
   calendar_off: { ok: true, text: "Your calendar link is turned off. The old link no longer works." },

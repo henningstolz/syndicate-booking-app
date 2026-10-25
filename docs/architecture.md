@@ -197,7 +197,7 @@ every migration to a throwaway in-memory Postgres; the pure helpers in
 `npm test` runs both. `npm run test:demo` crawls every demo page on a running dev server. Run them after changing a migration or those helpers.
 
 The database change history is the numbered files in `supabase/migrations/`
-(0001 to 0025).
+(0001 to 0026).
 
 ## Code map
 
@@ -221,6 +221,7 @@ src/
     notify/                   the notification emails: wording (email.ts), the send loop (send-core.ts), Resend and the queue (send.ts), send-after-the-reply (flush.ts)
     costs.ts                  money formatting and parsing, and the statement calculation (the database's twin, used by the demo and tested against it)
     flight-totals.ts          running airframe totals and hours to check, used by the PDF (pure, tested)
+    entitlements/             may this group write right now? plan definitions, the pure rules, the database answer, `assertCanWrite` (off while billing is not enforced; see docs/entitlements.md)
     demo/                     the demo group: invented data, stand-in database client, the visitor's cookie (see "The demo")
     member-colors.ts          the colour palette for members
     booking-durations.ts, slugify.ts

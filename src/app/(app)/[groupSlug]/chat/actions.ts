@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { flushSoon } from "@/lib/notify/flush";
+import { assertCanWrite } from "@/lib/entitlements";
 
 // The chat's messages live in the `squawks` table (its original name; the
 // table keeps it, only the screens say "Chat").
@@ -29,6 +30,9 @@ export async function postChatMessage(
   if (!user) {
     redirect("/login");
   }
+
+  const readOnly = await assertCanWrite(supabase, groupId);
+  if (readOnly) return readOnly;
 
   const { error } = await supabase.from("squawks").insert({
     group_id: groupId,

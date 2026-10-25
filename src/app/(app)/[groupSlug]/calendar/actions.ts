@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { flushSoon } from "@/lib/notify/flush";
+import { assertCanWrite } from "@/lib/entitlements";
 import { londonWallTimeToUtc } from "@/lib/datetime";
 import {
   FULL_DAY_START,
@@ -93,6 +94,9 @@ export async function createBooking(
   if (!user) {
     redirect("/login");
   }
+
+  const readOnly = await assertCanWrite(supabase, groupId);
+  if (readOnly) return readOnly;
 
   const { error } = await supabase.from("bookings").insert({
     group_id: groupId,

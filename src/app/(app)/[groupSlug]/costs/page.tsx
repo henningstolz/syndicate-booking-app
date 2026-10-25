@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { isDemoRequest } from "@/lib/demo/mode";
+import { READ_ONLY_MESSAGE } from "@/lib/entitlements/messages";
 import { directFileLinks } from "@/lib/file-links";
 import { getGroupBySlug } from "@/lib/groups";
 import { londonDateKey } from "@/lib/datetime";
@@ -69,6 +70,7 @@ const NOTICES: Record<string, { ok: boolean; text: string }> = {
   expense_added: { ok: true, text: "Expense added. It is credited to the member." },
   expense_voided: { ok: true, text: "Expense voided. It no longer counts." },
   demo: { ok: false, text: "This is a demo, so changes to costs aren't saved." },
+  read_only: { ok: false, text: READ_ONLY_MESSAGE },
   amount_invalid: { ok: false, text: "Please enter an amount in pounds, such as 12.50." },
   month_invalid: { ok: false, text: "That month isn't valid." },
   description_required: { ok: false, text: "Please describe the expense." },

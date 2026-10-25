@@ -40,14 +40,14 @@ try {
 
   // The newest of each kind of record: proves the data is not just present but recent.
   const newest = [
-    ["booking", `select starts_at::date as d, (select slug from public.groups g where g.id = b.group_id) as slug from public.bookings b order by starts_at desc limit 1`, "calendar"],
-    ["flight log entry", `select flight_date as d, (select slug from public.groups g where g.id = f.group_id) as slug from public.flight_entries f order by flight_date desc limit 1`, "tech-log"],
-    ["closed month", `select month as d, (select slug from public.groups g where g.id = c.group_id) as slug from public.cost_month_closures c where reopened_at is null order by month desc limit 1`, "costs"],
+    ["booking", `select (starts_at at time zone 'Europe/London')::date::text as d, (select slug from public.groups g where g.id = b.group_id) as slug from public.bookings b order by starts_at desc limit 1`, "calendar"],
+    ["flight log entry", `select flight_date::text as d, (select slug from public.groups g where g.id = f.group_id) as slug from public.flight_entries f order by flight_date desc limit 1`, "tech-log"],
+    ["closed month", `select month::text as d, (select slug from public.groups g where g.id = c.group_id) as slug from public.cost_month_closures c where reopened_at is null order by month desc limit 1`, "costs"],
   ];
   for (const [what, sql, page] of newest) {
     const row = await one(sql);
     if (isPublic) line(Boolean(row), `a ${what} is there`);
-    else line(Boolean(row), row ? `newest ${what}: ${new Date(row.d).toISOString().slice(0, 10)}  /${row.slug}/${page}` : `no ${what} found`);
+    else line(Boolean(row), row ? `newest ${what}: ${row.d}  /${row.slug}/${page}` : `no ${what} found`);
   }
 
   // The stored files are not part of the database restore: the rows say a file exists,

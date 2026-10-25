@@ -53,6 +53,7 @@ Record each drill here:
 | Date | Schema | Job time | Your own time | Notes |
 | --- | --- | --- | --- | --- |
 | 2026-10-08 | before documents, payments, calendar and feedback existed | 1.3 min | not recorded | first drill; needed three fixes |
+| 2026-10-25 | migrations 0001 to 0024 (all) | 1 min 46 s | about 5 min | green; sign-in with a real account, calendar, tech log and a closed month checked on the restored copy; files not part of the drill |
 |  |  |  |  |  |
 
 ## 2. A real recovery (the live project is gone)

@@ -43,7 +43,7 @@ Note any change to them in `docs/systems-and-accounts.md`.
 | Supabase, Storage | The S3 key used by the backup | GitHub secrets `BACKUP_S3_*` |
 | Vercel | Every environment variable | The inventory in `docs/systems-and-accounts.md` |
 | Supabase / GitHub / Vercel | Account logins and plans | The same inventory |
-| (later) the first platform admin | A one-off insert after the admin migration | Named in that phase's hand-over |
+| The platform admin | A one-off insert into `platform_admins` (see below), and the authenticator (MFA) setting in Supabase Authentication | `docs/platform-admin.md` |
 
 ## Migration 0025 (platform foundations): checks and the one-off admin
 

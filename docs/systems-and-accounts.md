@@ -598,6 +598,11 @@ to 18:00 UK time (Vercel's free plan runs a job once a day at a fixed time).
 4. Resend's free plan limits (about 100 a day, 3,000 a month) apply: its
    dashboard shows what was sent and any refusals.
 
+### The platform admin page
+
+`/platform-admin` (no link anywhere; type the address after signing in). Needs the authenticator app and a row in
+`platform_admins`. Setup, daily use and lost-phone recovery: `docs/platform-admin.md`.
+
 ### Runbooks
 
 - Restoring from a backup (drill and real recovery): `docs/runbook-restore.md`.

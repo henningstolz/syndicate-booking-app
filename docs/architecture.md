@@ -210,6 +210,7 @@ src/
       _components/            Hero, HeroFilm, BoardSection, Features, Footer, …
     (app)/[groupSlug]/        the signed-in app: layout + AppShell (nav), one folder per page
     login/  join/  groups/  pending/  auth/callback/
+    platform-admin/           the platform owner's page (404 for everyone else), see docs/platform-admin.md
   lib/
     supabase/                 server, browser and proxy Supabase clients
     groups.ts                 getGroupBySlug (select list built from STATUS_FIELDS)
@@ -221,6 +222,7 @@ src/
     notify/                   the notification emails: wording (email.ts), the send loop (send-core.ts), Resend and the queue (send.ts), send-after-the-reply (flush.ts)
     costs.ts                  money formatting and parsing, and the statement calculation (the database's twin, used by the demo and tested against it)
     flight-totals.ts          running airframe totals and hours to check, used by the PDF (pure, tested)
+    platform-admin/           the platform admin page's pure helpers: group list and summary, plan form, the access guard (see docs/platform-admin.md)
     entitlements/             may this group write right now? plan definitions, the pure rules, the database answer, `assertCanWrite` (off while billing is not enforced; see docs/entitlements.md)
     demo/                     the demo group: invented data, stand-in database client, the visitor's cookie (see "The demo")
     member-colors.ts          the colour palette for members

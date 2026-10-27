@@ -27,6 +27,12 @@ address did not exist. There is no link to it anywhere. Open it by typing the ad
    app: scan the QR code with an app such as 1Password, Google Authenticator or Microsoft Authenticator,
    and type the 6-digit code. Setting it up signs you out on your other devices once.
 3. From then on: sign in as usual, open `/platform-admin`, type the code.
+4. Add a second device under **Security** at the bottom of the page (a backup, so a lost phone does not
+   lock you out).
+
+Do step 2 straight after step 1. Until the first authenticator exists, the account is protected by its
+password only (checked on the test project: once a verified authenticator exists, someone with only the
+password cannot add their own or remove yours; Supabase refuses with "AAL2 required").
 
 To remove an admin, delete their row from `platform_admins`.
 
@@ -47,7 +53,7 @@ To remove an admin, delete their row from `platform_admins`.
 You cannot open the admin page, but the rest of the app works normally. Recover in the Supabase
 dashboard: Authentication, Users, open your user, and remove the authenticator factor (a "factor" is the
 entry for the app). Then open `/platform-admin` again and set up a new one. If you added a second
-device earlier, simply use that.
+device earlier (recommended), simply use that.
 
 ## If something looks wrong
 

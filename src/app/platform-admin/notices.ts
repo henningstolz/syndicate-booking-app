@@ -2,6 +2,7 @@ import { FIELD_LABELS } from "@/lib/platform-admin/format";
 
 // What each ?notice= code means on the platform admin pages, and whether it is good news.
 const NOTICES: Record<string, { ok: boolean; text: string }> = {
+  device_added: { ok: true, text: "Another authenticator device was added." },
   saved: { ok: true, text: "Saved. The change is in the history." },
   no_change: { ok: false, text: "Nothing was changed." },
   reason_required: { ok: false, text: "Please give a reason (at least 3 characters). It is written into the history." },

@@ -22,7 +22,9 @@ export async function startEnrolment(): Promise<MfaState> {
   const supabase = await createClient();
   const state = await adminState(supabase);
   if (state === "not_admin") notFound();
-  if (state !== "needs_enrolment") return { error: "An authenticator app is already set up for this account." };
+  // First time, or (already signed in with a code) an extra device. Supabase itself refuses to add a device
+  // to an account that has one unless the session was signed in with a code.
+  if (state !== "needs_enrolment" && state !== "ok") return { error: "Sign in with your code first." };
 
   // An earlier attempt that was never finished would block a new one; remove it.
   const { data: factors } = await supabase.auth.mfa.listFactors();
@@ -42,7 +44,7 @@ export async function finishEnrolment(prev: MfaState, formData: FormData): Promi
   const supabase = await createClient();
   const state = await adminState(supabase);
   if (state === "not_admin") notFound();
-  if (state !== "needs_enrolment") return { error: "An authenticator app is already set up for this account." };
+  if (state !== "needs_enrolment" && state !== "ok") return { ...prev, error: "Sign in with your code first." };
 
   const factorId = String(formData.get("factorId") ?? "");
   const code = String(formData.get("code") ?? "").replace(/\s/g, "");
@@ -50,7 +52,7 @@ export async function finishEnrolment(prev: MfaState, formData: FormData): Promi
 
   const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId, code });
   if (error) return { ...prev, error: WRONG_CODE };
-  redirect("/platform-admin");
+  redirect(state === "ok" ? "/platform-admin?notice=device_added" : "/platform-admin");
 }
 
 // Signing in on a later day: the code from the app.

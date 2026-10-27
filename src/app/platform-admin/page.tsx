@@ -24,6 +24,8 @@ export default async function PlatformAdminPage({ searchParams }: { searchParams
     supabase.rpc("get_platform_settings"),
     supabase.rpc("admin_list_plan_events", { p_group_id: null, p_limit: 20 }),
   ]);
+  const { data: factors } = await supabase.auth.mfa.listFactors();
+  const devices = factors?.totp?.length ?? 0;
   const groups = parseAdminGroups(groupsAnswer);
   if (!groups) return <p role="alert" className="text-sm text-red-700">The groups could not be loaded. Reload the page, or sign in again.</p>;
 
@@ -62,6 +64,17 @@ export default async function PlatformAdminPage({ searchParams }: { searchParams
         <SettingsPanel settings={settings} />
         <h3 className="mb-2 mt-5 text-sm font-medium text-zinc-500">Settings history</h3>
         <History events={parseEvents(eventsAnswer)} />
+      </section>
+
+      <section>
+        <h2 className="mb-2 text-sm font-medium text-zinc-500">Security</h2>
+        <p className="mb-2 text-sm text-zinc-700">
+          {devices} authenticator device{devices === 1 ? "" : "s"} set up.{devices < 2 ? " Add a second one now, so a lost phone does not lock you out." : ""}
+        </p>
+        <details className="rounded-lg border border-zinc-200 bg-white p-3">
+          <summary className="cursor-pointer text-sm">Add another device</summary>
+          <div className="mt-3"><EnrolPanel /></div>
+        </details>
       </section>
     </div>
   );

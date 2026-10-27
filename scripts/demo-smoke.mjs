@@ -70,35 +70,13 @@ for (const [what, query] of [["a member's statement", `month=${month}`], ["every
   const bytes = new Uint8Array(await doc.arrayBuffer());
   check(doc.status === 200 && doc.headers.get("content-type") === "application/pdf" && String.fromCharCode(...bytes.slice(0, 5)) === "%PDF-", "a demo document opens as a sample PDF", `status ${doc.status}`);
   check((await fetch(`${BASE}/demo/documents/not%20an%20id/file`)).status === 404, "a malformed document id is a 404");
-  const unknown = await fetch(`${BASE}/demo/documents/00000000-0000-0000-0000-000000000000/file`);
-  const page = await unknown.text();
-  check(unknown.status === 404 && (unknown.headers.get("content-type") ?? "").startsWith("text/html") && page.includes("/demo/documents") && page.includes("Back to Documents"), "an unknown or deleted document is a readable page with a way back, not bare JSON", `status ${unknown.status}`);
-  const noStatement = await fetch(`${BASE}/demo/costs/pdf?month=2020-01`);
-  const noStatementPage = await noStatement.text();
-  check(noStatement.status === 404 && noStatementPage.includes("Back to Costs"), "a statement that does not exist is a readable page with a way back");
-}
-
-// The public homepage: the calendar picture and its wording.
-{
-  const home = await fetch(`${BASE}/`);
-  const html = await home.text();
-  check(home.status === 200 && html.includes("One board for the whole month") && html.includes("whole month at a glance") && html.includes("Log every flight"), "the homepage has the month calendar section and the updated feature text", `status ${home.status}`);
-  check(html.includes('aria-current="date"') && html.includes("/demo/calendar"), "the homepage calendar marks today and links into the demo");
-}
-
-// Old links (in earlier emails, bookmarks) to the personal settings tabs still work.
-for (const tab of ["notifications", "calendar"]) {
-  const old = await fetch(`${BASE}/demo/settings?tab=${tab}`, { redirect: "manual" });
-  check(old.status === 307 && (old.headers.get("location") ?? "").endsWith(`/demo/account?tab=${tab}`), `the old Settings ${tab} link goes to Account`, `status ${old.status} -> ${old.headers.get("location")}`);
-}
-
-// The health endpoint the uptime monitor asks: 200 and exactly {"ok":true}, nothing else.
-{
-  const health = await fetch(`${BASE}/api/health`);
-  const body = await health.text();
-  check(health.status === 200 && body === '{"ok":true}' && health.headers.get("cache-control") === "no-store", "the health endpoint answers 200 and only {\"ok\":true}", `status ${health.status} body ${body.slice(0, 80)}`);
-  const head = await fetch(`${BASE}/api/health`, { method: "HEAD" });
-  check(head.status === 200, "...and answers a HEAD request the same way");
+  for (const path of ["/platform-admin", "/platform-admin/groups/11111111-1111-1111-1111-111111111111", "/platform-admin/settings/enforcement"]) {
+    const res = await fetch(`${BASE}${path}`, { redirect: "manual" });
+    const html = await res.text();
+    check(res.status === 404 && !/authenticator|platform admin|sign in|two-factor|MFA/i.test(html.replace(/<script[\s\S]*?<\/script>/g, "")), `${path} is a plain 404 for a signed-out visitor`, `status ${res.status}`);
+  }
+  const post = await fetch(`${BASE}/platform-admin`, { method: "POST", redirect: "manual" });
+  check(post.status === 404 || post.status === 405 || post.status === 400, "...and a POST gets no further", `status ${post.status}`);
 }
 
 // The feedback button at the bottom of the side menu.

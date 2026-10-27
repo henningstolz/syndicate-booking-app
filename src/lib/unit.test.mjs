@@ -19,6 +19,8 @@ import { scrubText, scrubUrl, scrubEvent, scrubBreadcrumb } from "./sentry-scrub
 import { computeMode, ukDate, addDays, memberLimitReached, aircraftLimitReached } from "./entitlements/compute-mode.ts";
 import { evaluateEntitlements } from "./entitlements/evaluate.ts";
 import { PLAN_DEFINITIONS } from "./entitlements/plans.ts";
+import { parseAdminGroups, summarise, wouldBeReadOnly, filterGroups, sortGroups } from "./platform-admin/groups.ts";
+import { buildPlanChanges, currentValue, parseSettingValue } from "./platform-admin/plan-form.ts";
 import { PDFDocument } from "pdf-lib";
 
 let count = 0;
@@ -371,6 +373,81 @@ eq([describeDevice("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Apple
   eq([ev(answer({ ...overdue, plan: "platinum" })), ev(answer({ ...overdue, billing_status: "paid" })), ev(answer("standard")), ev(answer([]))], Array(4).fill(["full", "unknown_plan"]), "an unknown plan or status allows the write");
   eq([ev(answer({ ...overdue, paid_until: 20260101 })), ev(answer({ ...overdue, trial_ends_at: {} }))], Array(2).fill(["full", "unreadable_date"]), "dates of the wrong kind allow the write");
   eq(PLAN_DEFINITIONS.founding.name, "Founding group", "the plan names live in one table");
+}
+
+// --- platform admin page: summary, search/sort/filter, and the plan form
+{
+  const now = new Date("2026-12-10T12:00:00Z");
+  const mk = (id, name, over = {}) => ({
+    group_id: id, slug: name.toLowerCase().replace(/ /g, "-"), name, created_at: "2026-10-01T09:00:00+00:00", aircraft_count: 1, member_count: 3,
+    admins: [{ name: "Alice", email: "alice@example.test" }], last_activity: null, plan: "founding", billing_status: "none", cohort: "founding-2026",
+    trial_ends_at: null, paid_until: null, price_locked_until: null, discount_percent: null, billing_reference: null,
+    stripe_customer_id: null, stripe_subscription_id: null, plan_updated_at: null, ...over,
+  });
+  const groups = [
+    mk("1", "Alpha Flyers"),
+    mk("2", "Bravo Group", { plan: "standard", billing_status: "trial", trial_ends_at: "2026-12-20T00:00:00+00:00", member_count: 7, admins: [{ name: "Bob", email: "bob@example.test" }], last_activity: "2026-12-01T10:00:00+00:00" }),
+    mk("3", "Charlie Club", { plan: "standard", billing_status: "active", paid_until: "2027-01-09", billing_reference: "INV-77", last_activity: "2026-12-09T10:00:00+00:00" }),
+    mk("4", "Delta Wings", { plan: "complimentary", billing_status: "cancelled" }),
+    mk("5", "Echo Team", { plan: "standard", billing_status: "past_due", paid_until: "2026-10-01", trial_ends_at: "2027-03-01T00:00:00+00:00" }),
+    mk("6", "Foxtrot Air", { plan: null, billing_status: null }),
+  ];
+  const names = (list) => list.map((g) => g.name);
+
+  const sum = summarise(groups, now);
+  eq([sum.total, sum.byPlan], [6, { founding: 1, standard: 3, complimentary: 1, none: 1 }], "the summary counts groups by plan, and a group with no plan row separately");
+  eq([sum.trialsEnding, sum.paidUntilExpiring], [1, 1], "trials ending and paid-until expiring in the next 30 days");
+  eq(summarise([mk("a", "A", { billing_status: "trial", trial_ends_at: "2027-01-09T00:00:00+00:00", paid_until: "2027-01-10" })], now).trialsEnding, 1, "the 30th day counts");
+  eq(summarise([mk("a", "A", { billing_status: "trial", trial_ends_at: "2027-01-10T00:00:00+00:00", paid_until: "2027-01-10" })], now).trialsEnding, 0, "the 31st does not");
+  eq(summarise([mk("a", "A", { billing_status: "trial", trial_ends_at: "2026-12-09T00:00:00+00:00", paid_until: "2026-12-09" })], now), { total: 1, byPlan: { founding: 1, standard: 0, complimentary: 0, none: 0 }, trialsEnding: 0, paidUntilExpiring: 0 }, "dates already past are not 'expiring'");
+  eq(summarise([mk("a", "A", { billing_status: "active", trial_ends_at: "2026-12-20T00:00:00+00:00" })], now).trialsEnding, 0, "only groups on a trial count as trials");
+
+  eq(names(wouldBeReadOnly(groups, 14, now)), ["Echo Team"], "with enforcement on: complimentary is safe, past due with an old paid-until is read-only, the rest are fine");
+  eq(names(wouldBeReadOnly([mk("x", "X", { plan: "standard", billing_status: "cancelled" })], 14, now)), ["X"], "a cancelled standard group would be read-only");
+  eq(names(wouldBeReadOnly(groups, 400, now)), [], "a longer grace period can rescue overdue groups");
+
+  eq(names(filterGroups(groups, { search: "", plan: "", status: "" })), names(groups), "no filter shows everything");
+  eq(names(filterGroups(groups, { search: "BOB@", plan: "", status: "" })), ["Bravo Group"], "search finds a group admin's email, ignoring case");
+  eq(names(filterGroups(groups, { search: "inv-77", plan: "", status: "" })), ["Charlie Club"], "...and a billing reference");
+  eq(names(filterGroups(groups, { search: "", plan: "standard", status: "" })), ["Bravo Group", "Charlie Club", "Echo Team"], "filter by plan");
+  eq(names(filterGroups(groups, { search: "", plan: "", status: "cancelled" })), ["Delta Wings"], "filter by status");
+  eq(names(filterGroups(groups, { search: "club", plan: "standard", status: "active" })), ["Charlie Club"], "filters combine");
+  eq(names(filterGroups(groups, { search: "", plan: "none", status: "" })), ["Foxtrot Air"], "a group without a plan row can be found");
+
+  eq(names(sortGroups(groups, "name", "desc")).slice(0, 2), ["Foxtrot Air", "Echo Team"], "sort by name, descending");
+  eq(names(sortGroups(groups, "members", "desc"))[0], "Bravo Group", "sort by members");
+  eq(names(sortGroups(groups, "activity", "desc")), ["Charlie Club", "Bravo Group", "Alpha Flyers", "Delta Wings", "Echo Team", "Foxtrot Air"], "sort by last activity: newest first, groups with none last");
+  eq(names(sortGroups(groups, "activity", "asc")).slice(0, 2), ["Bravo Group", "Charlie Club"], "...and missing values stay last when ascending too");
+  eq(names(sortGroups(groups, "paid", "asc")).slice(0, 2), ["Echo Team", "Charlie Club"], "sort by paid-until");
+  eq(names(groups), ["Alpha Flyers", "Bravo Group", "Charlie Club", "Delta Wings", "Echo Team", "Foxtrot Air"], "sorting does not change the original list");
+
+  eq(parseAdminGroups(null), null, "an answer that is not ok is rejected");
+  eq(parseAdminGroups({ result: "not_allowed" }), null, "a refusal is rejected");
+  eq(parseAdminGroups({ result: "ok", groups: [{ nonsense: 1 }] }), null, "a row without an id is rejected");
+  const parsed = parseAdminGroups({ result: "ok", groups: [{ group_id: "g", name: "N", plan: "platinum", billing_status: "paid", member_count: 2 }] });
+  eq([parsed[0].plan, parsed[0].billing_status, parsed[0].member_count, parsed[0].admins], [null, null, 2, []], "unknown values become null instead of breaking the page");
+
+  // The plan form: only what changed is sent.
+  const g = mk("9", "Nine", { plan: "standard", billing_status: "trial", trial_ends_at: "2026-12-31T00:00:00+00:00", paid_until: "2027-01-31", discount_percent: 20, cohort: "beta", billing_reference: "INV-1" });
+  const form = (over = {}) => ({ plan: "standard", billing_status: "trial", cohort: "beta", trial_ends_at: "2026-12-31", paid_until: "2027-01-31", price_locked_until: "", discount_percent: "20", billing_reference: "INV-1", stripe_customer_id: "", stripe_subscription_id: "", ...over });
+  eq(["plan", "billing_status", "cohort", "trial_ends_at", "paid_until", "price_locked_until", "discount_percent", "billing_reference", "stripe_customer_id", "stripe_subscription_id"].map((f) => currentValue(g, f)), ["standard", "trial", "beta", "2026-12-31", "2027-01-31", "", "20", "INV-1", "", ""], "the form starts with the current values");
+  eq(buildPlanChanges(form(), g), { ok: true, changes: {} }, "nothing changed means nothing to send");
+  eq(buildPlanChanges(form({ plan: "complimentary", billing_status: "none" }), g), { ok: true, changes: { plan: "complimentary", billing_status: "none" } }, "only the changed fields are sent");
+  eq(buildPlanChanges(form({ paid_until: "", discount_percent: "", billing_reference: "  ", cohort: "" }), g), { ok: true, changes: { paid_until: null, discount_percent: null, billing_reference: null, cohort: null } }, "an emptied field is cleared (null)");
+  eq(buildPlanChanges(form({ trial_ends_at: "2027-02-01", price_locked_until: "2027-06-30", discount_percent: "100", billing_reference: " INV-2 " }), g), { ok: true, changes: { trial_ends_at: "2027-02-01", price_locked_until: "2027-06-30", discount_percent: 100, billing_reference: "INV-2" } }, "dates, whole numbers and trimmed text");
+  eq(["plan", "billing_status", "paid_until", "trial_ends_at", "price_locked_until", "discount_percent", "cohort", "billing_reference"].map((f) => buildPlanChanges(form({ [f]: { plan: "gold", billing_status: "paid", paid_until: "next week", trial_ends_at: "2026-02-30", price_locked_until: "31/12/2026", discount_percent: "101", cohort: "x".repeat(41), billing_reference: "y".repeat(201) }[f] }), g)), [
+    { ok: false, field: "plan" }, { ok: false, field: "billing_status" }, { ok: false, field: "paid_until" }, { ok: false, field: "trial_ends_at" },
+    { ok: false, field: "price_locked_until" }, { ok: false, field: "discount_percent" }, { ok: false, field: "cohort" }, { ok: false, field: "billing_reference" },
+  ], "a wrong value is refused and the field is named");
+  eq([buildPlanChanges(form({ discount_percent: "12.5" }), g).ok, buildPlanChanges(form({ discount_percent: "-1" }), g).ok, buildPlanChanges(form({ plan: "" }), g).ok], [false, false, false], "a decimal, a negative number or an empty plan is refused");
+  eq(buildPlanChanges({ ...form(), trial_ends_at: "2026-12-31" }, { ...g, trial_ends_at: "2026-06-30T23:30:00+00:00" }), { ok: true, changes: { trial_ends_at: "2026-12-31" } }, "the trial end is compared as a UK day");
+  eq(buildPlanChanges({ ...form(), trial_ends_at: "2026-07-01" }, { ...g, trial_ends_at: "2026-06-30T23:30:00+00:00" }), { ok: true, changes: {} }, "...so 23:30 UTC in summer is already the next day and counts as unchanged");
+
+  eq([parseSettingValue("default_plan_new_groups", "standard"), parseSettingValue("default_plan_new_groups", "gold")], [{ ok: true, value: "standard" }, { ok: false }], "setting: default plan");
+  eq([parseSettingValue("default_cohort_new_groups", " beta-2027 "), parseSettingValue("default_cohort_new_groups", ""), parseSettingValue("default_cohort_new_groups", "x".repeat(41))], [{ ok: true, value: "beta-2027" }, { ok: false }, { ok: false }], "setting: default cohort");
+  eq([parseSettingValue("paid_beta_cutoff", "2027-06-01"), parseSettingValue("paid_beta_cutoff", ""), parseSettingValue("paid_beta_cutoff", "soon"), parseSettingValue("paid_beta_cutoff", "2027-02-30")], [{ ok: true, value: "2027-06-01" }, { ok: true, value: null }, { ok: false }, { ok: false }], "setting: cut-off date, empty clears it");
+  eq([parseSettingValue("grace_period_days", "30"), parseSettingValue("grace_period_days", "0"), parseSettingValue("grace_period_days", "366"), parseSettingValue("grace_period_days", "1.5"), parseSettingValue("grace_period_days", "")], [{ ok: true, value: 30 }, { ok: true, value: 0 }, { ok: false }, { ok: false }, { ok: false }], "setting: grace period");
+  eq([parseSettingValue("billing_enforcement_enabled", "true"), parseSettingValue("nonsense", "1")], [{ ok: false }, { ok: false }], "enforcement is not set through the plain form; unknown settings are refused");
 }
 
 console.log(`${count} unit checks passed`);

@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { legalDocsLive } from "@/lib/legal";
+import { ensureTermsAccepted } from "@/lib/legal-server";
 import { CreateGroupForm } from "./CreateGroupForm";
 
 export default async function NewGroupPage() {
@@ -10,6 +12,7 @@ export default async function NewGroupPage() {
   if (!user) {
     redirect("/login");
   }
+  await ensureTermsAccepted(supabase, user, "/groups/new");
 
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-6 px-6 py-16">
@@ -20,7 +23,7 @@ export default async function NewGroupPage() {
         Set up a new syndicate — you&apos;ll be its admin, and can invite
         others once it&apos;s created.
       </p>
-      <CreateGroupForm />
+      <CreateGroupForm requireTerms={legalDocsLive()} />
     </main>
   );
 }

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getGroupBySlug } from "@/lib/groups";
 import { homePathFor } from "@/lib/user-home";
 import { isDemoRequest } from "@/lib/demo/mode";
+import { ensureTermsAccepted } from "@/lib/legal-server";
 import { signOut } from "@/app/login/actions";
 import { AppShell } from "./AppShell";
 import type { GroupOption } from "./GroupSwitcher";
@@ -38,6 +39,8 @@ export default async function GroupLayout({
   if (!user) {
     redirect("/login");
   }
+  // Where the terms are live: one screen for anyone who has not accepted the current text yet.
+  await ensureTermsAccepted(supabase, user, `/${groupSlug}`);
 
   // RLS on `groups` only returns a row if the signed-in user belongs to
   // it, so a null result here covers both "no such group" and "signed

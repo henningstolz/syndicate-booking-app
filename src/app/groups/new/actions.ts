@@ -4,6 +4,8 @@ import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { groupSlugFromName } from "@/lib/slugify";
+import { legalDocsLive } from "@/lib/legal";
+import { recordAcceptance } from "@/lib/legal-server";
 
 export type CreateGroupState = { error?: string };
 
@@ -23,6 +25,11 @@ export async function createGroup(
 
   if (!name || !aircraftRegistration || !displayName) {
     return { error: "Please fill in the required fields." };
+  }
+
+  // Where the terms are live, creating a group means accepting them for the group.
+  if (legalDocsLive() && formData.get("acceptTerms") !== "on") {
+    return { error: "Please accept the terms and the privacy page to create a group." };
   }
 
   const supabase = await createClient();
@@ -86,6 +93,9 @@ export async function createGroup(
   if (memberError) {
     return { error: memberError.message };
   }
+
+  // Recorded now that the person is a member (the database only allows an acceptance for your own groups).
+  if (legalDocsLive()) await recordAcceptance(supabase, user.id, groupId);
 
   redirect(`/${finalSlug}`);
 }

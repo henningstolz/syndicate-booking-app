@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { legalDocsLive } from "@/lib/legal";
 import { AcceptInviteForm } from "./AcceptInviteForm";
 import { JoinAuthForm } from "./JoinAuthForm";
 
@@ -65,7 +66,7 @@ export default async function JoinPage({
       {user ? (
         <AcceptInviteForm inviteId={inviteId} />
       ) : (
-        <JoinAuthForm inviteId={inviteId} />
+        <JoinAuthForm inviteId={inviteId} requireTerms={legalDocsLive()} />
       )}
     </main>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { AcceptTermsCheckbox } from "@/components/AcceptTermsCheckbox";
 import { createGroup, type CreateGroupState } from "./actions";
 
 const initialState: CreateGroupState = {};
@@ -8,7 +9,7 @@ const initialState: CreateGroupState = {};
 const inputClass =
   "rounded-lg border border-zinc-300 px-3 py-2 text-base text-zinc-900";
 
-export function CreateGroupForm() {
+export function CreateGroupForm({ requireTerms }: { requireTerms: boolean }) {
   const [state, action, pending] = useActionState(createGroup, initialState);
 
   return (
@@ -61,6 +62,8 @@ export function CreateGroupForm() {
           className={inputClass}
         />
       </label>
+
+      {requireTerms && <AcceptTermsCheckbox />}
 
       {state.error && <p className="text-sm text-red-600">{state.error}</p>}
 

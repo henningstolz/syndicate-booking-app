@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { homePathFor } from "@/lib/user-home";
+import { acceptanceMetadata, legalDocsLive } from "@/lib/legal";
 
 export type AuthActionState = { error?: string; message?: string };
 
@@ -44,6 +45,12 @@ export async function signUp(
   if (password.length < 8) {
     return { error: "Please use a password of at least 8 characters." };
   }
+  // Where the terms are live the box must be ticked; the versions are stored with the account and
+  // recorded at the first signed-in page (src/lib/legal-server.ts).
+  const needsTerms = legalDocsLive();
+  if (needsTerms && formData.get("acceptTerms") !== "on") {
+    return { error: "Please accept the terms and the privacy page to create an account." };
+  }
 
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signUp({
@@ -51,6 +58,7 @@ export async function signUp(
     password,
     options: {
       emailRedirectTo: `${process.env.SITE_URL}/auth/callback`,
+      ...(needsTerms ? { data: acceptanceMetadata() } : {}),
     },
   });
 

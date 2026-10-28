@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useActionState, useState } from "react";
+import { AcceptTermsCheckbox } from "@/components/AcceptTermsCheckbox";
 import { joinSignIn, joinSignUp, type JoinAuthState } from "./actions";
 
 const initialState: JoinAuthState = {};
 
-export function JoinAuthForm({ inviteId }: { inviteId: string }) {
+export function JoinAuthForm({ inviteId, requireTerms }: { inviteId: string; requireTerms: boolean }) {
   const [mode, setMode] = useState<"sign-in" | "sign-up">("sign-up");
   const [signInState, signInAction, signInPending] = useActionState(
     joinSignIn,
@@ -51,6 +52,8 @@ export function JoinAuthForm({ inviteId }: { inviteId: string }) {
         {!isSignIn && (
           <p className="-mt-2 text-xs text-zinc-500">At least 8 characters.</p>
         )}
+
+        {!isSignIn && requireTerms && <AcceptTermsCheckbox />}
 
         {state.error && <p className="text-sm text-red-600">{state.error}</p>}
         {state.message && (

@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { acceptanceMetadata, legalDocsLive } from "@/lib/legal";
 
 export type JoinAuthState = { error?: string; message?: string };
 export type AcceptInviteState = { error?: string };
@@ -40,6 +41,10 @@ export async function joinSignUp(
   if (password.length < 8) {
     return { error: "Please use a password of at least 8 characters." };
   }
+  const needsTerms = legalDocsLive();
+  if (needsTerms && formData.get("acceptTerms") !== "on") {
+    return { error: "Please accept the terms and the privacy page to create an account." };
+  }
 
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signUp({
@@ -47,6 +52,7 @@ export async function joinSignUp(
     password,
     options: {
       emailRedirectTo: `${process.env.SITE_URL}/auth/callback?next=/join/${inviteId}`,
+      ...(needsTerms ? { data: acceptanceMetadata() } : {}),
     },
   });
 

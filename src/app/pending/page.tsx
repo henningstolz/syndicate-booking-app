@@ -1,7 +1,15 @@
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
+import { ensureTermsAccepted } from "@/lib/legal-server";
 import { signOut } from "@/app/login/actions";
 
-export default function PendingPage() {
+export default async function PendingPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user) await ensureTermsAccepted(supabase, user, "/pending");
+
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
       <h1 className="text-xl font-semibold tracking-tight text-zinc-900">

@@ -13,6 +13,7 @@ import {
   updateGroupDetails,
 } from "./actions";
 import { CopyLinkButton } from "./CopyLinkButton";
+import { PlanCard } from "./PlanCard";
 import { noticeMessage } from "./notices";
 
 type MemberRow = {
@@ -155,6 +156,9 @@ export default async function SettingsPage({
       {noticeBlock}
 
       <>
+          {/* ---------------------------------------------------- plan */}
+          {!demo && <PlanCard groupId={group.id} />}
+
           {/* -------------------------------------------------- members */}
           <section className="flex flex-col gap-3">
             <h2 className={sectionTitle}>Members</h2>
@@ -355,6 +359,18 @@ export default async function SettingsPage({
               <p className="text-xs text-zinc-500">
                 The web address of the group does not change when you rename it.
               </p>
+            </form>
+          </section>
+
+          {/* ------------------------------------------------- export */}
+          <section className="flex flex-col gap-3">
+            <h2 className={sectionTitle}>Export your data</h2>
+            <p className="max-w-md text-sm text-zinc-600">
+              Download everything the group has recorded (members, bookings, tech log, costs, chat, aircraft and a list of
+              documents) as a ZIP of spreadsheet files. The uploaded files themselves stay on the Documents page.
+            </p>
+            <form method="post" action={`/${groupSlug}/export`}>
+              <button type="submit" className={smallButton}>Download the export</button>
             </form>
           </section>
       </>

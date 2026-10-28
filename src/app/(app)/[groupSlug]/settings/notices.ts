@@ -8,6 +8,8 @@ export const NOTICES: Record<string, { ok: boolean; text: string }> = {
     ok: false,
     text: "This is a demo, so changes in Settings aren't saved. Create your own group to use them.",
   },
+  export_limited: { ok: false, text: "The group has exported its data several times in the last hour. Please try again a little later." },
+  export_failed: { ok: false, text: "The export could not be made. Please try again, or write to support@blocktime.group." },
   read_only: { ok: false, text: READ_ONLY_MESSAGE },
   name_saved: { ok: true, text: "Your name was updated." },
   calendar_created: { ok: true, text: "Your calendar link is ready. Copy it into your calendar app." },

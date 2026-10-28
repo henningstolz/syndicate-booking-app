@@ -146,6 +146,7 @@ is scoped to a group.
 | `cost_rates` | The fixed monthly share and the hourly rate (whole pence), each valid from a month. A row with no `user_id` is the group's default; a row with a `user_id` is that member's own (an empty part follows the group's, 0 is a real zero) | Append-only: a new row for a month replaces older ones from then on, old rows stay as history. A statement uses the rates in force for ITS month. Members read the group's rows and their own, never other members'. |
 | `documents` | What an uploaded file is: title, category (general, aircraft, insurance, manuals, receipts, other), original file name, type, size, who uploaded it, and where it is in the file store (`<group id>/<random id>.<ext>`) | Members of the group read it, minus deleted ones (RLS); written only by `add_document` (checks the file really is in the store and was uploaded by the caller; size and type come from the store) and `delete_document` (uploader or admin; the record is hidden and the server removes the file). Expenses link a receipt through `cost_expenses.document_id`. |
 | `feedback` | A message a member sent with the Feedback button: type (bug, idea, other), message (3 to 2000 characters), the page and device it came from, when, and whether the email went out | Nobody can read it through the app (RLS on, no policy; the owner reads it in the Supabase dashboard); written only by `submit_feedback` (members of the group; at most 5 an hour each) and `mark_feedback_emailed`. |
+| `export_log` | Who exported which group's data and when (group, person, time; never the contents) | No policy and no rights for the app's users; written by `log_group_export`, which also checks the caller is an admin of the group and allows at most 5 an hour. |
 | `group_plans` | A group's plan (`founding`, `standard`, `complimentary`), billing status, cohort, trial end, paid-until, price lock, discount, billing reference. One row per group, created by a trigger. Not used by the app yet (billing is not enforced) | Group admins can read their own group's row; nobody writes it from the app. Changed only by `admin_update_group_plan`. |
 | `plan_events` | Append-only history: group created, plan changed, setting changed, with old and new values, who and the reason | No policy and no rights for the app's users; a trigger refuses every update, delete and truncate. No foreign keys, so it outlives a deleted group (ids and plan values only, no names). Read through `admin_list_plan_events`. |
 | `platform_settings` | Five platform-wide switches: billing enforcement (off), default plan and cohort for new groups, paid-beta cut-off date, grace period days | No policy; read by `get_platform_settings()`, changed by `admin_update_setting`. |
@@ -197,7 +198,7 @@ every migration to a throwaway in-memory Postgres; the pure helpers in
 `npm test` runs both. `npm run test:demo` crawls every demo page on a running dev server. Run them after changing a migration or those helpers.
 
 The database change history is the numbered files in `supabase/migrations/`
-(0001 to 0026).
+(0001 to 0027).
 
 ## Code map
 
@@ -211,6 +212,7 @@ src/
     (app)/[groupSlug]/        the signed-in app: layout + AppShell (nav), one folder per page
     login/  join/  groups/  pending/  auth/callback/
     platform-admin/           the platform owner's page (404 for everyone else), see docs/platform-admin.md
+    accept-terms/  (marketing)/terms  the one-time acceptance screen and the terms page (only where the legal switch is on)
   lib/
     supabase/                 server, browser and proxy Supabase clients
     groups.ts                 getGroupBySlug (select list built from STATUS_FIELDS)
@@ -223,6 +225,8 @@ src/
     costs.ts                  money formatting and parsing, and the statement calculation (the database's twin, used by the demo and tested against it)
     flight-totals.ts          running airframe totals and hours to check, used by the PDF (pure, tested)
     platform-admin/           the platform admin page's pure helpers: group list and summary, plan form, the access guard (see docs/platform-admin.md)
+    legal.ts, legal-server.ts   terms and privacy versions, the LEGAL_DOCS_LIVE switch, who must accept (see docs/systems-and-accounts.md)
+    export/                   the group data export: CSV, the file builders, paging (pure, tested)
     entitlements/             may this group write right now? plan definitions, the pure rules, the database answer, `assertCanWrite` (off while billing is not enforced; see docs/entitlements.md)
     demo/                     the demo group: invented data, stand-in database client, the visitor's cookie (see "The demo")
     member-colors.ts          the colour palette for members

@@ -79,6 +79,24 @@ for (const [what, query] of [["a member's statement", `month=${month}`], ["every
   check(post.status === 404 || post.status === 405 || post.status === 400, "...and a POST gets no further", `status ${post.status}`);
 }
 
+// The terms page: a 404 where the legal switch is off (Production until it is reviewed), the terms where it is on.
+{
+  const terms = await fetch(`${BASE}/terms`);
+  const html = await terms.text();
+  check(terms.status === 404 || (terms.status === 200 && /Terms of use/i.test(html)), "/terms is either not live (404) or the terms page", `status ${terms.status}`);
+  const accept = await fetch(`${BASE}/accept-terms`, { redirect: "manual" });
+  check(accept.status === 404 || (accept.status === 307 && (accept.headers.get("location") ?? "").endsWith("/login")), "/accept-terms is either not live (404) or sends a signed-out visitor to sign-in", `status ${accept.status}`);
+}
+
+// The group data export is for signed-in admins only: a signed-out request is sent to sign-in and gets no data.
+{
+  const exp = await fetch(`${BASE}/g-bbfd/export`, { method: "POST", redirect: "manual" });
+  const body = await exp.text();
+  check(exp.status === 303 && (exp.headers.get("location") ?? "").endsWith("/login") && !body.includes("PK"), "a signed-out request to the export is sent to sign-in", `status ${exp.status} -> ${exp.headers.get("location")}`);
+  const get = await fetch(`${BASE}/g-bbfd/export`, { redirect: "manual" });
+  check(get.status === 405 || get.status === 307 || get.status === 404, "...and the export cannot be fetched by a plain link", `status ${get.status}`);
+}
+
 // The feedback button at the bottom of the side menu.
 {
   const html = await (await fetch(`${BASE}/demo`)).text();

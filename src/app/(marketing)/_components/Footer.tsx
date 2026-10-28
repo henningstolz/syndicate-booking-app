@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { BrandMark } from "@/components/BrandMark";
+import { GENERAL_EMAIL, SUPPORT_EMAIL, legalDocsLive } from "@/lib/legal";
 
-const CONTACT_EMAIL = "hello@blocktime.group";
+const CONTACT_EMAIL = GENERAL_EMAIL;
 
 export function Footer() {
   return (
@@ -26,6 +27,23 @@ export function Footer() {
           >
             Privacy
           </Link>
+          {legalDocsLive() && (
+            <Link
+              href="/terms"
+              className="text-bt-ink underline underline-offset-4 hover:text-bt-blue"
+            >
+              Terms
+            </Link>
+          )}
+          <span>
+            Support:{" "}
+            <a
+              href={`mailto:${SUPPORT_EMAIL}`}
+              className="text-bt-ink underline underline-offset-4 hover:text-bt-blue"
+            >
+              {SUPPORT_EMAIL}
+            </a>
+          </span>
           <span>
             Contact:{" "}
             <a

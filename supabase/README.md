@@ -155,6 +155,12 @@ every migration there first. See `docs/systems-and-accounts.md`.
     The app's entitlement check (`src/lib/entitlements`, `docs/entitlements.md`) uses it;
     billing is not enforced yet. Tested by `supabase/tests/entitlements.test.mjs`.
 
+27. `0027_group_exports.sql` — beta readiness, phase D. `export_log` (who exported which group's
+    data, when) and `log_group_export(group_id)`, which lets a current admin of the group start an
+    export, at most 5 an hour, and writes the log entry. The export itself is built by the app from what
+    the admin may already read (`src/lib/export`). Tested by `supabase/tests/exports.test.mjs`, which
+    also proves a group with data in every table can be deleted.
+
 ## Adding members to a group
 
 Two ways now:

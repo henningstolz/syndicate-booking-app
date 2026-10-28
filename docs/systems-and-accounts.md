@@ -18,8 +18,8 @@ where each one is stored.
 | 2 | **Vercel** (project `syndicate-booking-app-ukds`) | Builds and hosts the website. Also hosts the DNS for `blocktime.group`. | vercel.com | Environment variables are stored in the project's Settings. |
 | 3 | **Supabase** (live project, named `blocktime`, ref `trdtqhkbxssujcwmvham`, London) | The database, sign-in, and the SQL editor where migrations are run. | supabase.com/dashboard | Project keys are under Settings, then API. |
 | 4 | **Resend** (EU region) | Sends email: sign-up confirmations, the notification emails members choose, and mail you send as `hello@`. | resend.com | API keys: one inside Supabase's SMTP settings, one in Gmail's "send as", one in Vercel for notifications. |
-| 5 | **ImprovMX** | Forwards `hello@blocktime.group` to your personal inbox. | improvmx.com | Account login only. |
-| 6 | **Gmail** (your personal account) | Receives `hello@` mail and sends as it. | gmail.com | Holds the "send as" Resend key. |
+| 5 | **ImprovMX** | Forwards `hello@blocktime.group` and `support@blocktime.group` to your personal inbox. | improvmx.com | Account login only. |
+| 6 | **Gmail** (your personal account) | Receives `hello@` and `support@` mail and sends as either (Settings, Accounts, Send mail as; both use the same Resend key). | gmail.com | Holds the "send as" Resend key. |
 | 8 | **GitHub, a second private repository** (`blocktime-backups`) | Holds the nightly encrypted database backups (as releases). Nothing else. | github.com | A token in the code repository's Actions secrets (`BACKUP_REPO_TOKEN`), and the backup passphrase, which also lives in your password manager. |
 | 9 | **Supabase, a second project** (`blocktime-test`, ref `ojxvrtlttppyjygjfapm`) | The test database: where new changes are tried before they touch the live one. Holds only made-up data. | supabase.com/dashboard | Its connection string is `TEST_DATABASE_URL` in `.env.local` on your Mac. |
 | 10 | **Sentry** (EU region) | Receives error reports from the server and the browser, with names, emails, cookies and secret links removed first (`src/lib/sentry-scrub.ts`). Off until its keys exist. | sentry.io | `SENTRY_DSN` and `NEXT_PUBLIC_SENTRY_DSN` (not secret, but only set in Vercel), `SENTRY_AUTH_TOKEN` (secret, build time), `SENTRY_ORG`, `SENTRY_PROJECT`, all in Vercel. |
@@ -597,6 +597,18 @@ to 18:00 UK time (Vercel's free plan runs a job once a day at a fixed time).
    `sent_at` and a recent `created_at` are waiting for the next send.
 4. Resend's free plan limits (about 100 a day, 3,000 a month) apply: its
    dashboard shows what was sent and any refusals.
+
+### Support address, terms and the legal switch
+
+- **support@blocktime.group** is the support address inside the app (Feedback button, the Help link, the
+  reply-to of notification emails, the terms and privacy text). `hello@` stays on the website footer.
+  Both are ImprovMX aliases to your Gmail; replies use Gmail "Send mail as" with the Resend key.
+- **The legal switch** is the Vercel environment variable `LEGAL_DOCS_LIVE`. Unset or anything but `1`: no
+  `/terms`, the old privacy text, no sign-up checkbox, no acceptance screen. `1`: all of them. It is read when
+  the site is built, so change it and **redeploy**. Preview has it on; Production stays off until the text has
+  been reviewed. The version numbers of the two texts are in `src/lib/legal.ts`; change one when its text
+  changes in a way people should agree to again, and everyone is asked at their next page load.
+- Deleting a group: `docs/runbook-group-deletion.md`.
 
 ### The platform admin page
 

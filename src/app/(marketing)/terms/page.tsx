@@ -23,8 +23,9 @@ export default function TermsPage() {
     >
       <LegalSection title="Who we are">
         <p>
-          Blocktime is run by Henning Stolz, United Kingdom.{" "}
-          <Review>full legal name or company name and registered address to be filled in</Review> You can reach us at{" "}
+          Blocktime is run by HSBI Ltd, Terminal E2, Farnborough Airport, Farnborough, Hampshire GU14 6XA, United
+          Kingdom. <Review>add the company registration number and confirm this is the registered office</Review> You can
+          reach us at{" "}
           <MailLink address={SUPPORT_EMAIL} />.
         </p>
       </LegalSection>

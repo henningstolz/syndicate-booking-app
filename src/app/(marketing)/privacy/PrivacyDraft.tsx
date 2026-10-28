@@ -14,8 +14,8 @@ export default function PrivacyDraft() {
     >
       <LegalSection title="Who is responsible">
         <p>
-          Blocktime is run by Henning Stolz, United Kingdom.{" "}
-          <Review>full legal name or company name and registered address to be filled in</Review>
+          Blocktime is run by HSBI Ltd, Terminal E2, Farnborough Airport, Farnborough, Hampshire GU14 6XA, United
+          Kingdom. <Review>add the company registration number and confirm this is the registered office</Review>
         </p>
         <p>
           For your <strong>account</strong> (your email address, password and name) we decide how the data is used and are

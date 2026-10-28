@@ -21,6 +21,12 @@ import { evaluateEntitlements } from "./entitlements/evaluate.ts";
 import { PLAN_DEFINITIONS } from "./entitlements/plans.ts";
 import { parseAdminGroups, summarise, wouldBeReadOnly, filterGroups, sortGroups } from "./platform-admin/groups.ts";
 import { buildPlanChanges, currentValue, parseSettingValue } from "./platform-admin/plan-form.ts";
+import { TERMS_VERSION, PRIVACY_VERSION, SUPPORT_EMAIL, legalDocsLive, hasAcceptedCurrent, acceptanceMetadata, acceptedAtSignUp } from "./legal.ts";
+import { describePlan } from "./entitlements/describe.ts";
+import { csvCell, toCsv } from "./export/csv.ts";
+import { buildExportFiles, zipFiles } from "./export/build-export.ts";
+import { fetchAll } from "./export/fetch-all.ts";
+import { unzipSync } from "fflate";
 import { PDFDocument } from "pdf-lib";
 
 let count = 0;
@@ -448,6 +454,82 @@ eq([describeDevice("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Apple
   eq([parseSettingValue("paid_beta_cutoff", "2027-06-01"), parseSettingValue("paid_beta_cutoff", ""), parseSettingValue("paid_beta_cutoff", "soon"), parseSettingValue("paid_beta_cutoff", "2027-02-30")], [{ ok: true, value: "2027-06-01" }, { ok: true, value: null }, { ok: false }, { ok: false }], "setting: cut-off date, empty clears it");
   eq([parseSettingValue("grace_period_days", "30"), parseSettingValue("grace_period_days", "0"), parseSettingValue("grace_period_days", "366"), parseSettingValue("grace_period_days", "1.5"), parseSettingValue("grace_period_days", "")], [{ ok: true, value: 30 }, { ok: true, value: 0 }, { ok: false }, { ok: false }, { ok: false }], "setting: grace period");
   eq([parseSettingValue("billing_enforcement_enabled", "true"), parseSettingValue("nonsense", "1")], [{ ok: false }, { ok: false }], "enforcement is not set through the plain form; unknown settings are refused");
+}
+
+// --- phase D: legal switch and acceptance, plan card, CSV, export, paging
+{
+  eq(SUPPORT_EMAIL, "support@blocktime.group", "the support address");
+  eq([legalDocsLive({}), legalDocsLive({ LEGAL_DOCS_LIVE: "0" }), legalDocsLive({ LEGAL_DOCS_LIVE: "true" }), legalDocsLive({ LEGAL_DOCS_LIVE: "1" })], [false, false, false, true], "the legal pages switch is on only for exactly 1");
+  const both = [{ document: "terms", version: TERMS_VERSION }, { document: "privacy", version: PRIVACY_VERSION }];
+  eq([hasAcceptedCurrent([]), hasAcceptedCurrent(both), hasAcceptedCurrent([both[0]]), hasAcceptedCurrent([both[1]])], [false, true, false, false], "both current documents must be accepted");
+  eq(hasAcceptedCurrent([{ document: "terms", version: "old" }, both[1]]), false, "an old version of the terms means asking again");
+  eq(hasAcceptedCurrent([...both, { document: "terms", version: "older" }]), true, "older acceptances alongside the current ones are fine");
+  eq([acceptedAtSignUp(acceptanceMetadata()), acceptedAtSignUp({}), acceptedAtSignUp(null), acceptedAtSignUp("x"), acceptedAtSignUp({ accepted_terms: "old", accepted_privacy: PRIVACY_VERSION })], [true, false, false, false, false], "the sign-up tick counts only for the current versions");
+
+  const plan = (over) => describePlan({ plan: "founding", billingStatus: "none", trialEndsAt: null, paidUntil: null, priceLockedUntil: null, ...over });
+  eq(plan({}), { title: "Founding group", lines: ["Free during the beta."] }, "plan card: a founding group");
+  eq(plan({ priceLockedUntil: "2027-06-30" }).lines, ["Free during the beta.", "Your founding price is locked until 30 Jun 2027."], "...with a price lock");
+  eq(plan({ plan: "complimentary" }), { title: "Complimentary", lines: ["There is no charge for this group."] }, "plan card: complimentary");
+  eq(plan({ plan: "standard" }), { title: "Standard", lines: ["No charge is being made at the moment."] }, "plan card: standard, nothing billed yet");
+  eq(plan({ plan: "standard", billingStatus: "trial", trialEndsAt: "2026-12-31T00:00:00+00:00" }).lines, ["Trial until 31 Dec 2026."], "plan card: a trial");
+  eq(plan({ plan: "standard", billingStatus: "active", paidUntil: "2027-01-31" }).lines, ["Paid until 31 Jan 2027."], "plan card: paid");
+  eq(plan({ plan: "standard", billingStatus: "active" }).lines, ["Active."], "plan card: active without a date");
+  eq([plan({ plan: "standard", billingStatus: "past_due" }).lines, plan({ plan: "standard", billingStatus: "cancelled" }).lines], [["A payment is overdue. Please contact support."], ["This plan has been cancelled. Please contact support."]], "plan card: overdue and cancelled");
+  eq(plan({ plan: "standard", billingStatus: "trial", trialEndsAt: "garbage" }).lines, ["Trial."], "plan card: an unreadable date is left out, not shown");
+
+  eq([csvCell("plain"), csvCell("a,b"), csvCell('say "hi"'), csvCell("line\nbreak"), csvCell(null), csvCell(undefined), csvCell(12.5), csvCell(-3), csvCell(true), csvCell(false)], ["plain", '"a,b"', '"say ""hi"""', '"line\nbreak"', "", "", "12.5", "-3", "yes", "no"], "CSV cells: quoting, empty values, numbers and yes/no");
+  eq([csvCell("=SUM(A1)"), csvCell("+1"), csvCell("-1"), csvCell("@cmd"), csvCell("\tx"), csvCell("ok = fine")], ["'=SUM(A1)", "'+1", "'-1", "'@cmd", "'\tx", "ok = fine"], "text starting like a formula is neutralised");
+  eq(toCsv(["a", "b"], [[1, "x"], [2, "y,z"]]), "\uFEFFa,b\r\n1,x\r\n2,\"y,z\"\r\n", "a CSV file: byte-order mark, header, Windows line endings");
+
+  const data = {
+    generatedAt: "2026-11-01T10:00:00Z",
+    group: { name: "G-ONE Group", slug: "g-one", aircraft_registration: "G-ONE", aircraft_type: "PA-28", home_base: "EGLK", created_at: "2026-01-01T00:00:00Z", airframe_total_hours: 123.4, id: "secret-id-should-not-appear" },
+    members: [
+      { user_id: "u1", display_name: "Alice", role: "admin", created_at: "2026-01-01", removed_at: null },
+      { user_id: "u2", display_name: "=Bob", role: "member", created_at: "2026-02-01", removed_at: "2026-09-01" },
+    ],
+    bookings: [{ member_id: "u2", starts_at: "2026-10-01T09:00:00Z", ends_at: "2026-10-01T11:00:00Z", status: "cancelled", note: "trip, with \"quotes\"", created_at: "2026-09-01", cancelled_at: "2026-09-02", cancelled_by: "u1" }],
+    flights: [{ flight_date: "2026-10-12", from_place: "EGLK", to_place: "EGHI", flight_category: "PV", captain_id: "u1", captain_name: null, fuel_left_usg: 20, fuel_right_usg: 20, oil_qt: 6, brakes_off: "x", airborne: "x", landed: "x", brakes_on: "x", block_minutes: 70, flight_minutes: 60, block_deci: 12, flight_deci: 10, defects: "none", created_by: "u1", created_at: "t", voided_at: "t2", voided_by: "u1", void_reason: "wrong date" },
+      { flight_date: "2026-10-13", from_place: "A", to_place: "B", flight_category: "PV", captain_id: null, captain_name: "Guest Pilot", created_by: "gone", voided_at: null }],
+    chat: [{ created_at: "t", author_id: "u2", message: "hello" }],
+    rates: [{ effective_month: "2026-01-01", user_id: null, monthly_fee_pence: 5000, hourly_rate_pence: 12000, created_by: "u1", created_at: "t" }, { effective_month: "2026-02-01", user_id: "u2", monthly_fee_pence: 0, hourly_rate_pence: 10000, created_by: "u1", created_at: "t" }],
+    expenses: [{ incurred_on: "2026-10-05", paid_by: "u2", description: "Fuel away", amount_pence: -1250, document_id: "d1", created_by: "u1", created_at: "t", voided_at: null }],
+    payments: [{ month: "2026-09-01", user_id: "u2", amount_pence: 4000, paid_on: "2026-10-02", note: null, created_by: "u1", created_at: "t", voided_at: null }],
+    closures: [{ month: "2026-09-01", closed_at: "t", closed_by: "u1", note: null, reopened_at: null, reopen_reason: null, snapshot: { members: [{ name: "Alice", flights: 2, hours_tenths: 15, fixed_pence: 5000, hourly_pence: 18000, credit_pence: 0, total_pence: 23000 }] } }],
+    documents: [{ title: "Insurance", category: "insurance", file_name: "ins.pdf", content_type: "application/pdf", size_bytes: 1000, uploaded_by: "u1", created_at: "t", storage_path: "SECRET/path.pdf" }],
+  };
+  const files = buildExportFiles(data);
+  eq(Object.keys(files).sort(), ["README.txt", "aircraft.csv", "bookings.csv", "chat.csv", "costs_closed_months.csv", "costs_expenses.csv", "costs_payments.csv", "costs_rates.csv", "costs_statements.csv", "documents.csv", "flight_log.csv", "members.csv"], "the export holds these files");
+  eq(files["members.csv"].split("\r\n").slice(1, 3), ["Alice,admin,2026-01-01,", "'=Bob,member,2026-02-01,2026-09-01"], "members: names only, and a name that looks like a formula is neutralised");
+  eq(files["bookings.csv"].split("\r\n")[1], "'=Bob,2026-10-01T09:00:00Z,2026-10-01T11:00:00Z,cancelled,\"trip, with \"\"quotes\"\"\",2026-09-01,2026-09-02,Alice", "bookings: cancelled ones are included, names resolved, notes quoted");
+  const flightLines = files["flight_log.csv"].split("\r\n");
+  eq([flightLines[1].split(",")[4], flightLines[1].includes(",yes,") , flightLines[1].endsWith("wrong date")], ["Alice", true, true], "flight log: captain by name, voided entries included with their reason");
+  eq(flightLines[2].split(",")[4], "Guest Pilot", "...a guest captain keeps the typed name");
+  eq(flightLines[2].includes("Former member"), true, "...someone no longer known is 'Former member', never a raw id");
+  eq(files["costs_expenses.csv"].split("\r\n")[1], "2026-10-05,'=Bob,Fuel away,-1250,-12.5,yes,Alice,t,no,,,", "expenses: a negative amount stays a number, a receipt shows as yes");
+  eq(files["costs_rates.csv"].split("\r\n").slice(1, 3).map((l) => l.split(",")[1]), ["Whole group", "'=Bob"], "rates: group-wide or by member");
+  eq(files["costs_statements.csv"].split("\r\n")[1], "2026-09-01,closed,Alice,2,15,5000,18000,0,23000,230", "saved statements: one row per member");
+  eq(files["aircraft.csv"].split("\r\n").slice(1, 4), ["Group name,G-ONE Group", "Group address name,g-one", "Registration,G-ONE"], "aircraft details with readable labels");
+  eq(files["documents.csv"].split("\r\n")[1], "Insurance,insurance,ins.pdf,application/pdf,1000,Alice,t", "documents: a list only");
+  const everything = Object.values(files).join("\n");
+  eq(["secret-id-should-not-appear", "SECRET/path.pdf", "@example"].some((s) => everything.includes(s)), false, "no ids, storage paths or email addresses in the export");
+  eq(files["README.txt"].includes("not in this export"), true, "the README says the files are not included");
+
+  const zip = zipFiles(files, new Date("2026-11-01T10:00:00Z"));
+  const unzipped = unzipSync(zip);
+  eq(Object.keys(unzipped).sort(), Object.keys(files).sort(), "the ZIP contains every file");
+  eq(Buffer.from(unzipped["members.csv"]).toString("utf8") === files["members.csv"] && Buffer.from(unzipped["bookings.csv"]).toString("utf8") === files["bookings.csv"] && unzipped["members.csv"][0] === 0xef, true, "...and each file unpacks to exactly what was put in, including the byte-order mark");
+
+  const pages = [];
+  const fakePage = (rows) => (from, to) => { pages.push([from, to]); return Promise.resolve({ data: rows.slice(from, to + 1), error: null }); };
+  eq((await fetchAll(fakePage(Array.from({ length: 2500 }, (_, i) => i)))).length, 2500, "paging collects more than 1000 rows");
+  eq(pages, [[0, 999], [1000, 1999], [2000, 2999]], "...in pages of 1000");
+  pages.length = 0;
+  eq([(await fetchAll(fakePage(Array.from({ length: 1000 }, (_, i) => i)))).length, pages.length], [1000, 2], "exactly one full page needs a second, empty request");
+  eq((await fetchAll(fakePage([]))).length, 0, "no rows is fine");
+  let failed = "";
+  try { await fetchAll(() => Promise.resolve({ data: null, error: { message: "boom" } })); } catch (e) { failed = e.message; }
+  eq(failed, "boom", "a database error stops the export instead of giving a partial file");
 }
 
 console.log(`${count} unit checks passed`);

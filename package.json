@@ -18,6 +18,7 @@
     "@sentry/nextjs": "^11.8.0",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.116.0",
+    "fflate": "^0.8.3",
     "next": "16.3.5",
     "pdf-lib": "^1.17.1",
     "react": "19.2.8",

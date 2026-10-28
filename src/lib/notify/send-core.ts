@@ -9,7 +9,7 @@ export type EmailAttachment = { filename: string; content: string }; // content 
 export type OutgoingEmail = RenderedEmail & {
   to: string;
   unsubscribeUrl?: string; // for emails a member can switch off; not for emails to us
-  replyTo?: string; // where a reply goes (default hello@blocktime.group)
+  replyTo?: string; // where a reply goes (default support@blocktime.group)
   attachments?: EmailAttachment[];
 };
 

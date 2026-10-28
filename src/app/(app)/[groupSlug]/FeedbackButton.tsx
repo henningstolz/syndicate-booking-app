@@ -15,7 +15,7 @@ const PLACEHOLDERS: Record<FeedbackCategory, string> = {
 };
 
 // A small "chat" at the bottom of the side menu: say what's wrong or what you'd like. It
-// goes to hello@blocktime.group with your address as the reply-to.
+// goes to support@blocktime.group with your address as the reply-to.
 export function FeedbackButton({ groupId, groupSlug }: { groupId: string; groupSlug: string }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);

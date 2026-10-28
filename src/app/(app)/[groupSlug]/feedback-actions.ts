@@ -2,12 +2,13 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { isDemoRequest } from "@/lib/demo/mode";
+import { SUPPORT_EMAIL } from "@/lib/legal";
 import { buildFeedbackEmail, type FeedbackCategory } from "@/lib/feedback-email";
 import { notifyConfigured, sendEmail, siteUrl } from "@/lib/notify/send";
 
-// Feedback goes to the address on the website: hello@blocktime.group, which is
-// forwarded to the owner's inbox. The member's own address is the reply-to.
-const FEEDBACK_TO = "hello@blocktime.group";
+// Feedback goes to the support address (support@blocktime.group), which is forwarded to the
+// owner's inbox. The member's own address is the reply-to.
+const FEEDBACK_TO = SUPPORT_EMAIL;
 
 const REASONS: Record<string, string> = {
   not_allowed: "Only members of the group can send feedback.",

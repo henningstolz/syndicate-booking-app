@@ -8,7 +8,7 @@ import type { QueuedNotification } from "./email.ts";
 //   NOTIFY_FROM     optional sender, e.g. "Blocktime <notifications@mail.blocktime.group>"
 //   SITE_URL        the site's own address, for the links in the emails
 const DEFAULT_FROM = "Blocktime <notifications@mail.blocktime.group>";
-const REPLY_TO = "hello@blocktime.group";
+const REPLY_TO = "support@blocktime.group";
 
 export function notifyConfigured(): boolean {
   return Boolean(

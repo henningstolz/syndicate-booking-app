@@ -8,6 +8,7 @@ import { BrandMark } from "@/components/BrandMark";
 import { GroupSwitcher, type GroupOption } from "./GroupSwitcher";
 import { UserMenu } from "./UserMenu";
 import { FeedbackButton } from "./FeedbackButton";
+import { HelpLink } from "./HelpLink";
 
 const NAV_ITEMS = [
   { path: "", label: "Dashboard" },
@@ -147,6 +148,7 @@ export function AppShell({
           {/* Just under the last menu item, so it is always in view (the page itself may be long). */}
           <div className="mt-4 border-t border-zinc-200 pt-4">
             <FeedbackButton groupId={groupId} groupSlug={groupSlug} />
+            <HelpLink groupName={groupName} />
           </div>
         </nav>
 
@@ -159,6 +161,7 @@ export function AppShell({
               />
               <div className="mt-auto pt-4">
                 <FeedbackButton groupId={groupId} groupSlug={groupSlug} />
+                <HelpLink groupName={groupName} />
               </div>
             </nav>
             <div

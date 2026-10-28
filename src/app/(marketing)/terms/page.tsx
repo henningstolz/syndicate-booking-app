@@ -24,7 +24,7 @@ export default function TermsPage() {
       <LegalSection title="Who we are">
         <p>
           Blocktime is run by HSBI Ltd, Terminal E2/3b, Farnborough Airport, Farnborough, Hampshire GU14 6XA, United
-          Kingdom. Registered in England and Wales, company number 13820982. <Review>confirm this is the registered office</Review> You can
+          Kingdom. Registered in England and Wales, company number 13820982. You can
           reach us at{" "}
           <MailLink address={SUPPORT_EMAIL} />.
         </p>

@@ -161,7 +161,7 @@ function deps(overrides = {}) {
   eq(seen.url, "https://api.resend.com/emails", "sent to Resend");
   eq(seen.init.headers.Authorization, "Bearer re_test_key", "with the key");
   const body = JSON.parse(seen.init.body);
-  eq([body.from, body.to, body.reply_to, body.subject], ["Blocktime <notifications@mail.blocktime.group>", ["cara@example.test"], "hello@blocktime.group", "Hello"], "from, to, reply-to and subject");
+  eq([body.from, body.to, body.reply_to, body.subject], ["Blocktime <notifications@mail.blocktime.group>", ["cara@example.test"], "support@blocktime.group", "Hello"], "from, to, reply-to and subject");
   eq(body.headers["List-Unsubscribe"], "<https://blocktime.group/demo/account?tab=notifications>", "a List-Unsubscribe header");
   const feedbackMail = { to: "hello@blocktime.group", subject: "S", text: "t", html: "h", replyTo: "alex@example.test" };
   await sendEmail(feedbackMail, fake);

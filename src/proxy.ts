@@ -18,8 +18,13 @@ export async function proxy(request: NextRequest) {
   return updateSession(request);
 }
 
+// The proxy refreshes the sign-in session and marks the demo. Every request it runs on is a
+// function invocation that costs CPU time, so it skips what needs neither: Next's own files,
+// images, the hero video, the manifest and icons, the uptime check, the daily jobs, calendar
+// feeds, and the public pages that are built in advance (home, terms, privacy). Everything
+// else (sign-in, the app, the demo) still goes through it.
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon\\.ico|api/health$|api/monitoring-check$|api/cron/|cal/|pwa-icon/|icon$|apple-icon$|privacy$|terms$|$|.*\\.(?:svg|png|jpg|jpeg|gif|webp|mp4|webm|ico|webmanifest)$).*)",
   ],
 };

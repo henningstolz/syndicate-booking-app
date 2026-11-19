@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isDemoRequest } from "@/lib/demo/mode";
+import { inDemoWindow } from "@/lib/demo/window";
 import { READ_ONLY_MESSAGE } from "@/lib/entitlements/messages";
 import { directFileLinks } from "@/lib/file-links";
 import { getGroupBySlug } from "@/lib/groups";
@@ -124,6 +126,10 @@ export default async function CostsPage({
   const { month: monthParam, notice: noticeCode } = await searchParams;
   const supabase = await createClient();
   const demo = await isDemoRequest();
+  // The public demo only reaches two years either side of today (see src/lib/demo/window.ts).
+  if (demo && monthParam !== undefined && !inDemoWindow(monthParam, londonDateKey(new Date()))) {
+    redirect(`/${groupSlug}/costs`);
+  }
 
   const group = await getGroupBySlug(supabase, groupSlug);
   if (!group) {
@@ -148,12 +154,12 @@ export default async function CostsPage({
 
   const monthNav = (
     <nav aria-label="Month" className="flex items-center justify-between gap-2">
-      <Link href={`/${groupSlug}/costs?month=${shiftMonth(monthKey, -1)}`} className={navLink}>
+      <Link href={`/${groupSlug}/costs?month=${shiftMonth(monthKey, -1)}`} rel="nofollow" className={navLink}>
         ← Prev
       </Link>
       <h1 className="text-base font-semibold text-zinc-900">{formatMonthKey(monthKey)}</h1>
       {monthKey < thisMonth ? (
-        <Link href={`/${groupSlug}/costs?month=${shiftMonth(monthKey, 1)}`} className={navLink}>
+        <Link href={`/${groupSlug}/costs?month=${shiftMonth(monthKey, 1)}`} rel="nofollow" className={navLink}>
           Next →
         </Link>
       ) : (

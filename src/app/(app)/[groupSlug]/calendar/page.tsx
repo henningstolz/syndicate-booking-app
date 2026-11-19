@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { isDemoRequest } from "@/lib/demo/mode";
+import { inDemoWindow } from "@/lib/demo/window";
 import { createClient } from "@/lib/supabase/server";
 import { getGroupBySlug } from "@/lib/groups";
 import { memberColor } from "@/lib/member-colors";
@@ -54,6 +57,17 @@ export default async function CalendarPage({
 }) {
   const { groupSlug } = await params;
   const { view, month, start } = await searchParams;
+  // The public demo only reaches two years either side of today, so a crawler following
+  // Prev/Next cannot walk through endless months.
+  if (await isDemoRequest()) {
+    const todayKey = londonDateKey(new Date());
+    if (
+      (month !== undefined && !inDemoWindow(month, todayKey)) ||
+      (start !== undefined && !inDemoWindow(start, todayKey))
+    ) {
+      redirect(`/${groupSlug}/calendar${view === "list" ? "?view=list" : ""}`);
+    }
+  }
   // Month is the default landing view; List is opt-in via ?view=list.
   const isMonthView = view !== "list";
   const validStart = start && /^\d{4}-\d{2}-\d{2}$/.test(start) ? start : null;

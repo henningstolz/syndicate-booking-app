@@ -138,5 +138,18 @@ check(spoof.status === 307 && (spoof.headers.get("location") ?? "").includes("/l
 const reset = await fetch(`${BASE}/demo/reset`, { redirect: "manual" });
 check(reset.status === 307 && (reset.headers.get("location") ?? "").endsWith("/demo"), "Reset demo redirects back to the demo");
 
+// A crawler must not be able to walk the demo's calendar through endless months: dates more than two
+// years from today are sent back to the plain page, and robots.txt asks crawlers to stay out of /demo/.
+for (const [path, back] of [
+  ["/demo/calendar?view=month&month=2099-01", "/demo/calendar"],
+  ["/demo/calendar?view=list&start=1990-01-01", "/demo/calendar?view=list"],
+  ["/demo/costs?month=1990-01", "/demo/costs"],
+]) {
+  const r = await fetch(`${BASE}${path}`, { redirect: "manual" });
+  check(r.status === 307 && (r.headers.get("location") ?? "").endsWith(back), `${path} is sent back to ${back}`, `status ${r.status} -> ${r.headers.get("location")}`);
+}
+const robots = await fetch(`${BASE}/robots.txt`);
+check(robots.status === 200 && (await robots.text()).includes("Disallow: /demo/"), "robots.txt keeps crawlers out of the demo");
+
 console.log(failed ? `\n${failed} failed` : "\nall demo pages fine");
 process.exit(failed ? 1 : 0);

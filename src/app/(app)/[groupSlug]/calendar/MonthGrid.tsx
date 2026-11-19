@@ -70,6 +70,7 @@ export function MonthGrid({
       <div className="flex items-center justify-between">
         <Link
           href={`/${groupSlug}/calendar?view=month&month=${prevParam}`}
+          rel="nofollow"
           className="rounded-full border border-zinc-300 px-3 py-1 text-sm text-zinc-600 hover:bg-zinc-100"
         >
           ← Prev
@@ -88,6 +89,7 @@ export function MonthGrid({
         </div>
         <Link
           href={`/${groupSlug}/calendar?view=month&month=${nextParam}`}
+          rel="nofollow"
           className="rounded-full border border-zinc-300 px-3 py-1 text-sm text-zinc-600 hover:bg-zinc-100"
         >
           Next →
@@ -113,6 +115,7 @@ export function MonthGrid({
             <Link
               key={dateKey}
               href={`/${groupSlug}/calendar?view=list&start=${dateKey}`}
+              rel="nofollow"
               aria-current={isToday ? "date" : undefined}
               className={`flex min-h-16 flex-col gap-1 rounded-md border p-1 ${
                 isToday

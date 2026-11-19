@@ -60,6 +60,7 @@ export function ListView({
       <div className="flex items-center justify-between">
         <Link
           href={`/${groupSlug}/calendar?view=list&start=${prevStart}`}
+          rel="nofollow"
           className="rounded-full border border-zinc-300 px-3 py-1 text-sm text-zinc-600 hover:bg-zinc-100"
         >
           ← Prev
@@ -81,6 +82,7 @@ export function ListView({
         </div>
         <Link
           href={`/${groupSlug}/calendar?view=list&start=${nextStart}`}
+          rel="nofollow"
           className="rounded-full border border-zinc-300 px-3 py-1 text-sm text-zinc-600 hover:bg-zinc-100"
         >
           Next →

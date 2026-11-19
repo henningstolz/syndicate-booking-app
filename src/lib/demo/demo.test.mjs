@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import { buildDb, TABLE_COLUMNS, DEMO_MEMBERS } from "./data.ts";
 import { createDemoEngine } from "./engine.ts";
 import { emptyOverlay, encodeOverlay, decodeOverlay, overlayFits } from "./overlay.ts";
+import { inDemoWindow, yearInDemoWindow } from "./window.ts";
 
 let count = 0;
 const eq = (got, want, label) => { assert.deepEqual(got, want, label); count++; };
@@ -256,6 +257,22 @@ for (const now of [NOW, new Date("2026-01-15T12:00:00Z"), new Date("2026-07-15T1
   yes(accepted >= 8, `at least eight changes fit before the limit (${accepted})`);
   eq(refused.code, "demo_limit", "past the limit the visitor is told to reset");
   yes(overlayFits(state.overlay), "what was saved still fits in a cookie");
+}
+
+// The demo's date window: two years either side of today, nothing further.
+{
+  const today = "2026-11-19";
+  yes(inDemoWindow("2026-11", today), "the current month is inside the window");
+  yes(inDemoWindow("2024-11", today), "exactly 24 months back is inside");
+  yes(inDemoWindow("2028-11-30", today), "exactly 24 months ahead is inside (full date)");
+  yes(!inDemoWindow("2024-10", today), "25 months back is outside");
+  yes(!inDemoWindow("2028-12", today), "25 months ahead is outside");
+  yes(!inDemoWindow("1999-01", today) && !inDemoWindow("9999-12-31", today), "far dates are outside");
+  yes(!inDemoWindow("2026-13", today) && !inDemoWindow("2026-00", today), "impossible months are outside");
+  yes(!inDemoWindow("junk", today) && !inDemoWindow("", today) && !inDemoWindow("2026-1-1", today), "odd values are outside");
+  yes(inDemoWindow("2027-01", "2026-12-31"), "works across a year boundary");
+  yes(yearInDemoWindow(2024, today) && yearInDemoWindow(2028, today), "years two either side are inside");
+  yes(!yearInDemoWindow(2023, today) && !yearInDemoWindow(2029, today), "years three either side are outside");
 }
 
 console.log(`${count} demo checks passed`);

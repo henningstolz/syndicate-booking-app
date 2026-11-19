@@ -25,6 +25,6 @@ export async function proxy(request: NextRequest) {
 // else (sign-in, the app, the demo) still goes through it.
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon\\.ico|api/health$|api/monitoring-check$|api/cron/|cal/|pwa-icon/|icon$|apple-icon$|privacy$|terms$|$|.*\\.(?:svg|png|jpg|jpeg|gif|webp|mp4|webm|ico|webmanifest)$).*)",
+    "/((?!_next/static|_next/image|favicon\\.ico|api/health$|api/monitoring-check$|api/cron/|cal/|pwa-icon/|icon$|apple-icon$|privacy$|terms$|$|.*\\.(?:svg|png|jpg|jpeg|gif|webp|mp4|webm|ico|webmanifest|txt)$).*)",
   ],
 };

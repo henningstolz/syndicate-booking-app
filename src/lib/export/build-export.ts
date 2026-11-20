@@ -13,6 +13,8 @@ export type ExportData = {
   group: Row;
   // The group's equipment list (life raft, first aid kit, ...): label and due date, in the group's order.
   aircraftItems: Row[];
+  // The billing basis choices (block or flight time) with the month each applies from.
+  billingBasis: Row[];
   members: Row[];
   bookings: Row[];
   flights: Row[];
@@ -79,6 +81,11 @@ export function buildExportFiles(data: ExportData): Record<string, string> {
       pounds(r.monthly_fee_pence), pounds(r.hourly_rate_pence), who(r.created_by), r.created_at]),
   );
 
+  files["costs_billing_basis.csv"] = toCsv(
+    ["from_month", "basis", "set_by", "set_at"],
+    data.billingBasis.map((b) => [b.effective_month, b.basis, who(b.created_by), b.created_at]),
+  );
+
   files["costs_expenses.csv"] = toCsv(
     ["date", "paid_by", "description", "amount_pence", "amount_gbp", "has_receipt", "entered_by", "entered_at", "voided", "voided_at", "voided_by", "void_reason"],
     data.expenses.map((e) => [e.incurred_on, who(e.paid_by), e.description, e.amount_pence, pounds(e.amount_pence), Boolean(e.document_id),
@@ -99,14 +106,14 @@ export function buildExportFiles(data: ExportData): Record<string, string> {
   // The saved statements of the closed months, one row per member.
   const statementRows: unknown[][] = [];
   for (const c of data.closures) {
-    const snapshot = c.snapshot as { members?: Row[] } | null;
+    const snapshot = c.snapshot as { members?: Row[]; billing_basis?: string } | null;
     for (const m of snapshot?.members ?? []) {
       statementRows.push([c.month, c.reopened_at !== null && c.reopened_at !== undefined ? "reopened" : "closed", m.name, m.flights, m.hours_tenths,
-        m.fixed_pence, m.hourly_pence, m.credit_pence, m.total_pence, pounds(m.total_pence)]);
+        m.fixed_pence, m.hourly_pence, m.credit_pence, m.total_pence, pounds(m.total_pence), snapshot?.billing_basis === "flight" ? "flight" : "block"]);
     }
   }
   files["costs_statements.csv"] = toCsv(
-    ["month", "state", "member", "flights", "hours_tenths", "fixed_pence", "flying_pence", "expenses_credited_pence", "total_pence", "total_gbp"],
+    ["month", "state", "member", "flights", "hours_tenths", "fixed_pence", "flying_pence", "expenses_credited_pence", "total_pence", "total_gbp", "hours_basis"],
     statementRows,
   );
 
@@ -132,6 +139,7 @@ export function buildExportFiles(data: ExportData): Record<string, string> {
     "flight_log.csv         every tech log entry, including voided ones with their reason",
     "chat.csv               the group chat",
     "costs_rates.csv       the monthly share and hourly rates, from the month they apply",
+    "costs_billing_basis.csv  whether hours were billed by block time or flight time, from which month",
     "costs_expenses.csv    expenses paid by members, including voided ones",
     "costs_payments.csv    payments recorded against closed months, including voided ones",
     "costs_closed_months.csv  which months were closed (and reopened)",

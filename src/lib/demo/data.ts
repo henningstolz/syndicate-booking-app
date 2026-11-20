@@ -33,6 +33,7 @@ export type DemoDb = {
   invites: Row[];
   notification_preferences: Row[];
   cost_rates: Row[];
+  cost_billing_basis: Row[];
   cost_expenses: Row[];
   calendar_feeds: Row[];
   documents: Row[];
@@ -64,6 +65,7 @@ export const TABLE_COLUMNS: Record<keyof DemoDb, string[]> = {
   invites: ["id", "group_id", "role", "label", "created_by", "created_at", "expires_at", "revoked_at", "used_by", "used_at"],
   notification_preferences: ["group_id", "user_id", "event", "enabled", "updated_at"],
   cost_rates: ["id", "group_id", "user_id", "effective_month", "monthly_fee_pence", "hourly_rate_pence", "created_by", "created_at"],
+  cost_billing_basis: ["id", "group_id", "effective_month", "basis", "created_by", "created_at"],
   calendar_feeds: ["id", "group_id", "user_id", "token", "created_at", "revoked_at"],
   documents: [
     "id", "group_id", "uploaded_by", "title", "category", "file_name", "content_type",
@@ -542,6 +544,8 @@ export function buildDb(now: Date, overlay: DemoOverlay): DemoDb {
     // No explicit choices: the demo shows the defaults.
     notification_preferences: [],
     cost_rates: costRates,
+    // No choice made: the demo bills block time, like a group that never chose.
+    cost_billing_basis: [],
     cost_expenses: costExpenses,
     // Nobody has a calendar link in the demo; creating one says it is a demo.
     calendar_feeds: [],

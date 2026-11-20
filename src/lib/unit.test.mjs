@@ -14,7 +14,8 @@ import { initialsOf } from "./initials.ts";
 import { buildFeedbackEmail, describeDevice, FEEDBACK_CATEGORIES } from "./feedback-email.ts";
 import { checkFile, contentTypeOf, storagePath, formatBytes, titleFromFileName, typeBadge, scaledSize, extensionOf, opensInBrowser, MAX_FILE_BYTES } from "./documents.ts";
 import { runningTotals } from "./flight-totals.ts";
-import { formatMoney, parsePounds, formatHoursTenths, computeStatement, shiftMonth } from "./costs.ts";
+import { formatMoney, parsePounds, formatHoursTenths, computeStatement, shiftMonth, parseBillingBasis, basisHoursName, basisExplanation } from "./costs.ts";
+import { statementPdfInput } from "./statement-pdf-input.ts";
 import { scrubText, scrubUrl, scrubEvent, scrubBreadcrumb } from "./sentry-scrub.ts";
 import { computeMode, ukDate, addDays, memberLimitReached, aircraftLimitReached } from "./entitlements/compute-mode.ts";
 import { evaluateEntitlements } from "./entitlements/evaluate.ts";
@@ -122,6 +123,22 @@ const inputOf = (o = {}) => ({
   ...o,
 });
 const row = (s, id) => s.members.find((m) => m.user_id === id);
+// The billing basis: which hours the statement bills (the caller supplies the chosen time per flight).
+{
+  eq([parseBillingBasis("flight"), parseBillingBasis("block"), parseBillingBasis(undefined), parseBillingBasis("junk"), parseBillingBasis(null)], ["flight", "block", "block", "block", "block"], "anything but 'flight' is block time");
+  eq([basisHoursName("block"), basisHoursName("flight")], ["block hours", "flight hours"], "the hours are named after the basis");
+  eq([basisExplanation("block").startsWith("Block time"), basisExplanation("flight").startsWith("Flight time")], [true, true], "...and explained");
+  eq(computeStatement(inputOf()).billing_basis, "block", "a statement with no basis given is block time");
+  const flight = computeStatement(inputOf({ billingBasis: "flight", flights: [flightOf("f1", "b", "Bob", 12), flightOf("f2", "c", "Cara", 14)] }));
+  eq([flight.billing_basis, row(flight, "b").hours_tenths, row(flight, "b").hourly_pence, row(flight, "c").hourly_pence], ["flight", 12, 7800, 9100], "billing by flight time charges the (shorter) flight hours");
+  const stmt = (basis, snapshotBasis) => ({ ...computeStatement(inputOf({ billingBasis: basis })), billing_basis: snapshotBasis, closed: null, payments: [], can_close: false, drift: [] });
+  const ctx = { groupName: "G", registration: "G-X", month: "2026-10", thisMonth: "2026-11", printedAt: "x" };
+  const pdfOf = (st) => statementPdfInput(st, st.members, ctx, false);
+  eq(pdfOf(stmt("flight", "flight")).people[1].flyingLabel, "Flying: 1.5 flight hours at £65.00 an hour", "the statement says flight hours when billed by flight time");
+  eq(pdfOf(stmt("block", "block")).people[1].flyingLabel, "Flying: 1.5 block hours at £65.00 an hour", "...and block hours otherwise");
+  eq(pdfOf(stmt("block", undefined)).people[1].flyingLabel.includes("block hours"), true, "a statement saved before the choice existed is block time");
+  eq([pdfOf(stmt("flight", "flight")).footnote.startsWith("Flight time runs from airborne to landed"), pdfOf(stmt("block", "block")).footnote.startsWith("Block time runs from brakes off")], [true, true], "the PDF footnote follows the basis");
+}
 {
   const s = computeStatement(inputOf());
   eq(s.members.map((m) => [m.name, m.fixed_pence, m.hourly_pence, m.credit_pence, m.total_pence]),
@@ -487,6 +504,7 @@ eq([describeDevice("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Apple
     generatedAt: "2026-11-01T10:00:00Z",
     group: { name: "G-ONE Group", slug: "g-one", aircraft_registration: "G-ONE", aircraft_type: "PA-28", home_base: "EGLK", created_at: "2026-01-01T00:00:00Z", airframe_total_hours: 123.4, id: "secret-id-should-not-appear" },
     aircraftItems: [{ label: "Life raft", due_date: "2027-05-01" }, { label: "First aid kit", due_date: null }],
+    billingBasis: [{ effective_month: "2026-10-01", basis: "flight", created_by: "u1", created_at: "t" }],
     members: [
       { user_id: "u1", display_name: "Alice", role: "admin", created_at: "2026-01-01", removed_at: null },
       { user_id: "u2", display_name: "=Bob", role: "member", created_at: "2026-02-01", removed_at: "2026-09-01" },
@@ -498,11 +516,12 @@ eq([describeDevice("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Apple
     rates: [{ effective_month: "2026-01-01", user_id: null, monthly_fee_pence: 5000, hourly_rate_pence: 12000, created_by: "u1", created_at: "t" }, { effective_month: "2026-02-01", user_id: "u2", monthly_fee_pence: 0, hourly_rate_pence: 10000, created_by: "u1", created_at: "t" }],
     expenses: [{ incurred_on: "2026-10-05", paid_by: "u2", description: "Fuel away", amount_pence: -1250, document_id: "d1", created_by: "u1", created_at: "t", voided_at: null }],
     payments: [{ month: "2026-09-01", user_id: "u2", amount_pence: 4000, paid_on: "2026-10-02", note: null, created_by: "u1", created_at: "t", voided_at: null }],
-    closures: [{ month: "2026-09-01", closed_at: "t", closed_by: "u1", note: null, reopened_at: null, reopen_reason: null, snapshot: { members: [{ name: "Alice", flights: 2, hours_tenths: 15, fixed_pence: 5000, hourly_pence: 18000, credit_pence: 0, total_pence: 23000 }] } }],
+    closures: [{ month: "2026-09-01", closed_at: "t", closed_by: "u1", note: null, reopened_at: null, reopen_reason: null, snapshot: { members: [{ name: "Alice", flights: 2, hours_tenths: 15, fixed_pence: 5000, hourly_pence: 18000, credit_pence: 0, total_pence: 23000 }] } },
+      { month: "2026-10-01", closed_at: "t", closed_by: "u1", note: null, reopened_at: null, reopen_reason: null, snapshot: { billing_basis: "flight", members: [{ name: "Alice", flights: 1, hours_tenths: 9, fixed_pence: 5000, hourly_pence: 10800, credit_pence: 0, total_pence: 15800 }] } }],
     documents: [{ title: "Insurance", category: "insurance", file_name: "ins.pdf", content_type: "application/pdf", size_bytes: 1000, uploaded_by: "u1", created_at: "t", storage_path: "SECRET/path.pdf" }],
   };
   const files = buildExportFiles(data);
-  eq(Object.keys(files).sort(), ["README.txt", "aircraft.csv", "bookings.csv", "chat.csv", "costs_closed_months.csv", "costs_expenses.csv", "costs_payments.csv", "costs_rates.csv", "costs_statements.csv", "documents.csv", "flight_log.csv", "members.csv"], "the export holds these files");
+  eq(Object.keys(files).sort(), ["README.txt", "aircraft.csv", "bookings.csv", "chat.csv", "costs_billing_basis.csv", "costs_closed_months.csv", "costs_expenses.csv", "costs_payments.csv", "costs_rates.csv", "costs_statements.csv", "documents.csv", "flight_log.csv", "members.csv"], "the export holds these files");
   eq(files["members.csv"].split("\r\n").slice(1, 3), ["Alice,admin,2026-01-01,", "'=Bob,member,2026-02-01,2026-09-01"], "members: names only, and a name that looks like a formula is neutralised");
   eq(files["bookings.csv"].split("\r\n")[1], "'=Bob,2026-10-01T09:00:00Z,2026-10-01T11:00:00Z,cancelled,\"trip, with \"\"quotes\"\"\",2026-09-01,2026-09-02,Alice", "bookings: cancelled ones are included, names resolved, notes quoted");
   const flightLines = files["flight_log.csv"].split("\r\n");
@@ -511,7 +530,9 @@ eq([describeDevice("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Apple
   eq(flightLines[2].includes("Former member"), true, "...someone no longer known is 'Former member', never a raw id");
   eq(files["costs_expenses.csv"].split("\r\n")[1], "2026-10-05,'=Bob,Fuel away,-1250,-12.5,yes,Alice,t,no,,,", "expenses: a negative amount stays a number, a receipt shows as yes");
   eq(files["costs_rates.csv"].split("\r\n").slice(1, 3).map((l) => l.split(",")[1]), ["Whole group", "'=Bob"], "rates: group-wide or by member");
-  eq(files["costs_statements.csv"].split("\r\n")[1], "2026-09-01,closed,Alice,2,15,5000,18000,0,23000,230", "saved statements: one row per member");
+  eq(files["costs_statements.csv"].split("\r\n")[1], "2026-09-01,closed,Alice,2,15,5000,18000,0,23000,230,block", "saved statements: one row per member, with the hours basis (block for one saved before the choice existed)");
+  eq(files["costs_statements.csv"].split("\r\n")[2], "2026-10-01,closed,Alice,1,9,5000,10800,0,15800,158,flight", "a month closed under flight billing says so");
+  eq(files["costs_billing_basis.csv"].split("\r\n").slice(1, 2), ["2026-10-01,flight,Alice,t"], "the billing basis choices are in the export");
   eq(files["aircraft.csv"].split("\r\n").slice(1, 4), ["Group name,G-ONE Group", "Group address name,g-one", "Registration,G-ONE"], "aircraft details with readable labels");
   eq(files["aircraft.csv"].split("\r\n").slice(-3, -1), ["Life raft due,2027-05-01", "First aid kit due,"], "the equipment list is in the aircraft file, a missing date left empty");
   eq(files["documents.csv"].split("\r\n")[1], "Insurance,insurance,ins.pdf,application/pdf,1000,Alice,t", "documents: a list only");

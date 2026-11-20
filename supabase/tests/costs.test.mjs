@@ -480,7 +480,7 @@ const pick = (n) => Math.floor(rnd() * n);
 const names = ["u0", "u1", "u2", "u3", "u4", "u5", "u6", "u7"];
 let mismatches = 0;
 let scenarios = 0;
-const coverage = { withFlights: 0, withOwnRates: 0, withEmptyOwnPart: 0, withExpenses: 0, withNonMemberCharged: 0, withVoids: 0, withoutRates: 0, negativeTotals: 0, guestFlights: 0, nonMemberPaid: 0 };
+const coverage = { withFlights: 0, withOwnRates: 0, withEmptyOwnPart: 0, withExpenses: 0, withNonMemberCharged: 0, withVoids: 0, withoutRates: 0, flightBasis: 0, blockBasisChosen: 0, negativeTotals: 0, guestFlights: 0, nonMemberPaid: 0 };
 const isoDate = (y, m, d) => `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 
 for (let i = 0; i < 200; i++) {
@@ -534,6 +534,18 @@ for (let i = 0; i < 200; i++) {
     const rows = ownRows.filter((r) => r.user === p && r.effective <= start).sort((x, y) => (y.effective + y.created).localeCompare(x.effective + x.created));
     return rows.length ? [{ userId: U[p.name], feePence: rows[0].fee, hourlyPence: rows[0].hourly }] : [];
   });
+
+  // The billing basis: no choice, or one or two choices (before, in or after the month); the newest one
+  // starting on or before the month decides, block time if there is none.
+  const choices = [];
+  for (let k = 0, n = pick(3); k < n; k++) {
+    choices.push({ effective: isoDate(2026, 1 + pick(11), 1), basis: pick(2) === 0 ? "flight" : "block", created: new Date(Date.UTC(2026, 0, 1, 0, 0, 100 + k)).toISOString() });
+  }
+  for (const c of choices) {
+    await db.query("insert into public.cost_billing_basis (group_id, effective_month, basis, created_by, created_at) values ($1,$2,$3,$4,$5)",
+      [gid, c.effective, c.basis, U[people[0].name], c.created]);
+  }
+  const basisNow = choices.filter((c) => c.effective <= start).sort((x, y) => (y.effective + y.created).localeCompare(x.effective + x.created))[0]?.basis ?? "block";
 
   // Expenses paid by anyone in the group (even someone who has left), some voided,
   // some just outside the month.
@@ -589,12 +601,13 @@ for (let i = 0; i < 200; i++) {
   const monthMembers = people.filter((p) => p.created < end && (p.removed === null || p.removed >= start));
   const input = (viewer) => ({
     month: start,
+    billingBasis: basisNow,
     rates: rateRow ? { feePence: rateRow.f, hourlyPence: rateRow.r, missing: false } : { feePence: 0, hourlyPence: 0, missing: true },
     ownRates,
     members: monthMembers.map((p) => ({ userId: U[p.name], name: p.display })),
     flights: ok.filter((f) => !f.voided).map((f) => {
       const charged = f.captain ?? f.logger;
-      return { id: f.id, date: f.dayKey, from: "A", to: "B", chargedTo: U[charged.name], chargedName: charged.display, tenths: Number(minutesToDeci(f.block) * 10), order: f.off };
+      return { id: f.id, date: f.dayKey, from: "A", to: "B", chargedTo: U[charged.name], chargedName: charged.display, tenths: Number(minutesToDeci(basisNow === "flight" ? f.block - 20 : f.block) * 10), order: f.off };
     }),
     expenses: countedExpenses.map((e) => ({ id: e.id, date: e.date, description: "x", paidBy: U[e.payer.name], paidByName: e.payer.display, pence: e.pence })),
     viewer,
@@ -622,11 +635,13 @@ for (let i = 0; i < 200; i++) {
       if (want.members.some((m) => !m.is_member)) coverage.withNonMemberCharged++;
       if (ok.some((f) => f.voided)) coverage.withVoids++;
       if (want.rates.missing) coverage.withoutRates++;
+      if (basisNow === "flight" && want.flights.length > 0) coverage.flightBasis++;
+      if (basisNow === "block" && choices.length > 0 && want.flights.length > 0) coverage.blockBasisChosen++;
       if (ok.some((f) => !f.captain && !f.voided)) coverage.guestFlights++;
     }
 
     const norm = (st) => ({
-      result: st.result, month: st.month, isAdmin: st.is_admin, rates: [st.rates.fee_pence, st.rates.hourly_pence, st.rates.missing], credits: st.credits_pence, hours: st.hours_tenths,
+      result: st.result, month: st.month, isAdmin: st.is_admin, basis: st.billing_basis ?? "block", rates: [st.rates.fee_pence, st.rates.hourly_pence, st.rates.missing], credits: st.credits_pence, hours: st.hours_tenths,
       members: Object.fromEntries(st.members.map((m) => [m.user_id, [m.name, m.is_member, m.flights, m.hours_tenths, m.fee_pence, m.hourly_rate_pence, m.custom_rates, m.fixed_pence, m.hourly_pence, m.credit_pence, m.total_pence]])),
       expenses: st.expenses.map((e) => [e.user_id, e.pence, e.date.slice(0, 10)]).sort(),
       flights: st.flights.map((f) => [f.user_id, f.hours_tenths, f.pence, f.date.slice(0, 10)]).sort(),
@@ -645,6 +660,7 @@ check("the random months really exercised the tricky cases", [
   coverage.withFlights >= 100, coverage.withOwnRates >= 40, coverage.withEmptyOwnPart >= 20, coverage.withExpenses >= 60,
   coverage.withNonMemberCharged >= 5, coverage.withVoids >= 30, coverage.withoutRates >= 10,
   coverage.negativeTotals >= 5, coverage.guestFlights >= 30, coverage.nonMemberPaid >= 3,
-], [true, true, true, true, true, true, true, true, true, true]);
+  coverage.flightBasis >= 25, coverage.blockBasisChosen >= 10,
+], [true, true, true, true, true, true, true, true, true, true, true, true]);
 
 h.finish();

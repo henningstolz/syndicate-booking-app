@@ -61,6 +61,29 @@ export async function saveCostRate(formData: FormData) {
   back(groupSlug, view, result === "ok" ? "rate_saved" : (result as string));
 }
 
+// Choose whether the hourly charge uses block time or flight time, from a month onwards.
+export async function saveBillingBasis(formData: FormData) {
+  const groupId = text(formData, "groupId");
+  const groupSlug = text(formData, "groupSlug");
+  const view = text(formData, "view");
+  await blockInDemo(groupSlug, view);
+
+  const month = text(formData, "month");
+  const basis = text(formData, "basis");
+  if (!/^\d{4}-(0[1-9]|1[0-2])-01$/.test(month)) back(groupSlug, view, "month_invalid");
+  if (basis !== "block" && basis !== "flight") back(groupSlug, view, "basis_invalid");
+
+  const supabase = await signedIn();
+  const { data, error } = await supabase.rpc("set_cost_billing_basis", {
+    p_group_id: groupId,
+    p_month: month,
+    p_basis: basis,
+  });
+  const result = (data as { result?: string } | null)?.result;
+  if (error || !result) back(groupSlug, view, "error");
+  back(groupSlug, view, result === "ok" ? "basis_saved" : (result as string));
+}
+
 // A box left empty means "follow the group's rate"; 0 is a real zero.
 function optionalPounds(value: string): number | null | undefined {
   if (value === "") return null;

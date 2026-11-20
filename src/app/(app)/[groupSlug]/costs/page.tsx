@@ -9,9 +9,13 @@ import { getGroupBySlug } from "@/lib/groups";
 import { londonDateKey } from "@/lib/datetime";
 import { formatMonthKey } from "@/lib/flight-times";
 import {
+  basisExplanation,
+  basisHoursName,
   formatHoursTenths,
   formatMoney,
+  parseBillingBasis,
   shiftMonth,
+  type BillingBasis,
   type CostStatement,
 } from "@/lib/costs";
 import { FileLink } from "@/components/FileLink";
@@ -22,6 +26,7 @@ import {
   previewStatementEmail,
   recordCostPayment,
   reopenCostMonth,
+  saveBillingBasis,
   saveCostRate,
   saveMemberCostRate,
   voidCostExpense,
@@ -34,6 +39,12 @@ type RateRow = {
   effective_month: string;
   monthly_fee_pence: number | null;
   hourly_rate_pence: number | null;
+};
+
+type BasisRow = {
+  id: string;
+  effective_month: string;
+  basis: BillingBasis;
 };
 
 type ExpenseRow = {
@@ -51,6 +62,8 @@ const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 const NOTICES: Record<string, { ok: boolean; text: string }> = {
   rate_saved: { ok: true, text: "Rates saved from the month you chose." },
+  basis_saved: { ok: true, text: "Billing basis saved from the month you chose. Earlier months keep the basis they had." },
+  basis_invalid: { ok: false, text: "Choose block time or flight time." },
   member_rate_saved: { ok: true, text: "The member's own rates are saved from the month you chose." },
   month_closed_done: { ok: true, text: "Month closed. Its figures are saved and no longer change." },
   month_closed_emailed: { ok: true, text: "Month closed. Statements are being emailed to the members who have that email switched on." },
@@ -192,6 +205,9 @@ export default async function CostsPage({
   }
 
   const s = statement as CostStatement;
+  // Which hours this month's statement bills: block time, or flight time if the group chose that.
+  const basis = parseBillingBasis(s.billing_basis);
+  const hoursName = basisHoursName(basis);
   const me = s.members.find((member) => member.user_id === user?.id);
   const mine = s.flights.filter((flight) => flight.user_id === user?.id);
   const hidden = (
@@ -204,10 +220,11 @@ export default async function CostsPage({
 
   // ----------------------------------------------------------- admin extras
   let rates: RateRow[] = [];
+  let basisRows: BasisRow[] = [];
   let expenses: ExpenseRow[] = [];
   if (s.is_admin) {
     const nextMonth = shiftMonth(monthKey, 1);
-    const [ratesResult, expensesResult] = await Promise.all([
+    const [ratesResult, expensesResult, basisResult] = await Promise.all([
       supabase
         .from("cost_rates")
         .select("id, user_id, effective_month, monthly_fee_pence, hourly_rate_pence")
@@ -223,8 +240,16 @@ export default async function CostsPage({
         .lt("incurred_on", `${nextMonth}-01`)
         .order("incurred_on", { ascending: false })
         .returns<ExpenseRow[]>(),
+      supabase
+        .from("cost_billing_basis")
+        .select("id, effective_month, basis")
+        .eq("group_id", group.id)
+        .order("effective_month", { ascending: false })
+        .order("created_at", { ascending: false })
+        .returns<BasisRow[]>(),
     ]);
     rates = ratesResult.data ?? [];
+    basisRows = basisResult.data ?? [];
     expenses = expensesResult.data ?? [];
   }
   // Receipt links: straight to the file in the store (see lib/file-links.ts), so that in the
@@ -353,7 +378,7 @@ export default async function CostsPage({
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-baseline justify-between gap-3 text-sm">
                   <span className="text-zinc-700">
-                    Flying: {formatHoursTenths(me.hours_tenths)} block hours at{" "}
+                    Flying: {formatHoursTenths(me.hours_tenths)} {hoursName} at{" "}
                     {formatMoney(me.hourly_rate_pence)} an hour
                   </span>
                   <span className="font-mono text-zinc-900">{formatMoney(me.hourly_pence)}</span>
@@ -445,7 +470,7 @@ export default async function CostsPage({
           )}
         </div>
         <p className="text-xs text-zinc-500">
-          Block time runs from brakes off to brakes on, as in the tech log. A guest&apos;s flight is charged to
+          {basisExplanation(basis)} A guest&apos;s flight is charged to
           the member who logged it. Expenses you paid for the group are taken off your total. {s.closed ? "This month is closed, so these figures no longer change." : "This updates as flights and expenses are entered."}
         </p>
       </section>
@@ -455,7 +480,7 @@ export default async function CostsPage({
         <h2 className={sectionTitle}>The group in {formatMonthKey(monthKey)}</h2>
         <div className={`${card} grid grid-cols-2 gap-3 p-4 text-sm`}>
           <div>
-            <p className="text-xs text-zinc-500">Block hours flown</p>
+            <p className="text-xs text-zinc-500">{basis === "flight" ? "Flight" : "Block"} hours flown</p>
             <p className="font-mono text-zinc-900">{formatHoursTenths(s.hours_tenths)}</p>
           </div>
           <div>
@@ -769,7 +794,7 @@ export default async function CostsPage({
                   />
                 </label>
                 <label className={labelClass}>
-                  Hourly rate (£ per block hour)
+                  Hourly rate (£ per {basis} hour)
                   <input
                     type="text"
                     name="hourly"
@@ -798,6 +823,53 @@ export default async function CostsPage({
                     <span className="font-mono">
                       {formatMoney(rate.monthly_fee_pence ?? 0)} a month · {formatMoney(rate.hourly_rate_pence ?? 0)} an hour
                     </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          {/* ------------------------------------------------- billing basis */}
+          <section className="flex flex-col gap-3">
+            <h2 className={sectionTitle}>Billing basis</h2>
+            <form action={saveBillingBasis} className={`${card} flex max-w-md flex-col gap-3 p-4`}>
+              {hidden}
+              <div className="grid grid-cols-2 gap-3">
+                <label className={labelClass}>
+                  Applies from
+                  <select name="month" defaultValue={`${monthKey}-01`} className={inputClass}>
+                    {rateMonths.map((key) => (
+                      <option key={key} value={`${key}-01`}>
+                        {formatMonthKey(key)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className={labelClass}>
+                  Bill by
+                  <select name="basis" defaultValue={basis} className={inputClass}>
+                    <option value="block">Block time</option>
+                    <option value="flight">Flight time</option>
+                  </select>
+                </label>
+              </div>
+              <button type="submit" className={`${primaryButton} self-start`}>
+                Save billing basis
+              </button>
+              <p className="text-xs text-zinc-500">
+                Block time runs from brakes off to brakes on; flight time from airborne to landed. The choice applies
+                from the month you pick until you choose again. Earlier months keep the basis they had, and a closed
+                month keeps its saved figures. Both times are always recorded in the tech log. Until a group chooses,
+                it is billed by block time.
+              </p>
+            </form>
+
+            {basisRows.length > 0 && (
+              <ul className="flex max-w-md flex-col gap-1 text-xs text-zinc-600">
+                {basisRows.map((row) => (
+                  <li key={row.id} className="flex items-baseline justify-between gap-3">
+                    <span>From {formatMonthKey(row.effective_month.slice(0, 7))}</span>
+                    <span className="font-mono">{row.basis === "flight" ? "Flight time" : "Block time"}</span>
                   </li>
                 ))}
               </ul>
@@ -840,7 +912,7 @@ export default async function CostsPage({
                   <input type="text" name="fee" inputMode="decimal" placeholder="group rate" className={inputClass} />
                 </label>
                 <label className={labelClass}>
-                  Hourly rate (£ per block hour)
+                  Hourly rate (£ per {basis} hour)
                   <input type="text" name="hourly" inputMode="decimal" placeholder="group rate" className={inputClass} />
                 </label>
               </div>

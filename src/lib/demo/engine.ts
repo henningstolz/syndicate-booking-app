@@ -17,7 +17,7 @@ import {
   type Row,
 } from "./data.ts";
 import { overlayFits, type DemoOverlay } from "./overlay.ts";
-import { computeStatement, shiftMonth, type CostStatement, type StatementPayment } from "../costs.ts";
+import { computeStatement, parseBillingBasis, shiftMonth, type CostStatement, type StatementPayment } from "../costs.ts";
 import { londonDateKey } from "../datetime.ts";
 
 const MIN = 60_000;
@@ -401,6 +401,11 @@ class Engine {
         .filter((r) => (r.user_id ?? null) === userId && (r.effective_month as string) <= start)
         .sort((x, y) => String(y.effective_month).localeCompare(String(x.effective_month)) || String(y.created_at).localeCompare(String(x.created_at)))[0];
     const rate = latest(null);
+    // The billing basis in force for the month: the latest choice starting on or before it (block if none).
+    const basisRow = this.db.cost_billing_basis
+      .filter((r) => (r.effective_month as string) <= start)
+      .sort((x, y) => String(y.effective_month).localeCompare(String(x.effective_month)) || String(y.created_at).localeCompare(String(x.created_at)))[0];
+    const billingBasis = parseBillingBasis(basisRow?.basis);
 
     const nameOf = (userId: string) =>
       (this.db.group_members.find((m) => m.user_id === userId)?.display_name as string | null) ?? "Member";
@@ -423,7 +428,7 @@ class Engine {
           to: f.to_place as string,
           chargedTo,
           chargedName: nameOf(chargedTo),
-          tenths: Math.round((f.block_deci as number) * 10),
+          tenths: Math.round(((billingBasis === "flight" ? f.flight_deci : f.block_deci) as number) * 10),
           order: f.brakes_off as string,
         };
       });
@@ -449,6 +454,7 @@ class Engine {
 
     const statement = computeStatement({
       month: start,
+      billingBasis,
       rates: rate
         ? { feePence: rate.monthly_fee_pence as number, hourlyPence: rate.hourly_rate_pence as number, missing: false }
         : { feePence: 0, hourlyPence: 0, missing: true },

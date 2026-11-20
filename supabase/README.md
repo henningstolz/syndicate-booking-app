@@ -169,6 +169,14 @@ every migration there first. See `docs/systems-and-accounts.md`.
     already-sent reminders are carried over. `queue_reminders()` now reads the items. **Run it before
     pushing the matching code.** Tested by `supabase/tests/aircraft-items.test.mjs`.
 
+29. `0029_cost_billing_basis.sql` — a group can bill the hourly charge by block time (the default, as
+    always) or by flight time, from a chosen month. `cost_billing_basis` (members read, admins choose
+    through `set_cost_billing_basis()`; like the rates, a choice applies from its month onwards) and
+    `cost_statement_live()` picks `block_deci` or `flight_deci` by the basis in force and reports it as
+    `billing_basis`, so a closed month's saved statement records it too. Additive: run it before pushing
+    the code. Tested by `supabase/tests/billing-basis.test.mjs` and the random-month comparison in
+    `costs.test.mjs`, which covers both bases.
+
 ## Adding members to a group
 
 Two ways now:

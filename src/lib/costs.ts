@@ -8,7 +8,8 @@
 // Node.
 //
 // The rule: each member pays a FIXED monthly share plus the HOURLY rate for the
-// block hours charged to them, minus any EXPENSES they paid for the group out of
+// hours charged to them (block time, or flight time if the group chose that: the
+// BILLING BASIS), minus any EXPENSES they paid for the group out of
 // their own pocket. The group sets default rates; a member can have their own
 // fixed share and/or hourly rate (a part left empty follows the group's). All
 // money is whole pence.
@@ -48,6 +49,26 @@ export function parsePounds(input: string): number | null {
 // 125 tenths -> "12.5"
 export function formatHoursTenths(tenths: number): string {
   return (tenths / 10).toFixed(1);
+}
+
+// Which of a flight's two times is billed. Block time runs from brakes off to brakes on, flight time
+// from airborne to landed (both are in the tech log). A group that never chose uses block time.
+export type BillingBasis = "block" | "flight";
+
+export function parseBillingBasis(value: unknown): BillingBasis {
+  return value === "flight" ? "flight" : "block";
+}
+
+// What the hours are called in the statements: "block hours" / "flight hours".
+export function basisHoursName(basis: BillingBasis): string {
+  return basis === "flight" ? "flight hours" : "block hours";
+}
+
+// The line under a statement that explains the hours.
+export function basisExplanation(basis: BillingBasis): string {
+  return basis === "flight"
+    ? "Flight time runs from airborne to landed, as in the tech log."
+    : "Block time runs from brakes off to brakes on, as in the tech log.";
 }
 
 // "2026-12" + 1 -> "2027-01"
@@ -132,6 +153,8 @@ export type CostStatement = {
   result: "ok";
   month: string;
   is_admin: boolean;
+  // Which hours were billed. A month closed before the basis existed has no such field: block time.
+  billing_basis?: BillingBasis;
   rates: { fee_pence: number; hourly_pence: number; missing: boolean };
   hours_tenths: number;
   credits_pence: number;
@@ -146,6 +169,8 @@ export type CostStatement = {
 
 export type StatementInput = {
   month: string; // "2026-10-01"
+  // Which hours the flights below carry (the caller picks block or flight time per flight); block if left out.
+  billingBasis?: BillingBasis;
   // The group's rates for the month.
   rates: { feePence: number; hourlyPence: number; missing: boolean };
   // Members' own rates in force for the month (null = follow the group's).
@@ -161,7 +186,7 @@ export type StatementInput = {
     to: string;
     chargedTo: string;
     chargedName: string;
-    tenths: number; // block time in tenths of an hour
+    tenths: number; // the billed time (block or flight, see billingBasis) in tenths of an hour
     order: string; // anything sortable (the flight's start time)
   }[];
   // The month's expenses (not voided), each with the member who paid.
@@ -242,6 +267,7 @@ export function computeStatement(input: StatementInput): CostStatement {
     result: "ok",
     month: input.month,
     is_admin: input.viewer.isAdmin,
+    billing_basis: input.billingBasis ?? "block",
     rates: { fee_pence: rates.feePence, hourly_pence: rates.hourlyPence, missing: rates.missing },
     hours_tenths: totalTenths,
     credits_pence: input.expenses.reduce((sum, e) => sum + e.pence, 0),

@@ -2,7 +2,10 @@
 // text the PDF builder prints. Shared by the PDF download and by the emailed
 // statement, so both print exactly the same thing. Pure; relative imports with
 // .ts extensions so the tests can run it in plain Node.
-import { formatHoursTenths, formatMoney, type CostStatement, type StatementMember } from "./costs.ts";
+import {
+  basisExplanation, basisHoursName, formatHoursTenths, formatMoney, parseBillingBasis,
+  type CostStatement, type StatementMember,
+} from "./costs.ts";
 import type { StatementPdfInput, StatementPdfPerson, StatementPdfSummaryRow } from "./statement-pdf.ts";
 
 const LONDON = "Europe/London";
@@ -56,7 +59,7 @@ function toPerson(statement: CostStatement, member: StatementMember, label: stri
     notAMember: !member.is_member,
     fixedLabel: "Fixed monthly share",
     fixed: formatMoney(member.fixed_pence),
-    flyingLabel: `Flying: ${formatHoursTenths(member.hours_tenths)} block hours at ${formatMoney(member.hourly_rate_pence)} an hour`,
+    flyingLabel: `Flying: ${formatHoursTenths(member.hours_tenths)} ${basisHoursName(parseBillingBasis(statement.billing_basis))} at ${formatMoney(member.hourly_rate_pence)} an hour`,
     flying: formatMoney(member.hourly_pence),
     flights: flights.map((f) => ({
       date: shortDay(f.date),
@@ -118,6 +121,7 @@ export function statementPdfInput(
     printedAt: ctx.printedAt,
     closed: statement.closed !== null,
     status: statementStatus(statement, ctx),
+    footnote: `${basisExplanation(parseBillingBasis(statement.billing_basis))} A guest's flight is charged to the member who logged it. Amounts are in pounds sterling.`,
     summary,
     people: members.map((m) => toPerson(statement, m, label)),
   };

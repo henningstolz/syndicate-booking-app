@@ -11,7 +11,7 @@ export type StatementPdfPerson = {
   notAMember: boolean; // charged for a flight in the month without being a member
   fixedLabel: string; // "Fixed monthly share"
   fixed: string; // "£120.00"
-  flyingLabel: string; // "Flying: 8.3 block hours at £65.00 an hour"
+  flyingLabel: string; // "Flying: 8.3 block hours at £65.00 an hour" (or "flight hours")
   flying: string;
   flights: { date: string; route: string; hours: string; charge: string }[];
   expenses: { date: string; description: string; amount: string }[]; // amount already negative: "-£18.40"
@@ -43,6 +43,7 @@ export type StatementPdfInput = {
   printedAt: string; // "8 Oct 2026, 14:05"
   closed: boolean;
   status: string; // "Final. Closed on 2 Sep 2026 by Alex." / "Provisional: ..."
+  footnote?: string; // the line at the end: which hours were billed, who a guest's flight is charged to
   // The group-wide page for an admin's "everyone" download (omit for a single statement).
   summary?: { rows: StatementPdfSummaryRow[]; totals: StatementPdfSummaryRow };
   people: StatementPdfPerson[];
@@ -61,7 +62,8 @@ const LINE = rgb(0.7, 0.72, 0.7);
 const SHADE = rgb(0.94, 0.95, 0.93);
 const AMBER = rgb(0.72, 0.5, 0.1);
 
-const NOTE =
+// The line under the statements; the caller says which hours were billed (block or flight time).
+const DEFAULT_NOTE =
   "Block time runs from brakes off to brakes on, as in the tech log. A guest's flight is charged to the member who logged it. Amounts are in pounds sterling.";
 
 export async function buildStatementPdf(input: StatementPdfInput): Promise<Uint8Array> {
@@ -169,7 +171,7 @@ export async function buildStatementPdf(input: StatementPdfInput): Promise<Uint8
     }
     line(input.summary.totals, true);
     y += 8;
-    for (const l of wrap(safe(NOTE), regular, 8, USABLE_W)) {
+    for (const l of wrap(safe(input.footnote ?? DEFAULT_NOTE), regular, 8, USABLE_W)) {
       put(l, MARGIN, y + 8, { size: 8, color: MUTED });
       y += 11;
     }
@@ -233,7 +235,7 @@ export async function buildStatementPdf(input: StatementPdfInput): Promise<Uint8
       }
     }
     y += 6;
-    for (const l of wrap(safe(NOTE), regular, 8, USABLE_W)) {
+    for (const l of wrap(safe(input.footnote ?? DEFAULT_NOTE), regular, 8, USABLE_W)) {
       room(11, title);
       put(l, MARGIN, y + 8, { size: 8, color: MUTED });
       y += 11;

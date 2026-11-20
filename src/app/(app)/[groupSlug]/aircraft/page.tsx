@@ -88,34 +88,15 @@ export default async function AircraftPage({
   return (
     <main className="flex flex-1 flex-col gap-4 px-4 py-6">
       <div className="flex flex-col gap-2">
-        {STATUS_FIELDS.map((field) => {
-          const value = group[field.column];
-          return (
-            <StatusRow
-              key={field.column}
-              label={field.label}
-              value={
-                field.kind === "date"
-                  ? formatDate(value as string | null)
-                  : value === null
-                    ? "Not stated"
-                    : `${value}`
-              }
-              status={fieldStatus(field.kind, value)}
-            />
-          );
-        })}
-        {items.map((item) => (
+        {STATUS_FIELDS.filter((field) => field.kind === "date").map((field) => (
           <StatusRow
-            key={item.id}
-            label={`${item.label} due`}
-            value={formatDate(item.due_date)}
-            status={dateStatus(item.due_date)}
+            key={field.column}
+            label={field.label}
+            value={formatDate(group[field.column] as string | null)}
+            status={fieldStatus(field.kind, group[field.column])}
           />
         ))}
-      </div>
-
-      <div className="flex flex-col gap-2">
+        {/* The hours figures sit together: the hours left to the next check are worked out from the other two. */}
         <StatusRow
           label="Airframe Total Hours"
           value={
@@ -134,6 +115,22 @@ export default async function AircraftPage({
           }
           status="unset"
         />
+        {STATUS_FIELDS.filter((field) => field.kind === "hours").map((field) => (
+          <StatusRow
+            key={field.column}
+            label={field.label}
+            value={group[field.column] === null ? "Not stated" : `${group[field.column]}`}
+            status={fieldStatus(field.kind, group[field.column])}
+          />
+        ))}
+        {items.map((item) => (
+          <StatusRow
+            key={item.id}
+            label={`${item.label} due`}
+            value={formatDate(item.due_date)}
+            status={dateStatus(item.due_date)}
+          />
+        ))}
       </div>
 
       {isAdmin && (

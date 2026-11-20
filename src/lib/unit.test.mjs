@@ -26,6 +26,8 @@ import { describePlan } from "./entitlements/describe.ts";
 import { csvCell, toCsv } from "./export/csv.ts";
 import { buildExportFiles, zipFiles } from "./export/build-export.ts";
 import { fetchAll } from "./export/fetch-all.ts";
+import { planItemChanges } from "./aircraft-items.ts";
+import { statusEntries, STATUS_FIELDS } from "./aircraft-status.ts";
 import { unzipSync } from "fflate";
 import { PDFDocument } from "pdf-lib";
 
@@ -484,6 +486,7 @@ eq([describeDevice("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Apple
   const data = {
     generatedAt: "2026-11-01T10:00:00Z",
     group: { name: "G-ONE Group", slug: "g-one", aircraft_registration: "G-ONE", aircraft_type: "PA-28", home_base: "EGLK", created_at: "2026-01-01T00:00:00Z", airframe_total_hours: 123.4, id: "secret-id-should-not-appear" },
+    aircraftItems: [{ label: "Life raft", due_date: "2027-05-01" }, { label: "First aid kit", due_date: null }],
     members: [
       { user_id: "u1", display_name: "Alice", role: "admin", created_at: "2026-01-01", removed_at: null },
       { user_id: "u2", display_name: "=Bob", role: "member", created_at: "2026-02-01", removed_at: "2026-09-01" },
@@ -510,6 +513,7 @@ eq([describeDevice("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Apple
   eq(files["costs_rates.csv"].split("\r\n").slice(1, 3).map((l) => l.split(",")[1]), ["Whole group", "'=Bob"], "rates: group-wide or by member");
   eq(files["costs_statements.csv"].split("\r\n")[1], "2026-09-01,closed,Alice,2,15,5000,18000,0,23000,230", "saved statements: one row per member");
   eq(files["aircraft.csv"].split("\r\n").slice(1, 4), ["Group name,G-ONE Group", "Group address name,g-one", "Registration,G-ONE"], "aircraft details with readable labels");
+  eq(files["aircraft.csv"].split("\r\n").slice(-3, -1), ["Life raft due,2027-05-01", "First aid kit due,"], "the equipment list is in the aircraft file, a missing date left empty");
   eq(files["documents.csv"].split("\r\n")[1], "Insurance,insurance,ins.pdf,application/pdf,1000,Alice,t", "documents: a list only");
   const everything = Object.values(files).join("\n");
   eq(["secret-id-should-not-appear", "SECRET/path.pdf", "@example"].some((s) => everything.includes(s)), false, "no ids, storage paths or email addresses in the export");
@@ -530,6 +534,34 @@ eq([describeDevice("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Apple
   let failed = "";
   try { await fetchAll(() => Promise.resolve({ data: null, error: { message: "boom" } })); } catch (e) { failed = e.message; }
   eq(failed, "boom", "a database error stops the export instead of giving a partial file");
+}
+
+// The equipment list: what an admin submits is checked and turned into changes.
+{
+  const base = { origLabels: [], origDues: [], deletedIds: [], maxItems: 30, maxLabel: 60 };
+  const plan = (o) => planItemChanges({ ...base, ...o });
+  eq(plan({ ids: ["a", "b"], labels: ["Life raft", "First aid kit"], dues: ["2027-01-01", ""], origLabels: ["Life raft", "First aid kit"], origDues: ["2027-01-01", ""] }),
+    { changes: [] }, "nothing changed: nothing to save");
+  eq(plan({ ids: ["a", ""], labels: ["Life raft", "  Fire   blanket "], dues: ["2027-02-02", "2027-03-03"], origLabels: ["Life raft", ""], origDues: ["2027-01-01", ""], deletedIds: ["z"] }),
+    { changes: [{ kind: "update", id: "a", label: "Life raft", due: "2027-02-02" }, { kind: "add", label: "Fire blanket", due: "2027-03-03" }, { kind: "delete", id: "z" }] },
+    "a new date, a new item (name tidied) and a removal become three changes");
+  eq(plan({ ids: ["a"], labels: ["Raft"], dues: [""], origLabels: ["Raft"], origDues: ["2027-01-01"] }),
+    { changes: [{ kind: "update", id: "a", label: "Raft", due: null }] }, "clearing a date is a change to no date");
+  yes("error" in plan({ ids: [""], labels: ["  "], dues: [""] }), "an empty name is refused");
+  yes("error" in plan({ ids: [""], labels: ["x".repeat(61)], dues: [""] }), "a name over 60 characters is refused");
+  yes("error" in plan({ ids: [""], labels: ["Raft"], dues: ["2027-13-45"] }), "an impossible date is refused");
+  yes("error" in plan({ ids: [""], labels: ["Raft"], dues: ["tomorrow"] }), "a date in the wrong shape is refused");
+  yes("error" in plan({ ids: ["", ""], labels: ["Life raft", "life RAFT"], dues: ["", ""] }), "two items with the same name (any capitals) are refused");
+  yes("error" in plan({ ids: ["", ""], labels: ["A"], dues: [""] }), "lists of different lengths are refused");
+  yes("error" in plan({ ids: Array(31).fill(""), labels: Array.from({ length: 31 }, (_, i) => `Item ${i}`), dues: Array(31).fill("") }), "more than 30 items are refused");
+  eq(plan({ ids: ["a"], labels: ["Raft"], dues: [""], origLabels: ["Raft"], origDues: [""], deletedIds: ["", "q"] }), { changes: [{ kind: "delete", id: "q" }] }, "a blank removed id is ignored");
+
+  const soon = new Date(Date.now() + 5 * 86_400_000).toISOString().slice(0, 10);
+  const past = new Date(Date.now() - 5 * 86_400_000).toISOString().slice(0, 10);
+  const group = Object.fromEntries(STATUS_FIELDS.map((f) => [f.column, null]));
+  eq(statusEntries(group, [{ id: "1", label: "First aid kit", due_date: past }, { id: "2", label: "Life raft", due_date: soon }, { id: "3", label: "Flares", due_date: null }]).slice(-3),
+    [{ label: "First aid kit", status: "overdue" }, { label: "Life raft", status: "soon" }, { label: "Flares", status: "unset" }],
+    "the equipment items show up in the status list with their own status");
 }
 
 console.log(`${count} unit checks passed`);

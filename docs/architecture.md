@@ -146,6 +146,7 @@ is scoped to a group.
 | `cost_rates` | The fixed monthly share and the hourly rate (whole pence), each valid from a month. A row with no `user_id` is the group's default; a row with a `user_id` is that member's own (an empty part follows the group's, 0 is a real zero) | Append-only: a new row for a month replaces older ones from then on, old rows stay as history. A statement uses the rates in force for ITS month. Members read the group's rows and their own, never other members'. |
 | `documents` | What an uploaded file is: title, category (general, aircraft, insurance, manuals, receipts, other), original file name, type, size, who uploaded it, and where it is in the file store (`<group id>/<random id>.<ext>`) | Members of the group read it, minus deleted ones (RLS); written only by `add_document` (checks the file really is in the store and was uploaded by the caller; size and type come from the store) and `delete_document` (uploader or admin; the record is hidden and the server removes the file). Expenses link a receipt through `cost_expenses.document_id`. |
 | `feedback` | A message a member sent with the Feedback button: type (bug, idea, other), message (3 to 2000 characters), the page and device it came from, when, and whether the email went out | Nobody can read it through the app (RLS on, no policy; the owner reads it in the Supabase dashboard); written only by `submit_feedback` (members of the group; at most 5 an hour each) and `mark_feedback_emailed`. |
+| `aircraft_items` | The group's equipment list on the Aircraft page: a name and a due date each (life raft, life vests, fire extinguisher, first aid kit to start with, then whatever the admins add or rename), in the order they were added | Members read it (RLS); group admins add, rename, change the date of and delete items (RLS). At most 30 per group and a name of 1 to 60 characters (database rules); an item cannot move to another group. Every new group gets the four starter items from a trigger. Reminders and the dashboard banner treat each item like the built-in due dates. The old columns `groups.life_raft_due`, `life_vests_due` and `fire_extinguisher_due` are unused since 0028 and are dropped later. |
 | `export_log` | Who exported which group's data and when (group, person, time; never the contents) | No policy and no rights for the app's users; written by `log_group_export`, which also checks the caller is an admin of the group and allows at most 5 an hour. |
 | `group_plans` | A group's plan (`founding`, `standard`, `complimentary`), billing status, cohort, trial end, paid-until, price lock, discount, billing reference. One row per group, created by a trigger. Not used by the app yet (billing is not enforced) | Group admins can read their own group's row; nobody writes it from the app. Changed only by `admin_update_group_plan`. |
 | `plan_events` | Append-only history: group created, plan changed, setting changed, with old and new values, who and the reason | No policy and no rights for the app's users; a trigger refuses every update, delete and truncate. No foreign keys, so it outlives a deleted group (ids and plan values only, no names). Read through `admin_list_plan_events`. |
@@ -198,7 +199,7 @@ every migration to a throwaway in-memory Postgres; the pure helpers in
 `npm test` runs both. `npm run test:demo` crawls every demo page on a running dev server. Run them after changing a migration or those helpers.
 
 The database change history is the numbered files in `supabase/migrations/`
-(0001 to 0027).
+(0001 to 0028).
 
 ## Code map
 
@@ -258,10 +259,12 @@ These each cost a debugging round once.
 3. **1000-row limit.** Supabase returns at most 1000 rows per response and
    does not warn. Reads that need everything must page (see
    `reports/distribution.ts`).
-4. **Adding a due date to the Aircraft page** is one entry in `STATUS_FIELDS`
-   plus one `alter table groups add column`. **Run the migration before
-   pushing the code**, because every group page selects those columns and
-   would otherwise fail to load.
+4. **Adding a due date to the Aircraft page:** equipment items (life raft, first
+   aid kit, ...) are rows in `aircraft_items` that group admins edit themselves,
+   so nothing needs building for those. The few fixed fields (annual, insurance,
+   next check, hours to the next check) are entries in `STATUS_FIELDS` plus a
+   column on `groups`; **run that migration before pushing the code**, because
+   every group page selects those columns and would otherwise fail to load.
 5. **Names.** The feature is "Tech log" everywhere you can see it. The table,
    the table is still called `squawks`. That is
    deliberate; renaming them would need a migration and gains nothing.
@@ -491,7 +494,7 @@ sender's secret), which queues:
   tomorrow (UK date, so the clocks changing cannot move it; not for bookings
   made in the last three hours, cancelled ones, or removed members);
 - an **aircraft reminder** to every member who wants it, when a due date
-  (annual, insurance, next check, life raft, life vests, fire extinguisher)
+  (annual, insurance, next check, and every item in the group's equipment list)
   reaches 30 days, 7 days or is overdue, or the hours to the next check reach
   10, 5 or the limit. Items that fall due the same day share one email.
 

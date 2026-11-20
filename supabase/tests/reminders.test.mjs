@@ -38,6 +38,11 @@ const setGroup = async (id, cols) => {
   const sets = Object.keys(cols).map((k, i) => `${k} = $${i + 2}`).join(", ");
   await db.query(`update public.groups set ${sets} where id = $1`, [id, ...Object.values(cols)]);
 };
+// Equipment items (life raft, ...) live in their own table; every group starts with four, no dates.
+const setItem = async (group, label, due) => {
+  await db.exec("reset role");
+  await db.query("update public.aircraft_items set due_date = $3 where group_id = $1 and label = $2", [group, label, due]);
+};
 // A booking made long ago, so "made in the last three hours" does not apply.
 const book = async (user, starts, ends, o = {}) => {
   await db.exec("reset role");
@@ -146,7 +151,9 @@ check("a year later the new date starts its own countdown", [(await run(at("2028
 await wipe();
 
 // several items on one day: one email each, listing them all
-await setGroup(G1, { insurance_renewal_due: null, annual_renewal_due: "2028-05-20", life_raft_due: "2028-05-25", fire_extinguisher_due: "2028-06-10" });
+await setGroup(G1, { insurance_renewal_due: null, annual_renewal_due: "2028-05-20" });
+await setItem(G1, "Life raft", "2028-05-25");
+await setItem(G1, "Fire extinguisher", "2028-06-10");
 r = await run(at("2028-05-15")); // annual in 5 days (7-stage), raft in 10 (30), extinguisher in 26 (30)
 items = (await emails("aircraft_reminder"))[0].payload.items;
 check("three items due the same day make ONE email per member", [r.aircraft_reminders, await count()], [3, 3]);
@@ -156,7 +163,9 @@ await wipe();
 // ---------------------------------------------------- aircraft: hours
 await db.exec("reset role");
 await db.exec("delete from public.reminder_log");
-await setGroup(G1, { annual_renewal_due: null, life_raft_due: null, fire_extinguisher_due: null, hours_to_next_check: 12.5, next_check_at_hours: 5900 });
+await setGroup(G1, { annual_renewal_due: null, hours_to_next_check: 12.5, next_check_at_hours: 5900 });
+await setItem(G1, "Life raft", null);
+await setItem(G1, "Fire extinguisher", null);
 check("12.5 hours left: nothing yet", [(await run(at("2029-01-10"))).aircraft_reminders, await count()], [0, 0]);
 await setGroup(G1, { hours_to_next_check: 9.2 });
 r = await run(at("2029-01-11"));

@@ -1,7 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { getGroupBySlug } from "@/lib/groups";
 import { LONDON_TZ } from "@/lib/datetime";
-import { STATUS_FIELDS, fieldStatus, type Status } from "@/lib/aircraft-status";
+import { STATUS_FIELDS, dateStatus, fieldStatus, type Status } from "@/lib/aircraft-status";
+import { getAircraftItems } from "@/lib/aircraft-items";
 import { AircraftForm } from "./AircraftForm";
 
 const STATUS_STYLES: Record<Status, string> = {
@@ -82,6 +83,7 @@ export default async function AircraftPage({
     .maybeSingle();
 
   const isAdmin = membership?.role === "admin";
+  const items = await getAircraftItems(supabase, group.id);
 
   return (
     <main className="flex flex-1 flex-col gap-4 px-4 py-6">
@@ -103,6 +105,14 @@ export default async function AircraftPage({
             />
           );
         })}
+        {items.map((item) => (
+          <StatusRow
+            key={item.id}
+            label={`${item.label} due`}
+            value={formatDate(item.due_date)}
+            status={dateStatus(item.due_date)}
+          />
+        ))}
       </div>
 
       <div className="flex flex-col gap-2">
@@ -131,6 +141,7 @@ export default async function AircraftPage({
           groupId={group.id}
           groupSlug={groupSlug}
           initial={group}
+          items={items}
           hours={{
             total: group.airframe_total_hours,
             checkAt: group.next_check_at_hours,

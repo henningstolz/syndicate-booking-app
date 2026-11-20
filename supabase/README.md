@@ -27,8 +27,8 @@ every migration there first. See `docs/systems-and-accounts.md`.
    reasons that resisted diagnosis) with a `mark_invite_used()` SECURITY
    DEFINER function, the same fix pattern as 0007
 9. `0009_add_equipment_due_dates.sql` — life raft, life vests and fire
-   extinguisher due dates on `groups` (the Aircraft page; adding a further
-   field is one entry in `src/lib/aircraft-status.ts` plus a column)
+   extinguisher due dates on `groups` (the Aircraft page). Superseded by
+   `aircraft_items` in 0028: the equipment list is now customisable per group
 10. `0010_member_management.sql` — group and user management: members can
     be *removed* without losing history (`group_members.removed_at`), roles
     can be changed, anyone can leave, and a group can never end up without an
@@ -160,6 +160,14 @@ every migration there first. See `docs/systems-and-accounts.md`.
     export, at most 5 an hour, and writes the log entry. The export itself is built by the app from what
     the admin may already read (`src/lib/export`). Tested by `supabase/tests/exports.test.mjs`, which
     also proves a group with data in every table can be deleted.
+
+28. `0028_aircraft_items.sql` — the Aircraft page's equipment list is now customisable per group.
+    `aircraft_items` (name and due date; members read, admins add, rename, change and delete; at most
+    30 per group) replaces the fixed `life_raft_due`, `life_vests_due` and `fire_extinguisher_due`
+    columns, which stay in place unused until a later migration drops them. Every group, existing and
+    new (a trigger), gets Life raft, Life vests, Fire extinguisher and First aid kit; existing dates and
+    already-sent reminders are carried over. `queue_reminders()` now reads the items. **Run it before
+    pushing the matching code.** Tested by `supabase/tests/aircraft-items.test.mjs`.
 
 ## Adding members to a group
 

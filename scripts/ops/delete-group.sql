@@ -24,7 +24,7 @@ order by o.name;
 
 -- ---------------------------------------------------------------- 3. DELETE (one statement, all or nothing)
 -- Removes the group and, through it, its members' memberships, bookings, flight log, chat, costs, documents
--- list, invitations, calendar links, feedback, plan and export log. Each person's own acceptance of the terms
+-- list, equipment list, invitations, calendar links, feedback, plan and export log. Each person's own acceptance of the terms
 -- stays, detached from the group. The history of plan changes (plan_events) stays: ids only, by design.
 delete from public.groups where slug = 'THE-GROUP-SLUG' returning id, slug, name;
 

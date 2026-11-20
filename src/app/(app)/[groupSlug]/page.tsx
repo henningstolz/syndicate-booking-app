@@ -4,6 +4,7 @@ import { getGroupBySlug } from "@/lib/groups";
 import { memberColor } from "@/lib/member-colors";
 import { formatDayHeading, formatTime } from "@/lib/datetime";
 import { statusEntries } from "@/lib/aircraft-status";
+import { getAircraftItems } from "@/lib/aircraft-items";
 
 type MemberRow = { user_id: string; display_name: string | null };
 
@@ -29,7 +30,7 @@ export default async function GroupDashboardPage({
     return null;
   }
 
-  const [{ data: members }, { data: nextBookings }] = await Promise.all([
+  const [{ data: members }, { data: nextBookings }, items] = await Promise.all([
     supabase
       .from("group_members")
       .select("user_id, display_name")
@@ -45,6 +46,7 @@ export default async function GroupDashboardPage({
       .order("starts_at")
       .limit(1)
       .returns<BookingRow[]>(),
+    getAircraftItems(supabase, group.id),
   ]);
 
   const memberList = members ?? [];
@@ -56,7 +58,7 @@ export default async function GroupDashboardPage({
 
   // Only worth showing on the dashboard when something actually needs
   // attention — a banner that always says "all fine" is just clutter.
-  const alerts = statusEntries(group).filter(
+  const alerts = statusEntries(group, items).filter(
     (entry) => entry.status === "overdue" || entry.status === "soon",
   );
   const hasOverdue = alerts.some((entry) => entry.status === "overdue");

@@ -138,6 +138,10 @@ check(spoof.status === 307 && (spoof.headers.get("location") ?? "").includes("/l
 const reset = await fetch(`${BASE}/demo/reset`, { redirect: "manual" });
 check(reset.status === 307 && (reset.headers.get("location") ?? "").endsWith("/demo"), "Reset demo redirects back to the demo");
 
+// The equipment list (life raft, first aid kit, ...) comes from its own table; the demo has the four starters.
+const aircraftHtml = await (await fetch(`${BASE}/demo/aircraft`)).text();
+check(["Life raft due", "Life vests due", "Fire extinguisher due", "First aid kit due"].every((t) => aircraftHtml.includes(t)), "the demo's aircraft page lists the four equipment items");
+
 // A crawler must not be able to walk the demo's calendar through endless months: dates more than two
 // years from today are sent back to the plain page, and robots.txt asks crawlers to stay out of /demo/.
 for (const [path, back] of [

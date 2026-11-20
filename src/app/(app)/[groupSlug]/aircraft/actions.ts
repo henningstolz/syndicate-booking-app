@@ -3,10 +3,17 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { STATUS_FIELDS } from "@/lib/aircraft-status";
+import {
+  STATUS_FIELDS,
+  MAX_AIRCRAFT_ITEMS,
+  MAX_ITEM_LABEL_LENGTH,
+} from "@/lib/aircraft-status";
+import { planItemChanges } from "@/lib/aircraft-items";
 import { isDemoRequest } from "@/lib/demo/mode";
 
 export type StatusActionState = { error?: string; success?: boolean };
+
+const ITEM_ORDER = { delete: 0, update: 1, add: 2 } as const;
 
 export async function updateAircraftStatus(
   _prevState: StatusActionState,
@@ -41,6 +48,25 @@ export async function updateAircraftStatus(
     }
   }
 
+  // The equipment list (life raft, first aid kit, ...). Checked before anything is saved, so a mistake
+  // in it does not leave the rest half saved.
+  const strings = (key: string) => formData.getAll(key).map((v) => String(v));
+  const itemPlan = formData.has("itemsPresent")
+    ? planItemChanges({
+        ids: strings("itemId"),
+        labels: strings("itemLabel"),
+        dues: strings("itemDue"),
+        origLabels: strings("itemOrigLabel"),
+        origDues: strings("itemOrigDue"),
+        deletedIds: strings("itemDeleted"),
+        maxItems: MAX_AIRCRAFT_ITEMS,
+        maxLabel: MAX_ITEM_LABEL_LENGTH,
+      })
+    : { changes: [] };
+  if ("error" in itemPlan) {
+    return { error: itemPlan.error };
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -59,6 +85,33 @@ export async function updateAircraftStatus(
 
   if (error) {
     return { error: error.message };
+  }
+
+  // Equipment list: removals first (so a full list can swap one item for another), then renames and
+  // new dates, then additions. Row security lets only the group's admins do any of it, and every
+  // statement names the group as well as the item.
+  for (const change of [...itemPlan.changes].sort(
+    (a, b) => ITEM_ORDER[a.kind] - ITEM_ORDER[b.kind],
+  )) {
+    const result =
+      change.kind === "delete"
+        ? await supabase.from("aircraft_items").delete().eq("id", change.id).eq("group_id", groupId)
+        : change.kind === "update"
+          ? await supabase
+              .from("aircraft_items")
+              .update({ label: change.label, due_date: change.due })
+              .eq("id", change.id)
+              .eq("group_id", groupId)
+          : await supabase
+              .from("aircraft_items")
+              .insert({ group_id: groupId, label: change.label, due_date: change.due });
+    if (result.error) {
+      return {
+        error: result.error.message.includes("aircraft_items_limit")
+          ? `A group can have at most ${MAX_AIRCRAFT_ITEMS} equipment items.`
+          : "Could not save the equipment list.",
+      };
+    }
   }
 
   // Airframe hours and the check limit. The database works out the baseline

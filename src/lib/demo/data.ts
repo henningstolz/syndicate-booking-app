@@ -36,6 +36,7 @@ export type DemoDb = {
   cost_expenses: Row[];
   calendar_feeds: Row[];
   documents: Row[];
+  aircraft_items: Row[];
 };
 
 // Columns of each table, so a query that asks for one that does not exist
@@ -68,6 +69,7 @@ export const TABLE_COLUMNS: Record<keyof DemoDb, string[]> = {
     "id", "group_id", "uploaded_by", "title", "category", "file_name", "content_type",
     "size_bytes", "storage_path", "created_at", "deleted_at", "deleted_by",
   ],
+  aircraft_items: ["id", "group_id", "label", "due_date", "position", "created_at"],
   cost_expenses: [
     "id", "group_id", "paid_by", "incurred_on", "description", "amount_pence",
     "created_by", "created_at", "voided_at", "voided_by", "void_reason", "document_id",
@@ -544,5 +546,18 @@ export function buildDb(now: Date, overlay: DemoOverlay): DemoDb {
     // Nobody has a calendar link in the demo; creating one says it is a demo.
     calendar_feeds: [],
     documents,
+    aircraft_items: [
+      ["Life raft", dateIn(150)],
+      ["Life vests", dateIn(150)],
+      ["Fire extinguisher", dateIn(330)],
+      ["First aid kit", dateIn(90)],
+    ].map(([label, due], i) => ({
+      id: `demo-item-${i + 1}`,
+      group_id: DEMO_GROUP_ID,
+      label,
+      due_date: due,
+      position: i + 1,
+      created_at: iso(nowMs - 440 * DAY),
+    })),
   };
 }

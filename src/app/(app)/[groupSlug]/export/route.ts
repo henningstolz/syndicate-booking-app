@@ -38,7 +38,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       fetchAll<Row>((from, to) =>
         supabase.from(table).select(columns).eq("group_id", group.id).order(orderBy).order("id").range(from, to).returns<Row[]>(),
       );
-    const [members, bookings, flights, chat, rates, expenses, payments, closures, documents] = await Promise.all([
+    const [members, bookings, flights, chat, rates, expenses, payments, closures, documents, aircraftItems] = await Promise.all([
       rows("group_members", "id, user_id, display_name, role, created_at, removed_at"),
       rows("bookings", "*"),
       rows("flight_entries", "*"),
@@ -48,10 +48,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       rows("cost_payments", "*"),
       rows("cost_month_closures", "*", "closed_at"),
       rows("documents", "id, title, category, file_name, content_type, size_bytes, uploaded_by, created_at"),
+      rows("aircraft_items", "id, label, due_date", "position"),
     ]);
 
     const now = new Date();
-    const data: ExportData = { generatedAt: now.toISOString(), group, members, bookings, flights, chat, rates, expenses, payments, closures, documents };
+    const data: ExportData = { generatedAt: now.toISOString(), group, aircraftItems, members, bookings, flights, chat, rates, expenses, payments, closures, documents };
     const zip = zipFiles(buildExportFiles(data), now);
     const day = now.toISOString().slice(0, 10);
     return new Response(zip as BodyInit, {

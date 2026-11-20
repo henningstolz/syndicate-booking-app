@@ -11,6 +11,8 @@ type Row = Record<string, unknown>;
 export type ExportData = {
   generatedAt: string; // ISO time
   group: Row;
+  // The group's equipment list (life raft, first aid kit, ...): label and due date, in the group's order.
+  aircraftItems: Row[];
   members: Row[];
   bookings: Row[];
   flights: Row[];
@@ -37,9 +39,6 @@ export const AIRCRAFT_LABELS: [string, string][] = [
   ["next_check_due", "Next check due (date)"],
   ["annual_renewal_due", "Annual renewal due"],
   ["insurance_renewal_due", "Insurance renewal due"],
-  ["life_raft_due", "Life raft due"],
-  ["life_vests_due", "Life vests due"],
-  ["fire_extinguisher_due", "Fire extinguisher due"],
 ];
 
 export function buildExportFiles(data: ExportData): Record<string, string> {
@@ -113,7 +112,10 @@ export function buildExportFiles(data: ExportData): Record<string, string> {
 
   files["aircraft.csv"] = toCsv(
     ["field", "value"],
-    AIRCRAFT_LABELS.filter(([key]) => key in data.group).map(([key, label]) => [label, data.group[key]]),
+    [
+      ...AIRCRAFT_LABELS.filter(([key]) => key in data.group).map(([key, label]) => [label, data.group[key]]),
+      ...data.aircraftItems.map((item) => [`${item.label} due`, item.due_date]),
+    ],
   );
 
   files["documents.csv"] = toCsv(

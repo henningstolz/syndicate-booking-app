@@ -12,10 +12,13 @@ export const STATUS_FIELDS = [
   { column: "insurance_renewal_due", label: "Insurance Renewal Due", kind: "date" },
   { column: "next_check_due", label: "Next Check Due", kind: "date" },
   { column: "hours_to_next_check", label: "Hours To Next Check", kind: "hours" },
-  { column: "life_raft_due", label: "Life Raft Due", kind: "date" },
-  { column: "life_vests_due", label: "Life Vests Due", kind: "date" },
-  { column: "fire_extinguisher_due", label: "Fire Extinguisher Due", kind: "date" },
 ] as const;
+
+// The equipment list each group customises (life raft, first aid kit, ...): a name and a due date
+// each, stored in the aircraft_items table (migration 0028).
+export type AircraftItem = { id: string; label: string; due_date: string | null };
+export const MAX_AIRCRAFT_ITEMS = 30;
+export const MAX_ITEM_LABEL_LENGTH = 60;
 
 export type StatusColumn = (typeof STATUS_FIELDS)[number]["column"];
 
@@ -47,9 +50,15 @@ export function fieldStatus(
     : hoursStatus(value as number | null);
 }
 
-export function statusEntries(group: AircraftStatusFields) {
-  return STATUS_FIELDS.map((field) => ({
-    label: field.label,
-    status: fieldStatus(field.kind, group[field.column]),
-  }));
+export function statusEntries(group: AircraftStatusFields, items: AircraftItem[] = []) {
+  return [
+    ...STATUS_FIELDS.map((field) => ({
+      label: field.label,
+      status: fieldStatus(field.kind, group[field.column]),
+    })),
+    ...items.map((item) => ({
+      label: item.label,
+      status: dateStatus(item.due_date),
+    })),
+  ];
 }

@@ -15,6 +15,7 @@ import {
 } from "../settings/actions";
 import { CopyLinkButton } from "../settings/CopyLinkButton";
 import { noticeMessage } from "../settings/notices";
+import type { FeedScope } from "@/lib/calendar-feed";
 
 // Everything personal: your name and password, which emails you get, your
 // calendar link, and putting Blocktime on your phone. (The group's own settings,
@@ -108,64 +109,105 @@ export default async function AccountPage({
 
   // ----------------------------------------------------------------- calendar
   if (onCalendar) {
+    // A member can have one link of each kind: the whole group's bookings, or only their own.
     const { data: feeds } = await supabase
       .from("calendar_feeds")
-      .select("token")
+      .select("token, scope")
       .eq("group_id", group.id)
       .is("revoked_at", null)
-      .limit(1)
-      .returns<{ token: string }[]>();
-    const token = feeds?.[0]?.token;
-    const feedUrl = token ? `${siteUrl.replace(/\/+$/, "")}/cal/${token}.ics` : "";
-    const appUrl = feedUrl.replace(/^https?:\/\//, "webcal://");
+      .returns<{ token: string; scope: FeedScope }[]>();
+    const base = siteUrl.replace(/\/+$/, "");
+    const kinds: { scope: FeedScope; title: string; intro: string; button: string; privateNote: string }[] = [
+      {
+        scope: "all",
+        title: "Whole group calendar",
+        intro: `Add ${group.name}'s bookings to Apple Calendar, Google Calendar or Outlook. Every booking of the aircraft appears, with who booked it and the note, and your own are marked "You". It updates by itself; the bookings are still made and changed here.`,
+        button: "Create the whole group link",
+        privateNote:
+          "Keep this link private: anyone who has it can see the bookings, names and notes. If it gets out, make a new one below and the old one stops working at once.",
+      },
+      {
+        scope: "mine",
+        title: "Only my bookings",
+        intro: `A calendar with just your own bookings of the aircraft, with their notes, and nobody else's. It updates by itself too. Handy for a personal or work calendar.`,
+        button: "Create my own bookings link",
+        privateNote:
+          "Keep this link private too: anyone who has it can see your bookings and notes. If it gets out, make a new one below and the old one stops working at once.",
+      },
+    ];
+    const tokens = new Map((feeds ?? []).map((feed) => [feed.scope, feed.token]));
 
     return (
       <div className="flex flex-1 flex-col gap-6 px-4 py-6">
         {noticeBlock}
         {tabs}
 
-        <section className="flex max-w-xl flex-col gap-3">
-          <div>
-            <h2 className={sectionTitle}>Your calendar link</h2>
-            <p className="mt-1 text-sm text-zinc-600">
-              Add {group.name}&apos;s bookings to Apple Calendar, Google Calendar or Outlook. Every booking of the
-              aircraft appears, with who booked it and the note, and your own are marked &ldquo;You&rdquo;. It
-              updates by itself; the bookings are still made and changed here.
-            </p>
-          </div>
-
-          {token ? (
-            <>
-              <div className="flex flex-col gap-2 rounded-lg border border-zinc-200 bg-white p-3">
-                <input
-                  readOnly
-                  value={feedUrl}
-                  aria-label="Your calendar link"
-                  className="w-full rounded-md border border-zinc-300 bg-zinc-50 px-2 py-1.5 font-mono text-xs text-zinc-700"
-                />
-                <div className="flex flex-wrap items-center gap-2">
-                  <CopyLinkButton url={feedUrl} />
-                  <a href={appUrl} className="rounded-full border border-zinc-300 px-3 py-1 text-xs text-zinc-600 hover:bg-zinc-100">
-                    Open in my calendar app
-                  </a>
-                </div>
+        {kinds.map((kind) => {
+          const token = tokens.get(kind.scope);
+          const feedUrl = token ? `${base}/cal/${token}.ics` : "";
+          const appUrl = feedUrl.replace(/^https?:\/\//, "webcal://");
+          const scopeField = <input type="hidden" name="scope" value={kind.scope} />;
+          return (
+            <section key={kind.scope} className="flex max-w-xl flex-col gap-3">
+              <div>
+                <h2 className={sectionTitle}>{kind.title}</h2>
+                <p className="mt-1 text-sm text-zinc-600">{kind.intro}</p>
               </div>
-              <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                Keep this link private: anyone who has it can see the bookings, names and notes. If it gets out, make a
-                new one below and the old one stops working at once.
-              </p>
-            </>
-          ) : (
-            <form action={createCalendarFeed}>
-              {hidden}
-              <button type="submit" className={primaryButton}>
-                Create my calendar link
-              </button>
-            </form>
-          )}
-        </section>
 
-        {token && (
+              {token ? (
+                <>
+                  <div className="flex flex-col gap-2 rounded-lg border border-zinc-200 bg-white p-3">
+                    <input
+                      readOnly
+                      value={feedUrl}
+                      aria-label={`Your calendar link: ${kind.title}`}
+                      className="w-full rounded-md border border-zinc-300 bg-zinc-50 px-2 py-1.5 font-mono text-xs text-zinc-700"
+                    />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <CopyLinkButton url={feedUrl} />
+                      <a href={appUrl} className="rounded-full border border-zinc-300 px-3 py-1 text-xs text-zinc-600 hover:bg-zinc-100">
+                        Open in my calendar app
+                      </a>
+                    </div>
+                  </div>
+                  <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                    {kind.privateNote}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <form action={createCalendarFeed}>
+                      {hidden}
+                      {scopeField}
+                      <button type="submit" className={smallButton}>
+                        Make a new link
+                      </button>
+                    </form>
+                    <form action={revokeCalendarFeed}>
+                      {hidden}
+                      {scopeField}
+                      <button type="submit" className={smallButton}>
+                        Turn it off
+                      </button>
+                    </form>
+                  </div>
+                  <p className="text-xs text-zinc-500">
+                    Either one stops this link at once, and you&apos;ll need to add the new link to your calendar apps
+                    again. Your other calendar link is not affected.
+                  </p>
+                </>
+              ) : (
+                <form action={createCalendarFeed}>
+                  {hidden}
+                  {scopeField}
+                  <button type="submit" className={primaryButton}>
+                    {kind.button}
+                  </button>
+                </form>
+              )}
+            </section>
+          );
+        })}
+
+        {tokens.size > 0 && (
           <section className="flex max-w-xl flex-col gap-2">
             <h2 className={sectionTitle}>How to add it</h2>
             <ul className="flex flex-col gap-2 text-sm text-zinc-700">
@@ -184,31 +226,8 @@ export default async function AccountPage({
             </ul>
             <p className="text-xs text-zinc-500">
               Your calendar app decides how often it looks for changes (Apple and Outlook about hourly, Google up to a
-              day). For anything urgent, check the app or rely on the notification emails.
-            </p>
-          </section>
-        )}
-
-        {token && (
-          <section className="flex max-w-xl flex-col gap-2">
-            <h2 className={sectionTitle}>Replace or turn off</h2>
-            <div className="flex flex-wrap gap-2">
-              <form action={createCalendarFeed}>
-                {hidden}
-                <button type="submit" className={smallButton}>
-                  Make a new link
-                </button>
-              </form>
-              <form action={revokeCalendarFeed}>
-                {hidden}
-                <button type="submit" className={smallButton}>
-                  Turn it off
-                </button>
-              </form>
-            </div>
-            <p className="text-xs text-zinc-500">
-              Either one stops the current link at once. You&apos;ll need to add the new link to your calendar apps
-              again. If you leave the group, your link stops working too.
+              day). For anything urgent, check the app or rely on the notification emails. If you leave the group, your
+              links stop working too.
             </p>
           </section>
         )}

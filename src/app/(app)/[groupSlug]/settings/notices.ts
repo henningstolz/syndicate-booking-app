@@ -13,6 +13,8 @@ export const NOTICES: Record<string, { ok: boolean; text: string }> = {
   read_only: { ok: false, text: READ_ONLY_MESSAGE },
   name_saved: { ok: true, text: "Your name was updated." },
   calendar_created: { ok: true, text: "Your calendar link is ready. Copy it into your calendar app." },
+  calendar_created_mine: { ok: true, text: "Your own-bookings calendar link is ready. Copy it into your calendar app." },
+  calendar_off_mine: { ok: true, text: "Your own-bookings calendar link is turned off. The old link no longer works." },
   calendar_off: { ok: true, text: "Your calendar link is turned off. The old link no longer works." },
   notifications_saved: { ok: true, text: "Your email choices were saved." },
   test_sent: {

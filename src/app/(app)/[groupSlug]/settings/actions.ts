@@ -7,6 +7,7 @@ import { homePathFor } from "@/lib/user-home";
 import { isDemoRequest } from "@/lib/demo/mode";
 import { assertCanWrite } from "@/lib/entitlements";
 import { NOTIFICATION_EVENTS } from "@/lib/notifications";
+import { parseFeedScope } from "@/lib/calendar-feed";
 import { renderTestEmail } from "@/lib/notify/email";
 import {
   flushNotifications,
@@ -310,29 +311,31 @@ export async function sendRemindersNow(formData: FormData) {
 
 const CALENDAR_TAB = "&tab=calendar";
 
-// Create the member's private calendar link for this group (a new one replaces
-// and switches off the old one).
+// Create the member's private calendar link of one kind for this group: the whole group's bookings
+// ("all") or only their own ("mine"). A new one replaces and switches off the old one of the same kind.
 export async function createCalendarFeed(formData: FormData) {
   const groupId = text(formData, "groupId");
   const groupSlug = text(formData, "groupSlug");
   await blockInDemoAccount(groupSlug, CALENDAR_TAB);
 
+  const scope = parseFeedScope(text(formData, "scope"));
   const supabase = await signedInClient();
-  const { data, error } = await supabase.rpc("create_calendar_feed", { p_group_id: groupId });
+  const { data, error } = await supabase.rpc("create_calendar_feed", { p_group_id: groupId, p_scope: scope });
   const result = (data as RpcResult | null)?.result;
   if (error || result !== "ok") redirect(accountUrl(groupSlug, "error", CALENDAR_TAB));
-  redirect(accountUrl(groupSlug, "calendar_created", CALENDAR_TAB));
+  redirect(accountUrl(groupSlug, scope === "mine" ? "calendar_created_mine" : "calendar_created", CALENDAR_TAB));
 }
 
-// Turn the member's calendar link off: the old address stops working at once.
+// Turn one of the member's calendar links off: the old address stops working at once.
 export async function revokeCalendarFeed(formData: FormData) {
   const groupId = text(formData, "groupId");
   const groupSlug = text(formData, "groupSlug");
   await blockInDemoAccount(groupSlug, CALENDAR_TAB);
 
+  const scope = parseFeedScope(text(formData, "scope"));
   const supabase = await signedInClient();
-  const { data, error } = await supabase.rpc("revoke_calendar_feed", { p_group_id: groupId });
+  const { data, error } = await supabase.rpc("revoke_calendar_feed", { p_group_id: groupId, p_scope: scope });
   const result = (data as RpcResult | null)?.result;
   if (error || (result !== "ok" && result !== "no_feed")) redirect(accountUrl(groupSlug, "error", CALENDAR_TAB));
-  redirect(accountUrl(groupSlug, "calendar_off", CALENDAR_TAB));
+  redirect(accountUrl(groupSlug, scope === "mine" ? "calendar_off_mine" : "calendar_off", CALENDAR_TAB));
 }

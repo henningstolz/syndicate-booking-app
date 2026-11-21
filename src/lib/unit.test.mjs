@@ -28,6 +28,7 @@ import { csvCell, toCsv } from "./export/csv.ts";
 import { buildExportFiles, zipFiles } from "./export/build-export.ts";
 import { fetchAll } from "./export/fetch-all.ts";
 import { planItemChanges } from "./aircraft-items.ts";
+import { parseFeedScope, feedEvents, feedCalendarName, feedFileName } from "./calendar-feed.ts";
 import { statusEntries, STATUS_FIELDS } from "./aircraft-status.ts";
 import { unzipSync } from "fflate";
 import { PDFDocument } from "pdf-lib";
@@ -583,6 +584,24 @@ eq([describeDevice("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Apple
   eq(statusEntries(group, [{ id: "1", label: "First aid kit", due_date: past }, { id: "2", label: "Life raft", due_date: soon }, { id: "3", label: "Flares", due_date: null }]).slice(-3),
     [{ label: "First aid kit", status: "overdue" }, { label: "Life raft", status: "soon" }, { label: "Flares", status: "unset" }],
     "the equipment items show up in the status list with their own status");
+}
+
+// The calendar links: the whole group's feed (as always) and the own-bookings feed.
+{
+  const booking = (id, who, mine, note = null) => ({ id, starts_at: "2026-12-01T09:00:00Z", ends_at: "2026-12-01T11:00:00Z", note, who, mine, created_at: "2026-11-01T10:00:00Z" });
+  const all = { group_name: "Group One", group_slug: "one", registration: "G-ONE", bookings: [booking("b1", "Alice", false, "Lunch"), booking("b2", "Bob", true)] };
+  const mine = { ...all, scope: "mine", bookings: [booking("b2", "Bob", true, "Trip")] };
+  eq([parseFeedScope("mine"), parseFeedScope("all"), parseFeedScope(undefined), parseFeedScope("junk"), parseFeedScope(null)], ["mine", "all", "all", "all", "all"], "anything but 'mine' is the whole-group feed");
+  eq([feedCalendarName(all), feedCalendarName(mine)], ["Group One bookings", "Group One: my bookings"], "the two calendars have different names");
+  eq([feedFileName(all), feedFileName(mine), feedFileName({ ...all, registration: "G ON/E" })], ["blocktime-G-ONE.ics", "blocktime-G-ONE-mine.ics", "blocktime-G_ON_E.ics"], "file names differ and stay safe");
+  const a = feedEvents(all, "https://blocktime.group");
+  eq(a.map((e) => [e.uid, e.summary]), [["booking-b1@blocktime.group", "G-ONE: Alice"], ["booking-b2@blocktime.group", "G-ONE: You"]], "whole-group feed: same event ids and titles as before");
+  eq(a[0].description, "Alice's booking of G-ONE\nNote: Lunch\nOpen in Blocktime: https://blocktime.group/one/calendar?view=list", "...with who booked, the note and a link");
+  const m = feedEvents(mine, "https://blocktime.group");
+  eq(m.map((e) => [e.uid, e.summary]), [["booking-b2-mine@blocktime.group", "G-ONE booking"]], "own-bookings feed: its own event ids, so two subscribed calendars never clash");
+  eq(m[0].description.startsWith("Your booking of G-ONE\nNote: Trip"), true, "...described as the member's own booking");
+  eq(feedEvents({ ...all, scope: undefined }, "x").map((e) => e.uid), a.map((e) => e.uid), "a feed from a database without kinds is the whole-group feed");
+  eq(feedEvents({ ...mine, bookings: [] }, "x"), [], "an empty own-bookings feed has no events");
 }
 
 console.log(`${count} unit checks passed`);

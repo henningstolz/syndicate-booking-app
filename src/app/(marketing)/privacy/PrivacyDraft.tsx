@@ -69,9 +69,9 @@ export default function PrivacyDraft() {
             followed up; ask for it to be deleted at any time.
           </li>
           <li>
-            <strong>Your calendar link:</strong> if you create one under Account, a secret web address that shows your
-            group&apos;s bookings (times, who booked, notes) to whoever has it. You can replace or switch it off at any time. If
-            you add it to a calendar app, that calendar provider fetches and keeps a copy of those bookings under its own terms.
+            <strong>Your calendar links:</strong> if you create one under Account, a secret web address that shows your
+            group&apos;s bookings, or only your own, if you choose that kind (times, who booked, notes) to whoever has it. You can replace or switch each one off at any time. If
+            you add one to a calendar app, that calendar provider fetches and keeps a copy of those bookings under its own terms.
           </li>
           <li>
             <strong>Technical data:</strong> like any website, the hosting provider sees your IP address and browser type when

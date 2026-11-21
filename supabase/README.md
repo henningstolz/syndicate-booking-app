@@ -177,6 +177,13 @@ every migration there first. See `docs/systems-and-accounts.md`.
     the code. Tested by `supabase/tests/billing-basis.test.mjs` and the random-month comparison in
     `costs.test.mjs`, which covers both bases.
 
+30. `0030_calendar_feed_scopes.sql` — two kinds of calendar link: `all` (the whole group's bookings, as
+    before) and `mine` (only the member's own). `calendar_feeds.scope`; `create_calendar_feed()` and
+    `revoke_calendar_feed()` take the kind (default `all`, so the code from before still works); one active
+    link per member, group and kind; `calendar_feed(token)` returns only the member's own bookings for a
+    `mine` link. Existing links become `all` links with the same address. Additive: run it before pushing
+    the code. Tested by `supabase/tests/calendar-scopes.test.mjs`.
+
 ## Adding members to a group
 
 Two ways now:

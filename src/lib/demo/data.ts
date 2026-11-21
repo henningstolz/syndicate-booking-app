@@ -66,7 +66,7 @@ export const TABLE_COLUMNS: Record<keyof DemoDb, string[]> = {
   notification_preferences: ["group_id", "user_id", "event", "enabled", "updated_at"],
   cost_rates: ["id", "group_id", "user_id", "effective_month", "monthly_fee_pence", "hourly_rate_pence", "created_by", "created_at"],
   cost_billing_basis: ["id", "group_id", "effective_month", "basis", "created_by", "created_at"],
-  calendar_feeds: ["id", "group_id", "user_id", "token", "created_at", "revoked_at"],
+  calendar_feeds: ["id", "group_id", "user_id", "token", "scope", "created_at", "revoked_at"],
   documents: [
     "id", "group_id", "uploaded_by", "title", "category", "file_name", "content_type",
     "size_bytes", "storage_path", "created_at", "deleted_at", "deleted_by",

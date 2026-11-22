@@ -4,6 +4,7 @@ import { LONDON_TZ } from "@/lib/datetime";
 import { STATUS_FIELDS, dateStatus, fieldStatus, type Status } from "@/lib/aircraft-status";
 import { getAircraftItems } from "@/lib/aircraft-items";
 import { AircraftForm } from "./AircraftForm";
+import { AircraftTabs } from "./AircraftTabs";
 
 const STATUS_STYLES: Record<Status, string> = {
   overdue: "border-red-300 bg-red-50 text-red-700",
@@ -87,6 +88,7 @@ export default async function AircraftPage({
 
   return (
     <main className="flex flex-1 flex-col gap-4 px-4 py-6">
+      <AircraftTabs groupSlug={groupSlug} active="status" />
       <div className="flex flex-col gap-2">
         {STATUS_FIELDS.filter((field) => field.kind === "date").map((field) => (
           <StatusRow

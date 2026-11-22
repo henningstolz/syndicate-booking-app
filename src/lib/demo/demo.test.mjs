@@ -38,6 +38,10 @@ for (const now of [NOW, new Date("2026-01-15T12:00:00Z"), new Date("2026-07-15T1
   yes(db.bookings.filter((b) => b.status === "confirmed" && Date.parse(b.starts_at) > now.getTime()).length >= 4, `${label}: upcoming bookings exist`);
   yes(db.bookings.some((b) => Date.parse(b.ends_at) - Date.parse(b.starts_at) > 2 * 86_400_000 && Date.parse(b.starts_at) > now.getTime()), `${label}: a multi-day trip is coming up`);
   yes(db.bookings.length > 60, `${label}: plenty of history for the reports`);
+  // The sample unavailable period (an annual inspection a month ahead) cancels nothing: no confirmed booking is in it.
+  const period = db.aircraft_downtime[0];
+  yes(db.aircraft_downtime.length === 1 && Date.parse(period.starts_at) > now.getTime() && period.reason === "annual", `${label}: one annual inspection is coming up`);
+  yes(!db.bookings.some((b) => b.status === "confirmed" && Date.parse(b.starts_at) < Date.parse(period.ends_at) && Date.parse(b.ends_at) > Date.parse(period.starts_at)), `${label}: no confirmed booking lies inside the unavailable period`);
 
   // Flights: well-formed, never overlapping, each inside its captain's booking.
   const flights = db.flight_entries;
@@ -119,6 +123,8 @@ for (const now of [NOW, new Date("2026-01-15T12:00:00Z"), new Date("2026-07-15T1
   eq((await engine.from("bookings").insert({ group_id: "demo-group", member_id: "demo-alex", starts_at: new Date("2026-11-20T10:00:00Z").toISOString(), ends_at: new Date("2026-11-20T14:00:00Z").toISOString() })).error.code, "23P01", "an overlapping booking is refused (exclusion violation)");
   eq((await engine.from("bookings").insert({ group_id: "demo-group", member_id: "demo-alex", starts_at: freeEnd, ends_at: free })).error.code, "23514", "end before start is refused (check violation)");
   eq((await engine.from("bookings").insert({ group_id: "demo-group", member_id: "demo-alex", starts_at: freeEnd, ends_at: new Date("2026-11-20T15:00:00Z").toISOString() })).error, null, "a booking that starts exactly when another ends is fine");
+  const inside = await engine.from("bookings").insert({ group_id: "demo-group", member_id: "demo-alex", starts_at: new Date("2026-11-05T09:00:00Z").toISOString(), ends_at: new Date("2026-11-05T11:00:00Z").toISOString() });
+  eq([inside.error.code, inside.error.message, inside.error.details], ["P0001", "aircraft_unavailable", "annual"], "a booking inside the aircraft's unavailable period is refused, with the reason (as the real database does)");
   const touching = (await engine.from("bookings").select("id").eq("note", "mine")).data[0].id;
   await engine.from("bookings").update({ status: "cancelled", cancelled_at: NOW.toISOString(), cancelled_by: "demo-alex" }).eq("id", touching);
   eq((await engine.from("bookings").select("status").eq("id", touching).maybeSingle()).data.status, "cancelled", "cancelling works");

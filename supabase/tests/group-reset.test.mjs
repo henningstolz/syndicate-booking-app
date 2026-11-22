@@ -41,6 +41,7 @@ const fill = async (g, admin, member, extra) => {
   await db.query(`update public.group_members set removed_at = now() where group_id = $1 and display_name = 'Gone'`, [g]);
   await db.query(`insert into public.bookings (group_id, member_id, starts_at, ends_at) values ($1,$2,'2026-12-01 10:00+00','2026-12-01 12:00+00')`, [g, U[member]]);
   await db.query(`insert into public.squawks (group_id, author_id, message) values ($1,$2,'hello')`, [g, U[member]]);
+  await db.query(`insert into public.aircraft_downtime (group_id, starts_at, ends_at, reason, created_by) values ($1,'2030-03-01T00:00:00Z','2030-03-04T00:00:00Z','annual',$2)`, [g, U[admin]]);
   await db.query(`insert into public.flight_entries (group_id, flight_date, from_place, to_place, flight_category, captain_id, captain_name, fuel_left_usg, fuel_right_usg, oil_qt, brakes_off, airborne, landed, brakes_on, created_by)
     values ($1,'2026-11-01','A','B','PV',$2,'x',1,1,1,'2026-11-01T09:00:00Z','2026-11-01T09:10:00Z','2026-11-01T10:20:00Z','2026-11-01T10:30:00Z',$2)`, [g, U[admin]]);
   const doc = (await db.query(`insert into public.documents (group_id, uploaded_by, title, category, file_name, content_type, size_bytes, storage_path) values ($1,$2,'Doc','general','a.pdf','application/pdf',10,$3) returning id`, [g, U[admin], `${g}/a.pdf`])).rows[0].id;

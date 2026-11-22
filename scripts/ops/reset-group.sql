@@ -5,7 +5,7 @@
 -- What is KEPT:    the group (name, address name, registration, aircraft type, home base), its plan and plan
 --                  history, ONE admin member (the person whose email you enter below), every account, and each
 --                  person's own acceptance of the terms.
--- What is DELETED: all other memberships, bookings, chat, the whole tech log, expenses, payments, closed months,
+-- What is DELETED: all other memberships, bookings, the aircraft's unavailable periods, chat, the whole tech log, expenses, payments, closed months,
 --                  cost rates and billing basis, documents (the list; the files are removed in the dashboard,
 --                  block 2), invite links, calendar links, feedback, the export log, the reminder memory, the
 --                  email queue and the notification choices.
@@ -89,6 +89,7 @@ begin
   delete from public.documents where group_id = v_group;
   delete from public.cost_payments where group_id = v_group;
   delete from public.cost_month_closures where group_id = v_group;
+  delete from public.aircraft_downtime where group_id = v_group;
   delete from public.bookings where group_id = v_group;
   delete from public.squawks where group_id = v_group;
   delete from public.flight_entries where group_id = v_group;

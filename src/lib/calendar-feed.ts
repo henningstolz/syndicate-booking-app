@@ -2,6 +2,7 @@
 // import-free (apart from a type), so tests can load it in plain Node. The route src/app/cal/[file]/route.ts
 // only fetches and sends it.
 import type { IcsEvent } from "./ical.ts";
+import { reasonLabel } from "./downtime.ts";
 
 // The two kinds of link a member can have: the whole group's bookings, or only their own.
 export type FeedScope = "all" | "mine";
@@ -20,12 +21,23 @@ export type FeedBooking = {
   created_at: string;
 };
 
+// A period the admin marked the aircraft unavailable (only in a whole-group feed).
+export type FeedDowntime = {
+  id: string;
+  starts_at: string;
+  ends_at: string;
+  reason: string;
+  note: string | null;
+  created_at: string;
+};
+
 export type Feed = {
   scope?: FeedScope; // left out by a database from before migration 0030: the whole group
   group_name: string;
   group_slug: string;
   registration: string;
   bookings: FeedBooking[];
+  downtime?: FeedDowntime[]; // left out by a database from before migration 0032
 };
 
 // The calendar's name in the calendar app: the two links of one member can sit side by side.
@@ -42,7 +54,7 @@ export function feedFileName(feed: Feed): string {
 export function feedEvents(feed: Feed, siteBase: string): IcsEvent[] {
   const mineOnly = parseFeedScope(feed.scope) === "mine";
   const link = `${siteBase}/${encodeURIComponent(feed.group_slug)}/calendar?view=list`;
-  return feed.bookings.map((booking) => ({
+  const bookings = feed.bookings.map((booking) => ({
     // The whole-group feed keeps the ids it has always had (so existing subscriptions update in place); the
     // own-bookings feed has its own, so the same booking in two subscribed calendars never clashes.
     uid: mineOnly ? `booking-${booking.id}-mine@blocktime.group` : `booking-${booking.id}@blocktime.group`,
@@ -59,4 +71,19 @@ export function feedEvents(feed: Feed, siteBase: string): IcsEvent[] {
     url: link,
     stamp: booking.created_at,
   }));
+  // The aircraft's unavailable periods, for a whole-group calendar only.
+  const unavailable: IcsEvent[] = mineOnly
+    ? []
+    : (feed.downtime ?? []).map((period) => ({
+        uid: `downtime-${period.id}@blocktime.group`,
+        start: period.starts_at,
+        end: period.ends_at,
+        summary: `${feed.registration}: unavailable (${reasonLabel(period.reason)})`,
+        description: [`The aircraft is unavailable: ${reasonLabel(period.reason)}`, period.note ? `Note: ${period.note}` : "", `Open in Blocktime: ${link}`]
+          .filter(Boolean)
+          .join("\n"),
+        url: link,
+        stamp: period.created_at,
+      }));
+  return [...unavailable, ...bookings];
 }

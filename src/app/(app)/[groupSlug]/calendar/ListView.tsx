@@ -10,6 +10,7 @@ import {
 } from "@/lib/datetime";
 import { FULL_DAY_START, FULL_DAY_END } from "@/lib/booking-durations";
 import { memberColor } from "@/lib/member-colors";
+import { reasonLabel, describePeriod, type DowntimePeriod } from "@/lib/downtime";
 import { BookingForm } from "./BookingForm";
 import { cancelBooking } from "./actions";
 
@@ -33,6 +34,7 @@ export function ListView({
   days,
   todayKey,
   bookingsByDay,
+  downtimeByDay,
   memberIndex,
   memberName,
   user,
@@ -44,6 +46,8 @@ export function ListView({
   // Today's date in UK time: that day is highlighted.
   todayKey: string;
   bookingsByDay: Map<string, BookingRow[]>;
+  // The days the aircraft is unavailable (maintenance, a defect, ...), with why.
+  downtimeByDay: Map<string, DowntimePeriod[]>;
   memberIndex: Map<string, number>;
   memberName: (userId: string) => string;
   user: User | null;
@@ -104,6 +108,12 @@ export function ListView({
           return start <= dayWindowStart && end >= dayWindowEnd;
         });
 
+        // The aircraft is unavailable for the whole flying window that day: nothing can be booked.
+        const dayDowntime = downtimeByDay.get(key) ?? [];
+        const isUnavailableAllDay = dayDowntime.some(
+          (p) => new Date(p.starts_at).getTime() <= dayWindowStart && new Date(p.ends_at).getTime() >= dayWindowEnd,
+        );
+
         const isToday = key === todayKey;
 
         return (
@@ -118,6 +128,21 @@ export function ListView({
               )}
               {formatDayHeading(day)}
             </h2>
+
+            {dayDowntime.map((period) => (
+              <div
+                key={period.id}
+                className="flex flex-col rounded-lg border border-zinc-300 bg-zinc-100 px-3 py-2"
+              >
+                <span className="text-sm font-medium text-zinc-800">
+                  Unavailable: {reasonLabel(period.reason)}
+                </span>
+                <span className="text-xs text-zinc-600">
+                  {describePeriod(period.starts_at, period.ends_at)}
+                  {period.note ? ` · ${period.note}` : ""}
+                </span>
+              </div>
+            ))}
 
             {dayBookings.map((booking) => {
               const colorIndex = memberIndex.get(booking.member_id) ?? 0;
@@ -182,7 +207,7 @@ export function ListView({
               );
             })}
 
-            {!isFullyBooked && (
+            {!isFullyBooked && !isUnavailableAllDay && (
               <BookingForm
                 groupId={groupId}
                 groupSlug={groupSlug}

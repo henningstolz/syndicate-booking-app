@@ -5,6 +5,7 @@
 import { LONDON_TZ, formatDayHeading, formatTime, londonDateKey } from "../datetime.ts";
 import { formatHoursTenths, formatMoney } from "../costs.ts";
 import { monthLabel } from "../statement-pdf-input.ts";
+import { describePeriod, reasonLabel } from "../downtime.ts";
 
 export type QueuedNotification = {
   id: string;
@@ -133,6 +134,35 @@ function content(n: QueuedNotification): Content {
         link: { label: "Open the calendar", path: calendar },
       };
     }
+    case "booking_unavailable": {
+      // Sent to each member whose booking(s) were cancelled because an admin marked the aircraft unavailable.
+      const bookings = (Array.isArray(p.bookings) ? p.bookings : []).filter(
+        (b): b is Record<string, unknown> => typeof b === "object" && b !== null && typeof (b as Record<string, unknown>).starts_at === "string" && typeof (b as Record<string, unknown>).ends_at === "string",
+      );
+      const reason = reasonLabel(p.reason);
+      const period = str(p.period_start) && str(p.period_end) ? describePeriod(str(p.period_start), str(p.period_end)) : "";
+      const by = str(p.cancelled_by);
+      const first = bookings[0];
+      const firstWhen = first ? describeWhen(str(first.starts_at), str(first.ends_at)) : "";
+      const count = bookings.length;
+      return {
+        subject:
+          count > 1
+            ? `${count} bookings cancelled: aircraft unavailable (${reason})`
+            : `Booking cancelled: aircraft unavailable (${reason})${firstWhen ? `, ${firstWhen}` : ""}`,
+        headline:
+          count > 1
+            ? "Your bookings were cancelled because the aircraft is unavailable"
+            : "Your booking was cancelled because the aircraft is unavailable",
+        lines: [
+          ...bookings.map((b) => `Cancelled: ${describeWhen(str(b.starts_at), str(b.ends_at))}${str(b.note) ? ` (${str(b.note)})` : ""}`),
+          `Unavailable: ${period ? `${period}, ` : ""}${reason}`,
+          by ? `Cancelled by ${by}.` : "",
+        ].filter(Boolean),
+        quote: note ? { label: "Note", text: note, tone: "warning" } : undefined,
+        link: { label: "Open the calendar", path: first ? `/${slug}/calendar?view=list&start=${londonDateKey(new Date(str(first.starts_at)))}` : `/${slug}/calendar?view=list` },
+      };
+    }
     case "chat_message": {
       const who = str(p.who, "A member");
       return {
@@ -251,7 +281,11 @@ export function renderNotification(n: QueuedNotification, siteUrl: string): Rend
   const c = content(n);
   const url = `${base}${c.link.path}`;
   const settingsUrl = `${base}/${encodeURIComponent(n.group_slug)}/account?tab=notifications`;
-  const reason = `You are getting this because you are a member of ${n.group_name} on Blocktime.`;
+  // An email about your own cancelled booking cannot be switched off, so it does not offer to.
+  const mandatory = n.event === "booking_unavailable";
+  const reason = mandatory
+    ? `You are getting this because a booking of yours in ${n.group_name} was cancelled. This email cannot be switched off.`
+    : `You are getting this because you are a member of ${n.group_name} on Blocktime.`;
 
   const text = [
     c.headline,
@@ -262,7 +296,7 @@ export function renderNotification(n: QueuedNotification, siteUrl: string): Rend
     "",
     "--",
     reason,
-    `Choose which emails you get: ${settingsUrl}`,
+    ...(mandatory ? [] : [`Choose which emails you get: ${settingsUrl}`]),
   ]
     .filter((line, i, all) => !(line === "" && (all[i - 1] === "" || i === 0)))
     .join("\n");
@@ -286,7 +320,7 @@ export function renderNotification(n: QueuedNotification, siteUrl: string): Rend
   <p style="margin:24px 0;"><a href="${escapeHtml(url)}" style="display:inline-block;padding:12px 22px;background:#172026;color:#f4f5f0;text-decoration:none;border-radius:999px;font-weight:600;font-size:15px;">${escapeHtml(c.link.label)}</a></p>
   <hr style="border:none;border-top:1px solid #d9dbd2;margin:28px 0 16px;">
   <p style="margin:0 0 6px;font-size:13px;line-height:1.5;color:#4f5a54;">${escapeHtml(reason)}</p>
-  <p style="margin:0;font-size:13px;line-height:1.5;color:#4f5a54;"><a href="${escapeHtml(settingsUrl)}" style="color:#1f5673;">Choose which emails you get</a></p>
+  ${mandatory ? "" : `<p style="margin:0;font-size:13px;line-height:1.5;color:#4f5a54;"><a href="${escapeHtml(settingsUrl)}" style="color:#1f5673;">Choose which emails you get</a></p>`}
 </div>
 </body>
 </html>`;

@@ -29,6 +29,7 @@ import { buildExportFiles, zipFiles } from "./export/build-export.ts";
 import { fetchAll } from "./export/fetch-all.ts";
 import { planItemChanges } from "./aircraft-items.ts";
 import { parseFeedScope, feedEvents, feedCalendarName, feedFileName } from "./calendar-feed.ts";
+import { resolveDowntimeRange, downtimeDayKeys, describePeriod, splitPeriods, periodsToShow, parseDowntimeReason, reasonLabel } from "./downtime.ts";
 import { formatReminderDate, daysBetween, describeReminder, reminderAlerts, planReminderChanges } from "./personal-reminders.ts";
 import { statusEntries, STATUS_FIELDS } from "./aircraft-status.ts";
 import { unzipSync } from "fflate";
@@ -507,6 +508,10 @@ eq([describeDevice("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Apple
     group: { name: "G-ONE Group", slug: "g-one", aircraft_registration: "G-ONE", aircraft_type: "PA-28", home_base: "EGLK", created_at: "2026-01-01T00:00:00Z", airframe_total_hours: 123.4, id: "secret-id-should-not-appear" },
     aircraftItems: [{ label: "Life raft", due_date: "2027-05-01" }, { label: "First aid kit", due_date: null }],
     billingBasis: [{ effective_month: "2026-10-01", basis: "flight", created_by: "u1", created_at: "t" }],
+    downtime: [
+      { starts_at: "2030-06-09T23:00:00Z", ends_at: "2030-06-12T23:00:00Z", reason: "annual", note: "Annual, with a \"quote\"", created_by: "u1", created_at: "t", removed_at: null, removed_by: null },
+      { starts_at: "2030-07-01T00:00:00Z", ends_at: "2030-07-02T00:00:00Z", reason: "defect", note: null, created_by: "u2", created_at: "t", removed_at: "t2", removed_by: "u1" },
+    ],
     members: [
       { user_id: "u1", display_name: "Alice", role: "admin", created_at: "2026-01-01", removed_at: null },
       { user_id: "u2", display_name: "=Bob", role: "member", created_at: "2026-02-01", removed_at: "2026-09-01" },
@@ -523,7 +528,7 @@ eq([describeDevice("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Apple
     documents: [{ title: "Insurance", category: "insurance", file_name: "ins.pdf", content_type: "application/pdf", size_bytes: 1000, uploaded_by: "u1", created_at: "t", storage_path: "SECRET/path.pdf" }],
   };
   const files = buildExportFiles(data);
-  eq(Object.keys(files).sort(), ["README.txt", "aircraft.csv", "bookings.csv", "chat.csv", "costs_billing_basis.csv", "costs_closed_months.csv", "costs_expenses.csv", "costs_payments.csv", "costs_rates.csv", "costs_statements.csv", "documents.csv", "flight_log.csv", "members.csv"], "the export holds these files");
+  eq(Object.keys(files).sort(), ["README.txt", "aircraft.csv", "aircraft_unavailable.csv", "bookings.csv", "chat.csv", "costs_billing_basis.csv", "costs_closed_months.csv", "costs_expenses.csv", "costs_payments.csv", "costs_rates.csv", "costs_statements.csv", "documents.csv", "flight_log.csv", "members.csv"], "the export holds these files");
   eq(files["members.csv"].split("\r\n").slice(1, 3), ["Alice,admin,2026-01-01,", "'=Bob,member,2026-02-01,2026-09-01"], "members: names only, and a name that looks like a formula is neutralised");
   eq(files["bookings.csv"].split("\r\n")[1], "'=Bob,2026-10-01T09:00:00Z,2026-10-01T11:00:00Z,cancelled,\"trip, with \"\"quotes\"\"\",2026-09-01,2026-09-02,Alice", "bookings: cancelled ones are included, names resolved, notes quoted");
   const flightLines = files["flight_log.csv"].split("\r\n");
@@ -534,6 +539,7 @@ eq([describeDevice("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Apple
   eq(files["costs_rates.csv"].split("\r\n").slice(1, 3).map((l) => l.split(",")[1]), ["Whole group", "'=Bob"], "rates: group-wide or by member");
   eq(files["costs_statements.csv"].split("\r\n")[1], "2026-09-01,closed,Alice,2,15,5000,18000,0,23000,230,block", "saved statements: one row per member, with the hours basis (block for one saved before the choice existed)");
   eq(files["costs_statements.csv"].split("\r\n")[2], "2026-10-01,closed,Alice,1,9,5000,10800,0,15800,158,flight", "a month closed under flight billing says so");
+  eq(files["aircraft_unavailable.csv"].split("\r\n").slice(1, 3), ["2030-06-09T23:00:00Z,2030-06-12T23:00:00Z,annual,\"Annual, with a \"\"quote\"\"\",Alice,t,no,,", "2030-07-01T00:00:00Z,2030-07-02T00:00:00Z,defect,,'=Bob,t,yes,t2,Alice"], "the unavailable periods are in the export, removed ones marked, notes quoted, names resolved");
   eq(files["costs_billing_basis.csv"].split("\r\n").slice(1, 2), ["2026-10-01,flight,Alice,t"], "the billing basis choices are in the export");
   eq(files["aircraft.csv"].split("\r\n").slice(1, 4), ["Group name,G-ONE Group", "Group address name,g-one", "Registration,G-ONE"], "aircraft details with readable labels");
   eq(files["aircraft.csv"].split("\r\n").slice(-3, -1), ["Life raft due,2027-05-01", "First aid kit due,"], "the equipment list is in the aircraft file, a missing date left empty");
@@ -603,6 +609,12 @@ eq([describeDevice("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Apple
   eq(m[0].description.startsWith("Your booking of G-ONE\nNote: Trip"), true, "...described as the member's own booking");
   eq(feedEvents({ ...all, scope: undefined }, "x").map((e) => e.uid), a.map((e) => e.uid), "a feed from a database without kinds is the whole-group feed");
   eq(feedEvents({ ...mine, bookings: [] }, "x"), [], "an empty own-bookings feed has no events");
+  const periods = [{ id: "d1", starts_at: "2026-12-12T00:00:00Z", ends_at: "2026-12-15T00:00:00Z", reason: "annual", note: "Annual inspection", created_at: "2026-11-01T10:00:00Z" }];
+  const withDowntime = feedEvents({ ...all, downtime: periods }, "https://blocktime.group");
+  eq(withDowntime.map((e) => e.uid), ["downtime-d1@blocktime.group", "booking-b1@blocktime.group", "booking-b2@blocktime.group"], "the whole-group feed lists the unavailable period (with its own event id) before the bookings");
+  eq([withDowntime[0].summary, withDowntime[0].start, withDowntime[0].end], ["G-ONE: unavailable (Annual / permit)", "2026-12-12T00:00:00Z", "2026-12-15T00:00:00Z"], "...titled with the reason and with its start and end");
+  yes(withDowntime[0].description.includes("Note: Annual inspection"), "...and carrying the admin's note");
+  eq(feedEvents({ ...mine, downtime: periods }, "x").map((e) => e.uid), ["booking-b2-mine@blocktime.group"], "an own-bookings feed never lists unavailable periods");
 }
 
 // Personal reminders (Account, Reminders): the dates, the days remaining, the warnings, the dashboard note.
@@ -642,6 +654,41 @@ eq([describeDevice("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Apple
   eq(plan({ ids: ["", ""], labels: ["Medical", "medical"], dues: ["", ""] }), { error: 'Two items are called "medical". Give them different names.' }, "duplicate names are refused");
   eq(plan({ ids: Array(31).fill(""), labels: Array.from({ length: 31 }, (_, i) => `R${i}`), dues: Array(31).fill("") }), { error: "You can have at most 30 reminders." }, "more than 30: worded for a person");
   eq(planItemChanges({ ids: [""], labels: [""], dues: [""], origLabels: [], origDues: [], deletedIds: [], maxItems: 30, maxLabel: 60 }), { error: "Every equipment item needs a name." }, "the equipment list keeps its own wording");
+}
+
+// Aircraft downtime: the period an admin marks the aircraft unavailable.
+{
+  eq([parseDowntimeReason("annual"), parseDowntimeReason("holiday"), parseDowntimeReason(null)], ["annual", null, null], "only the four reasons are accepted");
+  eq([reasonLabel("maintenance"), reasonLabel("annual"), reasonLabel("defect"), reasonLabel("other"), reasonLabel("junk"), reasonLabel(null)], ["Maintenance", "Annual / permit", "Defect", "Other", "Unavailable", "Unavailable"], "reasons read in plain words");
+
+  eq(resolveDowntimeRange({ startDate: "2030-06-10", endDate: "2030-06-12" }), { startsAt: "2030-06-09T23:00:00.000Z", endsAt: "2030-06-12T23:00:00.000Z" }, "whole days in UK summer time: UK midnight to UK midnight, the last day included");
+  eq(resolveDowntimeRange({ startDate: "2030-12-10", endDate: "2030-12-12" }), { startsAt: "2030-12-10T00:00:00.000Z", endsAt: "2030-12-13T00:00:00.000Z" }, "...and in winter time");
+  eq(resolveDowntimeRange({ startDate: "2030-10-26", endDate: "2030-10-27" }), { startsAt: "2030-10-25T23:00:00.000Z", endsAt: "2030-10-28T00:00:00.000Z" }, "...across the night the clocks go back (49 hours)");
+  eq(resolveDowntimeRange({ startDate: "2030-06-10", endDate: "2030-06-10", startTime: "08:00", endTime: "12:00" }), { startsAt: "2030-06-10T07:00:00.000Z", endsAt: "2030-06-10T11:00:00.000Z" }, "with times: part of a day");
+  eq(resolveDowntimeRange({ startDate: "2030-06-10", endDate: "2030-06-12", startTime: "14:00" }), { startsAt: "2030-06-10T13:00:00.000Z", endsAt: "2030-06-12T23:00:00.000Z" }, "a start time alone: from then to the end of the last day");
+  eq(resolveDowntimeRange({ startDate: "2030-06-10", endDate: "2030-06-12", endTime: "09:30" }), { startsAt: "2030-06-09T23:00:00.000Z", endsAt: "2030-06-12T08:30:00.000Z" }, "an end time alone: from the start of the first day to then");
+  yes("error" in resolveDowntimeRange({ startDate: "2030-06-12", endDate: "2030-06-10" }), "an end date before the start is refused");
+  yes("error" in resolveDowntimeRange({ startDate: "", endDate: "2030-06-10" }) && "error" in resolveDowntimeRange({ startDate: "2030-13-01", endDate: "2030-06-10" }) && "error" in resolveDowntimeRange({ startDate: "2030-02-30", endDate: "2030-03-02" }), "missing or impossible dates are refused");
+  yes("error" in resolveDowntimeRange({ startDate: "2030-06-10", endDate: "2030-06-10", startTime: "25:00" }) && "error" in resolveDowntimeRange({ startDate: "2030-06-10", endDate: "2030-06-10", endTime: "9" }), "impossible times are refused");
+  yes("error" in resolveDowntimeRange({ startDate: "2030-06-10", endDate: "2030-06-10", startTime: "12:00", endTime: "08:00" }), "a period that ends before it starts on the same day is refused");
+  yes("error" in resolveDowntimeRange({ startDate: "2030-06-10", endDate: "2030-06-10", startTime: "12:00", endTime: "12:00" }), "...and an empty one");
+
+  const whole = { startsAt: "2030-06-09T23:00:00.000Z", endsAt: "2030-06-12T23:00:00.000Z" };
+  eq(downtimeDayKeys(whole.startsAt, whole.endsAt), ["2030-06-10", "2030-06-11", "2030-06-12"], "whole days: each day touched, and not the day after the midnight it ends at");
+  eq(downtimeDayKeys("2030-06-10T08:00:00Z", "2030-06-15T11:00:00Z"), ["2030-06-10", "2030-06-11", "2030-06-12", "2030-06-13", "2030-06-14", "2030-06-15"], "a period with times: the days it touches");
+  eq(downtimeDayKeys("2030-06-10T07:00:00Z", "2030-06-10T11:00:00Z"), ["2030-06-10"], "a part day touches one day");
+  eq(describePeriod(whole.startsAt, whole.endsAt), "Mon 10 Jun – Wed 12 Jun", "whole days read as a range, the last day included");
+  eq(describePeriod("2030-06-09T23:00:00.000Z", "2030-06-10T23:00:00.000Z"), "Mon 10 Jun", "one whole day reads as that day");
+  eq(describePeriod("2030-06-10T07:00:00Z", "2030-06-10T11:00:00Z"), "Mon 10 Jun, 08:00–12:00", "a part day shows its times");
+  eq(describePeriod("2030-06-10T07:00:00Z", "2030-06-12T11:00:00Z"), "Mon 10 Jun 08:00 – Wed 12 Jun 12:00", "a period across days with times shows them");
+
+  const now = new Date("2030-06-11T12:00:00Z");
+  const p = (id, from, to) => ({ id, starts_at: from, ends_at: to, reason: "annual", note: null });
+  const periods = [p("past", "2030-06-01T00:00:00Z", "2030-06-03T00:00:00Z"), p("now", "2030-06-10T00:00:00Z", "2030-06-12T00:00:00Z"), p("soon", "2030-06-20T00:00:00Z", "2030-06-22T00:00:00Z"), p("later", "2030-09-01T00:00:00Z", "2030-09-03T00:00:00Z")];
+  const split = splitPeriods(periods, now);
+  eq([split.current.map((x) => x.id), split.upcoming.map((x) => x.id), split.earlier.map((x) => x.id)], [["now"], ["soon", "later"], ["past"]], "periods are split into on now, coming up and earlier");
+  eq(periodsToShow(periods, now).map((x) => x.id), ["now", "soon"], "the dashboard shows what is on now or starts within two weeks, not what is over or far off");
+  eq(periodsToShow(periods, now, 100).map((x) => x.id), ["now", "soon", "later"], "...the window can be widened");
 }
 
 console.log(`${count} unit checks passed`);

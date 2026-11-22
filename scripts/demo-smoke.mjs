@@ -146,6 +146,16 @@ check(["Life raft due", "Life vests due", "Fire extinguisher due", "First aid ki
 const remindersHtml = await (await fetch(`${BASE}/demo/account?tab=reminders`)).text();
 check(["Medical", "SEP/MEP Rating", "IR/IMC Rating", "EXPIRED - DO NOT FLY IMC!", "549 days remaining"].every((t) => remindersHtml.includes(t)), "the demo's Reminders tab lists the three starter reminders with the IMC warning");
 
+// Aircraft availability: the demo has an annual inspection a month ahead, shown under Aircraft, Availability and
+// as "Unavailable" on the calendar.
+const availabilityHtml = await (await fetch(`${BASE}/demo/aircraft/availability`)).text();
+check(availabilityHtml.includes("Availability") && availabilityHtml.includes("Annual inspection") && availabilityHtml.includes("Annual / permit"), "the demo's Availability tab lists the annual inspection");
+{
+  const later = new Date(Date.now() + 29 * 86_400_000).toISOString().slice(0, 7);
+  const html = await (await fetch(`${BASE}/demo/calendar?view=month&month=${later}`)).text();
+  check(html.includes("Unavailable"), "the demo's calendar shows the unavailable days");
+}
+
 // A crawler must not be able to walk the demo's calendar through endless months: dates more than two
 // years from today are sent back to the plain page, and robots.txt asks crawlers to stay out of /demo/.
 for (const [path, back] of [

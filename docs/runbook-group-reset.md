@@ -10,7 +10,7 @@ Keeps: the group (name, address name, registration, type, home base), its plan a
 (chosen by sign-in email), every account, each person's own acceptance of the terms.
 
 Deletes: all other memberships (accounts stay; the people can rejoin through a new invite link), bookings,
-chat, the whole tech log, expenses, payments, closed months, cost rates, billing basis, documents (the list;
+the aircraft's unavailable periods, chat, the whole tech log, expenses, payments, closed months, cost rates, billing basis, documents (the list;
 the files by hand), invite links, calendar links, feedback, the export log, the reminder memory, the email
 queue and the notification choices.
 

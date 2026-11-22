@@ -15,6 +15,8 @@ export type ExportData = {
   aircraftItems: Row[];
   // The billing basis choices (block or flight time) with the month each applies from.
   billingBasis: Row[];
+  // The periods the aircraft was marked unavailable, including removed ones.
+  downtime: Row[];
   members: Row[];
   bookings: Row[];
   flights: Row[];
@@ -81,6 +83,12 @@ export function buildExportFiles(data: ExportData): Record<string, string> {
       pounds(r.monthly_fee_pence), pounds(r.hourly_rate_pence), who(r.created_by), r.created_at]),
   );
 
+  files["aircraft_unavailable.csv"] = toCsv(
+    ["from", "to", "reason", "note", "entered_by", "entered_at", "removed", "removed_at", "removed_by"],
+    data.downtime.map((d) => [d.starts_at, d.ends_at, d.reason, d.note, who(d.created_by), d.created_at,
+      d.removed_at !== null && d.removed_at !== undefined, d.removed_at, who(d.removed_by)]),
+  );
+
   files["costs_billing_basis.csv"] = toCsv(
     ["from_month", "basis", "set_by", "set_at"],
     data.billingBasis.map((b) => [b.effective_month, b.basis, who(b.created_by), b.created_at]),
@@ -145,6 +153,7 @@ export function buildExportFiles(data: ExportData): Record<string, string> {
     "costs_closed_months.csv  which months were closed (and reopened)",
     "costs_statements.csv  the saved statement of each closed month, one row per member",
     "aircraft.csv          the aircraft and the group's due dates",
+    "aircraft_unavailable.csv  the periods the aircraft was marked unavailable, with the reason (removed ones included)",
     "documents.csv         the list of uploaded documents and receipts",
     "",
     "The uploaded files themselves are not in this export. Download them one by one on the Documents page,",

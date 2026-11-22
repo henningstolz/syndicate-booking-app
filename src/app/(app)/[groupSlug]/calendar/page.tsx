@@ -13,6 +13,7 @@ import {
 } from "@/lib/datetime";
 import { ListView } from "./ListView";
 import { MonthGrid } from "./MonthGrid";
+import { downtimeDayKeys, type DowntimePeriod } from "@/lib/downtime";
 
 const DAYS_AHEAD = 14;
 
@@ -112,7 +113,7 @@ export default async function CalendarPage({
     rangeEnd = addLondonCalendarDays(listAnchor, DAYS_AHEAD);
   }
 
-  const [{ data: members }, { data: bookings }] = await Promise.all([
+  const [{ data: members }, { data: bookings }, { data: downtime }] = await Promise.all([
     supabase
       .from("group_members")
       .select("user_id, display_name, role, removed_at")
@@ -128,6 +129,16 @@ export default async function CalendarPage({
       .lt("starts_at", rangeEnd.toISOString())
       .order("starts_at")
       .returns<BookingRow[]>(),
+    // The periods the aircraft is unavailable (maintenance, a defect, ...), for everyone to see.
+    supabase
+      .from("aircraft_downtime")
+      .select("id, starts_at, ends_at, reason, note")
+      .eq("group_id", group.id)
+      .is("removed_at", null)
+      .gt("ends_at", rangeStart.toISOString())
+      .lt("starts_at", rangeEnd.toISOString())
+      .order("starts_at")
+      .returns<DowntimePeriod[]>(),
   ]);
 
   const memberList = members ?? [];
@@ -145,6 +156,15 @@ export default async function CalendarPage({
       const list = bookingsByDay.get(key) ?? [];
       list.push(booking);
       bookingsByDay.set(key, list);
+    }
+  }
+
+  const downtimeByDay = new Map<string, DowntimePeriod[]>();
+  for (const period of downtime ?? []) {
+    for (const key of downtimeDayKeys(period.starts_at, period.ends_at)) {
+      const list = downtimeByDay.get(key) ?? [];
+      list.push(period);
+      downtimeByDay.set(key, list);
     }
   }
 
@@ -200,6 +220,7 @@ export default async function CalendarPage({
           monthIndex={monthIndex}
           todayKey={todayKey}
           bookingsByDay={bookingsByDay}
+          downtimeByDay={downtimeByDay}
           memberIndex={memberIndex}
           memberName={memberName}
         />
@@ -212,6 +233,7 @@ export default async function CalendarPage({
           )}
           todayKey={todayKey}
           bookingsByDay={bookingsByDay}
+          downtimeByDay={downtimeByDay}
           memberIndex={memberIndex}
           memberName={memberName}
           user={user}

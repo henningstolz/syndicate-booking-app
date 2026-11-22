@@ -35,6 +35,7 @@ export type DemoDb = {
   cost_rates: Row[];
   cost_billing_basis: Row[];
   personal_reminders: Row[];
+  aircraft_downtime: Row[];
   cost_expenses: Row[];
   calendar_feeds: Row[];
   documents: Row[];
@@ -68,6 +69,7 @@ export const TABLE_COLUMNS: Record<keyof DemoDb, string[]> = {
   cost_rates: ["id", "group_id", "user_id", "effective_month", "monthly_fee_pence", "hourly_rate_pence", "created_by", "created_at"],
   cost_billing_basis: ["id", "group_id", "effective_month", "basis", "created_by", "created_at"],
   personal_reminders: ["id", "user_id", "label", "due_date", "position", "expired_text", "created_at"],
+  aircraft_downtime: ["id", "group_id", "starts_at", "ends_at", "reason", "note", "created_by", "created_at", "removed_at", "removed_by"],
   calendar_feeds: ["id", "group_id", "user_id", "token", "scope", "created_at", "revoked_at"],
   documents: [
     "id", "group_id", "uploaded_by", "title", "category", "file_name", "content_type",
@@ -548,6 +550,22 @@ export function buildDb(now: Date, overlay: DemoOverlay): DemoDb {
     cost_rates: costRates,
     // No choice made: the demo bills block time, like a group that never chose.
     cost_billing_basis: [],
+    // The aircraft's annual inspection, a month ahead: shown on the calendar and under Aircraft, Availability. It
+    // sits after the last placed booking, so nothing is cancelled by it, and the demo refuses a booking inside it.
+    aircraft_downtime: [
+      {
+        id: "demo-downtime-1",
+        group_id: DEMO_GROUP_ID,
+        starts_at: iso(at(dayKey(28), "00:00")),
+        ends_at: iso(at(dayKey(31), "00:00")),
+        reason: "annual",
+        note: "Annual inspection",
+        created_by: DEMO_USER.id,
+        created_at: iso(nowMs - 20 * DAY),
+        removed_at: null,
+        removed_by: null,
+      },
+    ],
     // The visitor's own reminders: one far away, one soon, one expired (shown with the old system's warning).
     personal_reminders: [
       ["Medical", dateIn(549), null],

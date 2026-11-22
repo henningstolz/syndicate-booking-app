@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { flushSoon } from "@/lib/notify/flush";
 import { assertCanWrite } from "@/lib/entitlements";
+import { reasonLabel } from "@/lib/downtime";
 import { londonWallTimeToUtc } from "@/lib/datetime";
 import {
   FULL_DAY_START,
@@ -107,6 +108,11 @@ export async function createBooking(
   });
 
   if (error) {
+    // The aircraft is marked unavailable then (an admin's maintenance period, see aircraft_downtime): the
+    // database refuses and names the reason.
+    if (error.message?.includes("aircraft_unavailable")) {
+      return { error: `The aircraft is unavailable then (${reasonLabel(error.details)}).` };
+    }
     // exclusion_violation: overlaps a confirmed booking (23P01),
     // check_violation: end time before/at start time (23514).
     if (error.code === "23P01") {

@@ -235,4 +235,27 @@ function deps(overrides = {}) {
   delete process.env.RESEND_API_KEY;
 }
 
+// ------------------------------------------- booking cancelled because the aircraft is unavailable
+{
+  const base = { reason: "annual", note: "Annual <inspection>", period_start: "2030-06-09T23:00:00Z", period_end: "2030-06-12T23:00:00Z", cancelled_by: "Alice" }; // 10 to 12 June, UK midnight to midnight
+  const one = renderNotification(item("booking_unavailable", { ...base, bookings: [{ starts_at: "2030-06-10T08:00:00Z", ends_at: "2030-06-10T10:00:00Z", note: "Lunch trip" }] }), SITE);
+  eq(one.subject, "Booking cancelled: aircraft unavailable (Annual / permit), Mon 10 Jun, 09:00–11:00", "one cancelled booking: subject names the reason and the booking");
+  yes(one.text.includes("Your booking was cancelled because the aircraft is unavailable") && one.text.includes("Cancelled: Mon 10 Jun, 09:00–11:00 (Lunch trip)"), "...the text lists the booking and its own note");
+  yes(one.text.includes("Unavailable: Mon 10 Jun – Wed 12 Jun, Annual / permit") && one.text.includes("Cancelled by Alice."), "...the period (whole days, last day inclusive), the reason and who cancelled");
+  yes(one.text.includes("Note: Annual <inspection>") && one.html.includes("Annual &lt;inspection&gt;") && !one.html.includes("<inspection>"), "...the admin's note is shown, and escaped in the HTML");
+  yes(one.text.includes("/demo/calendar?view=list&start=2030-06-10"), "...and links to the calendar on that day");
+  yes(one.text.includes("This email cannot be switched off") && !one.text.includes("Choose which emails you get") && !one.html.includes("Choose which emails you get"), "...and does not offer to switch it off (it cannot be)");
+
+  const two = renderNotification(item("booking_unavailable", { ...base, reason: "defect", note: null, bookings: [
+    { starts_at: "2030-06-10T08:00:00Z", ends_at: "2030-06-10T10:00:00Z", note: null }, { starts_at: "2030-06-12T08:00:00Z", ends_at: "2030-06-12T10:00:00Z", note: null }] }), SITE);
+  eq(two.subject, "2 bookings cancelled: aircraft unavailable (Defect)", "several bookings: one email, subject with the count");
+  yes(two.text.includes("Your bookings were cancelled") && two.text.includes("Cancelled: Mon 10 Jun, 09:00–11:00") && two.text.includes("Cancelled: Wed 12 Jun, 09:00–11:00") && !two.text.includes("Note:"), "...every booking listed, no note line when the admin left none");
+
+  const partial = renderNotification(item("booking_unavailable", { ...base, period_start: "2030-06-10T08:00:00Z", period_end: "2030-06-10T12:00:00Z", bookings: [{ starts_at: "2030-06-10T08:00:00Z", ends_at: "2030-06-10T09:00:00Z", note: null }] }), SITE);
+  yes(partial.text.includes("Unavailable: Mon 10 Jun, 09:00–13:00, Annual / permit"), "a part-day period shows its times");
+  const odd = renderNotification(item("booking_unavailable", { bookings: "nonsense" }), SITE);
+  yes(odd.subject.startsWith("Booking cancelled: aircraft unavailable"), "a damaged payload still gives a sensible email, not a crash");
+  yes(!renderNotification(item("booking_created", { who: "Sam", starts_at: "2026-10-10T07:00:00Z", ends_at: "2026-10-10T11:00:00Z" }), SITE).text.includes("cannot be switched off"), "ordinary emails still offer the choice");
+}
+
 console.log(`${count} notification email checks passed`);

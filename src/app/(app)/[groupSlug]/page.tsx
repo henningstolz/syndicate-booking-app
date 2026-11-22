@@ -6,6 +6,7 @@ import { formatDayHeading, formatTime, londonDateKey } from "@/lib/datetime";
 import { statusEntries } from "@/lib/aircraft-status";
 import { getAircraftItems } from "@/lib/aircraft-items";
 import { reminderAlerts, type PersonalReminder } from "@/lib/personal-reminders";
+import { describePeriod, periodsToShow, reasonLabel, splitPeriods, type DowntimePeriod } from "@/lib/downtime";
 
 type MemberRow = { user_id: string; display_name: string | null };
 
@@ -31,7 +32,7 @@ export default async function GroupDashboardPage({
     return null;
   }
 
-  const [{ data: members }, { data: nextBookings }, items, { data: personal }] = await Promise.all([
+  const [{ data: members }, { data: nextBookings }, items, { data: personal }, { data: downtime }] = await Promise.all([
     supabase
       .from("group_members")
       .select("user_id, display_name")
@@ -53,6 +54,16 @@ export default async function GroupDashboardPage({
       .from("personal_reminders")
       .select("id, label, due_date, expired_text")
       .returns<PersonalReminder[]>(),
+    // Periods the aircraft is unavailable that are on now or start within two weeks.
+    supabase
+      .from("aircraft_downtime")
+      .select("id, starts_at, ends_at, reason, note")
+      .eq("group_id", group.id)
+      .is("removed_at", null)
+      .gt("ends_at", new Date().toISOString())
+      .lt("starts_at", new Date(new Date().getTime() + 14 * 86_400_000).toISOString())
+      .order("starts_at")
+      .returns<DowntimePeriod[]>(),
   ]);
 
   const memberList = members ?? [];
@@ -70,9 +81,23 @@ export default async function GroupDashboardPage({
   const hasOverdue = alerts.some((entry) => entry.status === "overdue");
   // Only visible to the person themselves: their own dates that have passed or are within 30 days.
   const personalAlerts = reminderAlerts(personal ?? [], londonDateKey(new Date()));
+  const unavailable = periodsToShow(downtime ?? [], new Date());
+  const unavailableNow = splitPeriods(unavailable, new Date()).current.length > 0;
 
   return (
     <main className="flex flex-1 flex-col gap-4 px-4 py-6">
+      {unavailable.length > 0 && (
+        <Link
+          href={`/${groupSlug}/aircraft/availability`}
+          className={`rounded-lg border px-4 py-3 text-sm font-medium ${
+            unavailableNow ? "border-red-300 bg-red-50 text-red-700" : "border-amber-300 bg-amber-50 text-amber-700"
+          }`}
+        >
+          {unavailableNow ? "Aircraft unavailable: " : "Aircraft unavailable soon: "}
+          {unavailable.map((period) => `${describePeriod(period.starts_at, period.ends_at)} (${reasonLabel(period.reason)})`).join(", ")}
+        </Link>
+      )}
+
       {alerts.length > 0 && (
         <Link
           href={`/${groupSlug}/aircraft`}

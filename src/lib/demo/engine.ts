@@ -27,12 +27,12 @@ export const DEMO_LIMIT_MESSAGE =
 const DEMO_READONLY_MESSAGE =
   "This is a demo, so that change isn't saved. Create your own group to use it.";
 
-type DbError = { message: string; code: string; details: null; hint: null };
+type DbError = { message: string; code: string; details: string | null; hint: null };
 type Result = { data: unknown; error: DbError | null; count: null; status: number; statusText: string };
 
-const fail = (code: string, message: string): Result => ({
+const fail = (code: string, message: string, details: string | null = null): Result => ({
   data: null,
-  error: { message, code, details: null, hint: null },
+  error: { message, code, details, hint: null },
   count: null,
   status: 400,
   statusText: "Bad Request",
@@ -313,6 +313,11 @@ class Engine {
     if (Number.isNaN(startsMs) || Number.isNaN(endsMs) || endsMs <= startsMs) {
       return fail("23514", 'new row for relation "bookings" violates check constraint');
     }
+    // An admin's unavailable period (maintenance, ...) blocks the booking, as in the real database.
+    const unavailable = this.db.aircraft_downtime.find(
+      (d) => !d.removed_at && startsMs < Date.parse(d.ends_at as string) && endsMs > Date.parse(d.starts_at as string),
+    );
+    if (unavailable) return fail("P0001", "aircraft_unavailable", String(unavailable.reason));
     const clash = this.db.bookings.some(
       (b) =>
         b.status === "confirmed" &&

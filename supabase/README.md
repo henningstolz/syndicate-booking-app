@@ -190,6 +190,14 @@ every migration there first. See `docs/systems-and-accounts.md`.
     once (`personal_reminder_seed` remembers it). Additive: run it before pushing the code. Tested by
     `supabase/tests/personal-reminders.test.mjs`.
 
+32. `0032_aircraft_downtime.sql` — aircraft downtime. `aircraft_downtime` (members read; admins add and remove
+    through `create_aircraft_downtime()` / `remove_aircraft_downtime()`); a rule on `bookings` refuses a new
+    booking that overlaps a period; adding a period reports the overlapping bookings first and, once confirmed
+    with the same list, cancels them and queues one `booking_unavailable` email per affected member (not
+    switchable off; the group is not emailed per booking); `calendar_feed()` lists the periods for a
+    whole-group link. Changes how a booking is accepted: run it before pushing the code. Tested by
+    `supabase/tests/aircraft-downtime.test.mjs`.
+
 ## Adding members to a group
 
 Two ways now:

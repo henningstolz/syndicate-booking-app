@@ -35,7 +35,8 @@ function NavLinks({
     <>
       {NAV_ITEMS.map((item) => {
         const href = `/${groupSlug}${item.path}`;
-        const active = pathname === href;
+        // A page with sub-pages (Aircraft, Availability) stays highlighted on them; the dashboard only on itself.
+        const active = pathname === href || (item.path !== "" && pathname.startsWith(`${href}/`));
         return (
           <Link
             key={href}

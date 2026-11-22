@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { memberColor } from "@/lib/member-colors";
+import { reasonLabel, type DowntimePeriod } from "@/lib/downtime";
 
 type BookingRow = {
   id: string;
@@ -33,6 +34,7 @@ export function MonthGrid({
   monthIndex,
   todayKey,
   bookingsByDay,
+  downtimeByDay = new Map(),
   memberIndex,
   memberName,
 }: {
@@ -42,6 +44,8 @@ export function MonthGrid({
   // Today's date in UK time, "2026-10-12": that day is highlighted.
   todayKey: string;
   bookingsByDay: Map<string, BookingRow[]>;
+  // The days the aircraft is unavailable (maintenance, a defect, ...), with why.
+  downtimeByDay?: Map<string, DowntimePeriod[]>;
   memberIndex: Map<string, number>;
   memberName: (userId: string) => string;
 }) {
@@ -109,6 +113,7 @@ export function MonthGrid({
           }
           const dateKey = `${year}-${pad(monthIndex + 1)}-${pad(day)}`;
           const dayBookings = bookingsByDay.get(dateKey) ?? [];
+          const dayDowntime = downtimeByDay.get(dateKey) ?? [];
           const isToday = dateKey === todayKey;
 
           return (
@@ -120,7 +125,9 @@ export function MonthGrid({
               className={`flex min-h-16 flex-col gap-1 rounded-md border p-1 ${
                 isToday
                   ? "border-zinc-900 bg-amber-50 hover:border-zinc-700"
-                  : "border-zinc-200 bg-white hover:border-zinc-400"
+                  : dayDowntime.length > 0
+                    ? "border-zinc-300 bg-zinc-100 hover:border-zinc-400"
+                    : "border-zinc-200 bg-white hover:border-zinc-400"
               }`}
             >
               {isToday ? (
@@ -132,6 +139,15 @@ export function MonthGrid({
                 <span className="font-mono text-xs text-zinc-500">{day}</span>
               )}
               <div className="flex flex-col gap-0.5">
+                {dayDowntime.map((period) => (
+                  <span
+                    key={period.id}
+                    title={`${reasonLabel(period.reason)}${period.note ? `: ${period.note}` : ""}`}
+                    className="truncate rounded bg-zinc-300 px-1 text-[10px] font-medium text-zinc-800"
+                  >
+                    Unavailable
+                  </span>
+                ))}
                 {dayBookings.map((booking) => (
                   <div key={booking.id} className="flex items-center gap-1">
                     <span

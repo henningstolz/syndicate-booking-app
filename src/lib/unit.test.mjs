@@ -29,6 +29,7 @@ import { buildExportFiles, zipFiles } from "./export/build-export.ts";
 import { fetchAll } from "./export/fetch-all.ts";
 import { planItemChanges } from "./aircraft-items.ts";
 import { parseFeedScope, feedEvents, feedCalendarName, feedFileName } from "./calendar-feed.ts";
+import { formatReminderDate, daysBetween, describeReminder, reminderAlerts, planReminderChanges } from "./personal-reminders.ts";
 import { statusEntries, STATUS_FIELDS } from "./aircraft-status.ts";
 import { unzipSync } from "fflate";
 import { PDFDocument } from "pdf-lib";
@@ -602,6 +603,45 @@ eq([describeDevice("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Apple
   eq(m[0].description.startsWith("Your booking of G-ONE\nNote: Trip"), true, "...described as the member's own booking");
   eq(feedEvents({ ...all, scope: undefined }, "x").map((e) => e.uid), a.map((e) => e.uid), "a feed from a database without kinds is the whole-group feed");
   eq(feedEvents({ ...mine, bookings: [] }, "x"), [], "an empty own-bookings feed has no events");
+}
+
+// Personal reminders (Account, Reminders): the dates, the days remaining, the warnings, the dashboard note.
+{
+  const today = "2026-11-22";
+  eq([formatReminderDate("2028-05-24"), formatReminderDate("2026-12-31"), formatReminderDate("2026-07-31"), formatReminderDate("2027-01-01")], ["Wednesday 24 May 2028", "Thursday 31 December 2026", "Friday 31 July 2026", "Friday 1 January 2027"], "dates read like the old system: weekday, day, month, year");
+  eq([daysBetween("2026-11-22", "2026-11-22"), daysBetween("2026-11-22", "2026-11-23"), daysBetween("2026-12-31", "2027-01-01"), daysBetween("2026-11-22", "2026-11-21"), daysBetween("2028-02-28", "2028-03-01")], [0, 1, 1, -1, 2], "days between dates, across a new year and a leap day");
+  const medical = describeReminder({ due_date: "2028-05-24", expired_text: null }, today);
+  const sep = describeReminder({ due_date: "2026-12-31", expired_text: null }, today);
+  const imc = describeReminder({ due_date: "2026-07-31", expired_text: "EXPIRED - DO NOT FLY IMC!" }, today);
+  eq([medical.status, medical.dateText, medical.daysText, medical.warning], ["ok", "Wednesday 24 May 2028", "549 days remaining", ""], "the old system's medical example: 549 days remaining");
+  eq([sep.status, sep.daysText], ["ok", "39 days remaining"], "...the SEP/MEP rating: 39 days remaining (still more than 30, so not yet amber)");
+  eq([imc.status, imc.dateText, imc.daysText, imc.warning], ["expired", "Friday 31 July 2026", "", "EXPIRED - DO NOT FLY IMC!"], "...the IR/IMC rating: expired, with its own warning");
+  eq(describeReminder({ due_date: "2026-07-31", expired_text: null }, today).warning, "EXPIRED", "an expired item without a special text says EXPIRED");
+  eq(describeReminder({ due_date: null, expired_text: null }, today), { status: "unset", dateText: "Not set", daysText: "", warning: "" }, "no date: not set, no warning");
+  const at = (key) => describeReminder({ due_date: key, expired_text: null }, today);
+  eq([at("2026-12-22").status, at("2026-12-23").status, at("2026-11-23").daysText, at("2026-11-22").daysText, at("2026-11-22").status, at("2026-11-21").status], ["soon", "ok", "1 day remaining", "expires today", "soon", "expired"], "30 days is due soon, 31 is not; the date itself is still valid, the day after it is expired");
+
+  const items = [
+    { id: "a", label: "Medical", due_date: "2028-05-24", expired_text: null },
+    { id: "b", label: "SEP/MEP Rating", due_date: "2026-12-31", expired_text: null },
+    { id: "c", label: "IR/IMC Rating", due_date: "2026-07-31", expired_text: "EXPIRED - DO NOT FLY IMC!" },
+    { id: "d", label: "First aid", due_date: "2026-11-22", expired_text: null },
+    { id: "e", label: "Empty", due_date: null, expired_text: null },
+  ];
+  eq(reminderAlerts(items, today), [
+    { label: "IR/IMC Rating", status: "expired", text: "IR/IMC Rating has expired" },
+    { label: "First aid", status: "soon", text: "First aid expires today" },
+  ], "the dashboard note lists only what is expired or due within 30 days, soonest first");
+  eq(reminderAlerts([{ id: "x", label: "Rating", due_date: "2026-12-12", expired_text: null }], today), [{ label: "Rating", status: "soon", text: "Rating expires in 20 days" }], "...and says how many days are left");
+  eq(reminderAlerts([items[0], items[4]], today), [], "nothing to note when all is well");
+
+  const plan = (o) => planReminderChanges({ origLabels: [], origDues: [], deletedIds: [], ...o });
+  eq(plan({ ids: ["a", ""], labels: ["Medical", " First  aid "], dues: ["2028-05-24", "2027-01-01"], origLabels: ["Medical", ""], origDues: ["2028-05-24", ""], deletedIds: ["z"] }),
+    { changes: [{ kind: "add", label: "First aid", due: "2027-01-01" }, { kind: "delete", id: "z" }] }, "reminder changes: an addition and a removal, the unchanged one is left alone");
+  eq(plan({ ids: [""], labels: [""], dues: [""] }), { error: "Every reminder needs a name." }, "an empty name: worded for reminders");
+  eq(plan({ ids: ["", ""], labels: ["Medical", "medical"], dues: ["", ""] }), { error: 'Two items are called "medical". Give them different names.' }, "duplicate names are refused");
+  eq(plan({ ids: Array(31).fill(""), labels: Array.from({ length: 31 }, (_, i) => `R${i}`), dues: Array(31).fill("") }), { error: "You can have at most 30 reminders." }, "more than 30: worded for a person");
+  eq(planItemChanges({ ids: [""], labels: [""], dues: [""], origLabels: [], origDues: [], deletedIds: [], maxItems: 30, maxLabel: 60 }), { error: "Every equipment item needs a name." }, "the equipment list keeps its own wording");
 }
 
 console.log(`${count} unit checks passed`);

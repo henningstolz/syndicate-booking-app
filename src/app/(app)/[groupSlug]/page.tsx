@@ -2,9 +2,10 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getGroupBySlug } from "@/lib/groups";
 import { memberColor } from "@/lib/member-colors";
-import { formatDayHeading, formatTime } from "@/lib/datetime";
+import { formatDayHeading, formatTime, londonDateKey } from "@/lib/datetime";
 import { statusEntries } from "@/lib/aircraft-status";
 import { getAircraftItems } from "@/lib/aircraft-items";
+import { reminderAlerts, type PersonalReminder } from "@/lib/personal-reminders";
 
 type MemberRow = { user_id: string; display_name: string | null };
 
@@ -30,7 +31,7 @@ export default async function GroupDashboardPage({
     return null;
   }
 
-  const [{ data: members }, { data: nextBookings }, items] = await Promise.all([
+  const [{ data: members }, { data: nextBookings }, items, { data: personal }] = await Promise.all([
     supabase
       .from("group_members")
       .select("user_id, display_name")
@@ -47,6 +48,11 @@ export default async function GroupDashboardPage({
       .limit(1)
       .returns<BookingRow[]>(),
     getAircraftItems(supabase, group.id),
+    // The person's own reminders: row security returns only their own rows, nobody else's.
+    supabase
+      .from("personal_reminders")
+      .select("id, label, due_date, expired_text")
+      .returns<PersonalReminder[]>(),
   ]);
 
   const memberList = members ?? [];
@@ -62,6 +68,8 @@ export default async function GroupDashboardPage({
     (entry) => entry.status === "overdue" || entry.status === "soon",
   );
   const hasOverdue = alerts.some((entry) => entry.status === "overdue");
+  // Only visible to the person themselves: their own dates that have passed or are within 30 days.
+  const personalAlerts = reminderAlerts(personal ?? [], londonDateKey(new Date()));
 
   return (
     <main className="flex flex-1 flex-col gap-4 px-4 py-6">
@@ -76,6 +84,19 @@ export default async function GroupDashboardPage({
         >
           {hasOverdue ? "Overdue: " : "Due soon: "}
           {alerts.map((entry) => entry.label).join(", ")}
+        </Link>
+      )}
+
+      {personalAlerts.length > 0 && (
+        <Link
+          href={`/${groupSlug}/account?tab=reminders`}
+          className={`rounded-lg border px-4 py-3 text-sm font-medium ${
+            personalAlerts.some((entry) => entry.status === "expired")
+              ? "border-red-300 bg-red-50 text-red-700"
+              : "border-amber-300 bg-amber-50 text-amber-700"
+          }`}
+        >
+          Your reminders: {personalAlerts.map((entry) => entry.text).join(", ")}
         </Link>
       )}
 

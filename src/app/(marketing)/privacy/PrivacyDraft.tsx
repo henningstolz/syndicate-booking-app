@@ -74,6 +74,13 @@ export default function PrivacyDraft() {
             you add one to a calendar app, that calendar provider fetches and keeps a copy of those bookings under its own terms.
           </li>
           <li>
+            <strong>Your reminders:</strong> if you open Reminders under Account, the names and expiry dates you keep
+            there, for example when your medical or a rating runs out. They are yours alone: other members, your
+            group&apos;s admins and we do not read them, and they are not part of your group&apos;s export. You can
+            change or delete them at any time, and they are deleted with your account. <Review>a medical date is
+            health-related information; confirm the wording and the legal basis</Review>
+          </li>
+          <li>
             <strong>Technical data:</strong> like any website, the hosting provider sees your IP address and browser type when
             you load a page, and keeps short-lived server logs to keep the service running and secure. If something breaks, an
             error report is sent to our error monitoring service. It holds the technical details of the fault and the type of

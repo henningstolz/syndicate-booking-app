@@ -184,6 +184,12 @@ every migration there first. See `docs/systems-and-accounts.md`.
     `mine` link. Existing links become `all` links with the same address. Additive: run it before pushing
     the code. Tested by `supabase/tests/calendar-scopes.test.mjs`.
 
+31. `0031_personal_reminders.sql` — personal reminders under Account, Reminders: `personal_reminders` (a
+    name and an optional date each, per PERSON; only the owner reads or changes their rows; at most 30), and
+    `ensure_personal_reminders()` which creates the starter items Medical, SEP/MEP Rating and IR/IMC Rating
+    once (`personal_reminder_seed` remembers it). Additive: run it before pushing the code. Tested by
+    `supabase/tests/personal-reminders.test.mjs`.
+
 ## Adding members to a group
 
 Two ways now:

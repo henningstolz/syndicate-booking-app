@@ -16,6 +16,9 @@ import {
 import { CopyLinkButton } from "../settings/CopyLinkButton";
 import { noticeMessage } from "../settings/notices";
 import type { FeedScope } from "@/lib/calendar-feed";
+import { londonDateKey } from "@/lib/datetime";
+import { describeReminder, type PersonalReminder, type ReminderStatus } from "@/lib/personal-reminders";
+import { RemindersForm } from "./RemindersForm";
 
 // Everything personal: your name and password, which emails you get, your
 // calendar link, and putting Blocktime on your phone. (The group's own settings,
@@ -87,6 +90,7 @@ export default async function AccountPage({
 
   const onNotifications = tab === "notifications";
   const onCalendar = tab === "calendar";
+  const onReminders = tab === "reminders";
   const tabClass = (active: boolean) =>
     `rounded-full px-4 py-1.5 text-sm font-medium ${
       active
@@ -95,7 +99,7 @@ export default async function AccountPage({
     }`;
   const tabs = (
     <nav aria-label="Account sections" className="flex gap-2">
-      <Link href={`/${groupSlug}/account`} className={tabClass(!onNotifications && !onCalendar)}>
+      <Link href={`/${groupSlug}/account`} className={tabClass(!onNotifications && !onCalendar && !onReminders)}>
         Profile
       </Link>
       <Link href={`/${groupSlug}/account?tab=notifications`} className={tabClass(onNotifications)}>
@@ -103,6 +107,9 @@ export default async function AccountPage({
       </Link>
       <Link href={`/${groupSlug}/account?tab=calendar`} className={tabClass(onCalendar)}>
         Calendar
+      </Link>
+      <Link href={`/${groupSlug}/account?tab=reminders`} className={tabClass(onReminders)}>
+        Reminders
       </Link>
     </nav>
   );
@@ -231,6 +238,73 @@ export default async function AccountPage({
             </p>
           </section>
         )}
+      </div>
+    );
+  }
+
+  // ---------------------------------------------------------------- reminders
+  if (onReminders) {
+    // The person's own dates (medical, ratings, anything they add). Their three starter items are made the
+    // first time they open this page. Only they can see these: not the group's admins, not other members.
+    await supabase.rpc("ensure_personal_reminders");
+    const { data: reminderRows } = await supabase
+      .from("personal_reminders")
+      .select("id, label, due_date, expired_text")
+      .eq("user_id", user?.id ?? "")
+      .order("position")
+      .order("created_at")
+      .returns<PersonalReminder[]>();
+    const reminders = reminderRows ?? [];
+    const todayKey = londonDateKey(new Date());
+    const styles: Record<ReminderStatus, string> = {
+      expired: "border-red-300 bg-red-50 text-red-700",
+      soon: "border-amber-300 bg-amber-50 text-amber-700",
+      ok: "border-emerald-300 bg-emerald-50 text-emerald-700",
+      unset: "border-zinc-200 bg-zinc-50 text-zinc-500",
+    };
+
+    return (
+      <div className="flex flex-1 flex-col gap-6 px-4 py-6">
+        {noticeBlock}
+        {tabs}
+
+        <section className="flex max-w-xl flex-col gap-3">
+          <div>
+            <h2 className={sectionTitle}>Your reminders</h2>
+            <p className="mt-1 text-sm text-zinc-600">
+              Dates that are yours, such as your medical and ratings. They show how long you have left and turn amber
+              30 days before and red once they have passed. Only you can see them: not the group&apos;s admins and not
+              the other members.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            {reminders.map((item) => {
+              const view = describeReminder(item, todayKey);
+              return (
+                <div
+                  key={item.id}
+                  className={`flex flex-col gap-0.5 rounded-lg border px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3 ${styles[view.status]}`}
+                >
+                  <span className="text-sm font-medium">{item.label} expires</span>
+                  <span className="text-sm">
+                    <span className="font-mono">{view.dateText}</span>
+                    {view.daysText && <span> ({view.daysText})</span>}
+                    {view.warning && <span className="ml-2 text-xs font-semibold uppercase">{view.warning}</span>}
+                  </span>
+                </div>
+              );
+            })}
+            {reminders.length === 0 && <p className="text-sm text-zinc-500">You have no reminders yet. Use Edit to add one.</p>}
+          </div>
+
+          <RemindersForm groupSlug={groupSlug} items={reminders} />
+
+          <p className="text-xs text-zinc-500">
+            This is a convenience, not an official record. Always check your actual documents: you remain responsible
+            for being current before you fly.
+          </p>
+        </section>
       </div>
     );
   }

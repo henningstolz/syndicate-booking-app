@@ -142,6 +142,10 @@ check(reset.status === 307 && (reset.headers.get("location") ?? "").endsWith("/d
 const aircraftHtml = await (await fetch(`${BASE}/demo/aircraft`)).text();
 check(["Life raft due", "Life vests due", "Fire extinguisher due", "First aid kit due"].every((t) => aircraftHtml.includes(t)), "the demo's aircraft page lists the four equipment items");
 
+// The visitor's own reminders (Account, Reminders): the three starters, one expired with the old system's warning.
+const remindersHtml = await (await fetch(`${BASE}/demo/account?tab=reminders`)).text();
+check(["Medical", "SEP/MEP Rating", "IR/IMC Rating", "EXPIRED - DO NOT FLY IMC!", "549 days remaining"].every((t) => remindersHtml.includes(t)), "the demo's Reminders tab lists the three starter reminders with the IMC warning");
+
 // A crawler must not be able to walk the demo's calendar through endless months: dates more than two
 // years from today are sent back to the plain page, and robots.txt asks crawlers to stay out of /demo/.
 for (const [path, back] of [

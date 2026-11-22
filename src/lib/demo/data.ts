@@ -34,6 +34,7 @@ export type DemoDb = {
   notification_preferences: Row[];
   cost_rates: Row[];
   cost_billing_basis: Row[];
+  personal_reminders: Row[];
   cost_expenses: Row[];
   calendar_feeds: Row[];
   documents: Row[];
@@ -66,6 +67,7 @@ export const TABLE_COLUMNS: Record<keyof DemoDb, string[]> = {
   notification_preferences: ["group_id", "user_id", "event", "enabled", "updated_at"],
   cost_rates: ["id", "group_id", "user_id", "effective_month", "monthly_fee_pence", "hourly_rate_pence", "created_by", "created_at"],
   cost_billing_basis: ["id", "group_id", "effective_month", "basis", "created_by", "created_at"],
+  personal_reminders: ["id", "user_id", "label", "due_date", "position", "expired_text", "created_at"],
   calendar_feeds: ["id", "group_id", "user_id", "token", "scope", "created_at", "revoked_at"],
   documents: [
     "id", "group_id", "uploaded_by", "title", "category", "file_name", "content_type",
@@ -546,6 +548,20 @@ export function buildDb(now: Date, overlay: DemoOverlay): DemoDb {
     cost_rates: costRates,
     // No choice made: the demo bills block time, like a group that never chose.
     cost_billing_basis: [],
+    // The visitor's own reminders: one far away, one soon, one expired (shown with the old system's warning).
+    personal_reminders: [
+      ["Medical", dateIn(549), null],
+      ["SEP/MEP Rating", dateIn(39), null],
+      ["IR/IMC Rating", dateIn(-113), "EXPIRED - DO NOT FLY IMC!"],
+    ].map(([label, due, expiredText], i) => ({
+      id: `demo-reminder-${i + 1}`,
+      user_id: DEMO_USER.id,
+      label,
+      due_date: due,
+      position: i + 1,
+      expired_text: expiredText,
+      created_at: iso(nowMs - 440 * DAY),
+    })),
     cost_expenses: costExpenses,
     // Nobody has a calendar link in the demo; creating one says it is a demo.
     calendar_feeds: [],
